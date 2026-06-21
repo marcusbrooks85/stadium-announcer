@@ -56,6 +56,9 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
+// 1-second silent WAV to keep the audio context alive in background
+const SILENT_AUDIO_URI = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA== ";
+
 const INITIAL_ROSTER = [
   { 
     id: "2", 
@@ -173,8 +176,14 @@ export default function StadiumBoothDashboard() {
   const [isWakeLocked, setIsWakeLocked] = useState(false);
   
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const silentLoopRef = useRef<HTMLAudioElement | null>(null);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const wakeLockRef = useRef<any>(null);
+
+  const sortedRoster = useMemo(() => 
+    [...roster].sort((a, b) => a.number - b.number),
+    [roster]
+  );
 
   const activePlayer = useMemo(() => 
     roster.find((p) => p.id === activePlayerId),
@@ -186,62 +195,58 @@ export default function StadiumBoothDashboard() {
     return activePlayer.songs[selectedSongIndex] || activePlayer.songs[0];
   }, [activePlayer, selectedSongIndex]);
 
-  // Screen Wake Lock Implementation
+  // Handle Screen Wake Lock
   useEffect(() => {
     const requestWakeLock = async () => {
       if ('wakeLock' in navigator) {
         try {
           wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
           setIsWakeLocked(true);
-          wakeLockRef.current.addEventListener('release', () => {
-            setIsWakeLocked(false);
-          });
+          wakeLockRef.current.addEventListener('release', () => setIsWakeLocked(false));
         } catch (err) {
-          console.warn('Wake Lock request failed');
+          console.warn('Wake Lock failed');
         }
       }
     };
 
     requestWakeLock();
-
-    const handleVisibilityChange = async () => {
+    const handleVisibility = async () => {
       if (wakeLockRef.current !== null && document.visibilityState === 'visible') {
         await requestWakeLock();
       }
     };
 
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener('visibilitychange', handleVisibility);
     return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      document.removeEventListener('visibilitychange', handleVisibility);
       if (wakeLockRef.current) wakeLockRef.current.release();
     };
   }, []);
 
-  // Media Session Metadata Management
-  const updateMediaSession = (title: string, artist: string = "Stadium Announcer") => {
+  // Update Media Session and background silent loop
+  const startBackgroundPersistence = (title: string, artist: string = "Stadium Announcer") => {
     if ('mediaSession' in navigator) {
       navigator.mediaSession.metadata = new MediaMetadata({
-        title,
-        artist,
-        album: "Stadium Booth Live",
-        artwork: [
-          { src: 'https://picsum.photos/seed/baseball/512/512', sizes: '512x512', type: 'image/png' }
-        ]
+        title, artist, album: "Stadium Booth Live",
+        artwork: [{ src: 'https://picsum.photos/seed/baseball/512/512', sizes: '512x512', type: 'image/png' }]
       });
       navigator.mediaSession.playbackState = 'playing';
     }
+
+    // Play a silent loop to keep the browser audio context alive for the iframe
+    if (!silentLoopRef.current) {
+      const silentAudio = new Audio(SILENT_AUDIO_URI);
+      silentAudio.loop = true;
+      silentAudio.volume = 0.01; // Inaudible but active
+      silentLoopRef.current = silentAudio;
+    }
+    silentLoopRef.current.play().catch(() => {});
   };
 
   useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.volume = volume;
-    }
+    if (audioRef.current) audioRef.current.volume = volume;
     if (iframeRef.current && activeAudioUrl) {
-      const msg = JSON.stringify({
-        event: 'command',
-        func: 'setVolume',
-        args: [volume * 100]
-      });
+      const msg = JSON.stringify({ event: 'command', func: 'setVolume', args: [volume * 100] });
       iframeRef.current.contentWindow?.postMessage(msg, '*');
     }
   }, [volume, activeAudioUrl]);
@@ -263,11 +268,12 @@ export default function StadiumBoothDashboard() {
 
   const stopEverything = () => {
     if (audioRef.current) {
-      audioRef.current.onended = null;
-      audioRef.current.onerror = null;
       audioRef.current.pause();
       audioRef.current.src = "";
       audioRef.current = null;
+    }
+    if (silentLoopRef.current) {
+      silentLoopRef.current.pause();
     }
     if ('mediaSession' in navigator) {
       navigator.mediaSession.playbackState = 'none';
@@ -278,18 +284,17 @@ export default function StadiumBoothDashboard() {
 
   const playSoundboard = (videoId: string, songName?: string) => {
     stopEverything();
-    updateMediaSession(songName || "Crowd Pump-Up");
+    startBackgroundPersistence(songName || "Crowd Pump-Up");
     setTimeout(() => {
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
-      const timestamp = Date.now();
-      const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0&rel=0&enablejsapi=1&origin=${origin}&t=${timestamp}`;
+      const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0&rel=0&enablejsapi=1&origin=${origin}&t=${Date.now()}`;
       setActiveAudioUrl(embedUrl);
     }, 50);
   };
 
   const playLocalAnnouncerOnly = (url: string, playerName: string) => {
     stopEverything();
-    updateMediaSession(`Now Batting: ${playerName}`);
+    startBackgroundPersistence(`Now Batting: ${playerName}`);
     const audio = new Audio(url);
     audio.volume = volume;
     audioRef.current = audio;
@@ -300,7 +305,7 @@ export default function StadiumBoothDashboard() {
     if (!activePlayer || isAnnouncing || !selectedSong) return;
     stopEverything();
     setIsAnnouncing(true);
-    updateMediaSession(`Announcing: ${activePlayer.name}`);
+    startBackgroundPersistence(`Announcing: ${activePlayer.name}`);
 
     const audio = new Audio(activePlayer.announcementAudioUrl);
     audio.volume = volume;
@@ -309,17 +314,14 @@ export default function StadiumBoothDashboard() {
     const playWalkUpMusic = () => {
       if (audioRef.current !== audio) return;
       setIsAnnouncing(false);
-      updateMediaSession(selectedSong.name, activePlayer.name);
+      startBackgroundPersistence(selectedSong.name, activePlayer.name);
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
-      const timestamp = Date.now();
-      const embedUrl = `https://www.youtube.com/embed/${selectedSong.videoId}?autoplay=1&start=${selectedSong.startAt}&mute=0&rel=0&enablejsapi=1&origin=${origin}&t=${timestamp}`;
+      const embedUrl = `https://www.youtube.com/embed/${selectedSong.videoId}?autoplay=1&start=${selectedSong.startAt}&mute=0&rel=0&enablejsapi=1&origin=${origin}&t=${Date.now()}`;
       setActiveAudioUrl(embedUrl);
     };
 
     audio.onended = () => {
-      if (audioRef.current === audio) {
-        playWalkUpMusic();
-      }
+      if (audioRef.current === audio) playWalkUpMusic();
     };
 
     audio.onerror = () => {
@@ -332,18 +334,15 @@ export default function StadiumBoothDashboard() {
     try {
       await audio.play();
     } catch (e) {
-      if (audioRef.current === audio) {
-        playWalkUpMusic();
-      }
+      if (audioRef.current === audio) playWalkUpMusic();
     }
   };
 
   const emailStats = () => {
     const scoreText = `GAME SCORE\nAway: ${awayScore} | Home: ${homeScore}\n\n`;
-    const rosterStatsText = roster.map(p => 
+    const rosterStatsText = sortedRoster.map(p => 
       `${p.name} (#${p.number}): AB: ${p.stats.ab}, H: ${p.stats.h}, R: ${p.stats.r}, RBI: ${p.stats.rbi}`
     ).join('\n');
-    
     const mailtoUrl = `mailto:?subject=Stadium Game Report&body=${encodeURIComponent(scoreText + rosterStatsText)}`;
     window.location.href = mailtoUrl;
   };
@@ -353,23 +352,19 @@ export default function StadiumBoothDashboard() {
       <div className="flex flex-col h-screen bg-background text-foreground stadium-gradient overflow-hidden">
         {/* FROZEN COMMAND HEADER */}
         <header className="sticky top-0 z-50 flex flex-col gap-2 p-3 md:p-4 border-b border-border shadow-2xl bg-card/95 backdrop-blur-md">
-          {/* TOP ROW: EMAIL & SCORES & DESKTOP STOP */}
           <div className="flex items-center justify-between gap-2 max-w-7xl mx-auto w-full">
             <div className="flex-none flex items-center gap-2">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button 
-                    variant="outline" 
-                    size="sm" 
+                    variant="outline" size="sm" 
                     className="border-primary/30 text-primary font-black uppercase tracking-widest text-[8px] md:text-[10px] h-8 md:h-10 px-2"
                     onClick={emailStats}
                   >
                     <Mail className="h-3 w-3 sm:mr-2" /> <span className="hidden sm:inline">Email Stats</span>
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>
-                  <p>Email game stats</p>
-                </TooltipContent>
+                <TooltipContent><p>Email game stats</p></TooltipContent>
               </Tooltip>
               {isWakeLocked && (
                 <div className="hidden lg:flex items-center gap-1.5 px-2 py-1 rounded-full bg-green-500/10 border border-green-500/20">
@@ -379,7 +374,6 @@ export default function StadiumBoothDashboard() {
               )}
             </div>
 
-            {/* CENTERED SCORE TILES */}
             <div className="flex-1 flex justify-center items-center gap-3 md:gap-8">
               <div className="flex flex-col items-center bg-secondary/10 px-2 md:px-4 py-1 rounded-xl border border-secondary/20 shadow-inner min-w-[65px] md:min-w-[100px]">
                 <span className="text-[7px] md:text-[9px] font-black tracking-widest text-secondary/70 uppercase mb-0.5">Away</span>
@@ -400,62 +394,35 @@ export default function StadiumBoothDashboard() {
               </div>
             </div>
 
-            {/* DESKTOP STOP BUTTON */}
             <div className="hidden md:block">
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button 
-                    variant="destructive" 
-                    size="sm"
-                    onClick={stopEverything}
-                    className="font-black px-4 h-10 border-2 border-white/10 text-[10px] uppercase shadow-lg"
-                  >
+                  <Button variant="destructive" size="sm" onClick={stopEverything} className="font-black px-4 h-10 border-2 border-white/10 text-[10px] uppercase shadow-lg">
                     <VolumeX className="mr-2 h-4 w-4" /> STOP AUDIO
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>
-                  <p>Immediately silence all audio outputs</p>
-                </TooltipContent>
+                <TooltipContent><p>Immediately silence all audio outputs</p></TooltipContent>
               </Tooltip>
             </div>
           </div>
 
-          {/* BOTTOM ROW: VOLUME & MOBILE STOP */}
           <div className="max-w-7xl mx-auto w-full flex items-center gap-3 md:gap-6 bg-primary/5 p-2 rounded-lg border border-primary/10">
             <div className="flex items-center gap-2">
               {volume === 0 ? <VolumeX className="h-4 w-4 text-muted-foreground" /> : volume < 0.5 ? <Volume1 className="h-4 w-4 text-primary" /> : <Volume2 className="h-4 w-4 text-primary" />}
               <span className="hidden sm:inline text-[10px] font-black uppercase tracking-widest">Master Volume</span>
             </div>
-            <Slider 
-              value={[volume * 100]} 
-              onValueChange={(vals) => setVolume(vals[0] / 100)} 
-              max={100} 
-              step={1}
-              className="flex-1"
-            />
-            
-            {/* MOBILE STOP BUTTON (INLINED) */}
+            <Slider value={[volume * 100]} onValueChange={(vals) => setVolume(vals[0] / 100)} max={100} step={1} className="flex-1" />
             <div className="md:hidden">
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button 
-                    variant="destructive" 
-                    size="icon"
-                    onClick={stopEverything}
-                    className="h-9 w-9 border border-white/10 shadow-lg"
-                  >
+                  <Button variant="destructive" size="icon" onClick={stopEverything} className="h-9 w-9 border border-white/10 shadow-lg">
                     <VolumeX className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>
-                  <p>Silence all audio</p>
-                </TooltipContent>
+                <TooltipContent><p>Silence all audio</p></TooltipContent>
               </Tooltip>
             </div>
-
-            <Badge variant="outline" className="font-mono text-[10px] md:text-xs border-primary/30 text-primary w-10 text-center">
-              {Math.round(volume * 100)}%
-            </Badge>
+            <Badge variant="outline" className="font-mono text-[10px] md:text-xs border-primary/30 text-primary w-10 text-center">{Math.round(volume * 100)}%</Badge>
           </div>
         </header>
 
@@ -467,15 +434,13 @@ export default function StadiumBoothDashboard() {
             </div>
             <ScrollArea className="flex-1">
               <div className="p-4 space-y-3">
-                {roster.map((player) => (
+                {sortedRoster.map((player) => (
                   <button 
                     key={player.id} 
                     onClick={() => setActivePlayerId(player.id)}
                     className={cn(
                       "w-full text-left p-4 rounded-xl border transition-all duration-200 group",
-                      activePlayerId === player.id 
-                        ? "bg-primary border-primary" 
-                        : "bg-background/40 border-white/5 hover:bg-white/5"
+                      activePlayerId === player.id ? "bg-primary border-primary" : "bg-background/40 border-white/5 hover:bg-white/5"
                     )}
                   >
                     <div className="flex justify-between items-center">
@@ -497,7 +462,6 @@ export default function StadiumBoothDashboard() {
           {/* MAIN DASHBOARD */}
           <main className="flex-1 flex flex-col p-4 md:p-8 overflow-y-auto space-y-4 md:space-y-8 bg-black/10">
             <div className="max-w-5xl mx-auto w-full space-y-4 md:space-y-8">
-              
               <section className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
                 {/* PLAYER AT BAT CARD */}
                 <Card className="bg-card/80 border-2 border-white/5 overflow-hidden shadow-2xl">
@@ -517,10 +481,8 @@ export default function StadiumBoothDashboard() {
                           <SelectValue placeholder="Waiting for Batter..." />
                         </SelectTrigger>
                         <SelectContent>
-                          {roster.map((p) => (
-                            <SelectItem key={p.id} value={p.id} className="font-bold">
-                              #{p.number} - {p.name}
-                            </SelectItem>
+                          {sortedRoster.map((p) => (
+                            <SelectItem key={p.id} value={p.id} className="font-bold">#{p.number} - {p.name}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
@@ -532,37 +494,25 @@ export default function StadiumBoothDashboard() {
                         <div className="grid grid-cols-3 gap-2">
                           {activePlayer.songs.map((song, idx) => (
                             <Button
-                              key={idx}
-                              variant={selectedSongIndex === idx ? "default" : "outline"}
-                              size="sm"
+                              key={idx} variant={selectedSongIndex === idx ? "default" : "outline"} size="sm"
                               onClick={() => setSelectedSongIndex(idx)}
                               className={cn(
-                                "h-10 text-[8px] md:text-[9px] uppercase font-black px-1 flex flex-col items-center justify-center",
+                                "h-10 text-[8px] md:text-[9px] uppercase font-black px-1",
                                 selectedSongIndex === idx ? "bg-secondary text-secondary-foreground" : "border-white/10"
                               )}
                             >
-                              <span className="opacity-60 text-[7px] mb-0.5">TRACK</span>
-                              {idx + 1}
+                              TRACK {idx + 1}
                             </Button>
                           ))}
                         </div>
                         <div className="flex items-center gap-2 mt-1 px-1 text-[9px] md:text-[10px] font-bold text-secondary">
-                          <Music2 className="h-3 w-3" />
-                          <span className="truncate">{selectedSong?.name}</span>
+                          <Music2 className="h-3 w-3" /> <span className="truncate">{selectedSong?.name}</span>
                         </div>
                       </div>
                     )}
                     
-                    <Button 
-                      disabled={!activePlayer || isAnnouncing} 
-                      onClick={triggerSequence}
-                      className="w-full h-16 md:h-20 text-base md:text-lg font-black bg-primary hover:bg-primary/90 shadow-[0_8px_16px_-4px_rgba(66,133,255,0.4)] transition-all active:scale-[0.98]"
-                    >
-                      {isAnnouncing ? (
-                        <Activity className="animate-pulse mr-2 h-5 w-5 md:h-6 md:w-6" />
-                      ) : (
-                        <Zap className="mr-2 h-5 w-5 md:h-6 md:w-6 fill-white" />
-                      )}
+                    <Button disabled={!activePlayer || isAnnouncing} onClick={triggerSequence} className="w-full h-16 md:h-20 text-base md:text-lg font-black bg-primary hover:bg-primary/90 shadow-[0_8px_16px_-4px_rgba(66,133,255,0.4)]">
+                      {isAnnouncing ? <Activity className="animate-pulse mr-2" /> : <Zap className="mr-2 fill-white" />}
                       {isAnnouncing ? "STADIUM ANNOUNCING..." : "RUN WALKON SEQUENCE"}
                     </Button>
                   </CardContent>
@@ -583,31 +533,15 @@ export default function StadiumBoothDashboard() {
                       { key: "rbi", label: "Runs Batted In", color: "primary" }
                     ].map((stat) => (
                       <div key={stat.key} className="flex flex-col gap-1 md:gap-2 bg-background/50 p-2 md:p-3 rounded-xl border border-white/5">
-                        <div className="flex items-center justify-between mb-0.5">
+                        <div className="flex items-center justify-between">
                           <span className="text-[8px] md:text-[10px] font-black uppercase tracking-widest text-muted-foreground">{stat.label}</span>
                           <span className={cn("text-xl md:text-2xl font-black digit-font", stat.color === 'primary' ? 'text-primary' : stat.color === 'secondary' ? 'text-secondary' : 'text-white')}>
                             {activePlayer ? (activePlayer.stats as any)[stat.key] : 0}
                           </span>
                         </div>
                         <div className="flex gap-2">
-                          <Button 
-                            disabled={!activePlayer}
-                            variant="outline"
-                            size="sm"
-                            onClick={() => updateStat(stat.key as any, -1)}
-                            className="flex-1 h-8 md:h-9 border-white/5 hover:bg-destructive/10 hover:text-destructive"
-                          >
-                            <Minus className="h-3 w-3 md:h-4 md:w-4" />
-                          </Button>
-                          <Button 
-                            disabled={!activePlayer}
-                            variant="outline"
-                            size="sm"
-                            onClick={() => updateStat(stat.key as any, 1)}
-                            className="flex-1 h-8 md:h-9 border-white/5 hover:bg-primary/10 hover:text-primary"
-                          >
-                            <Plus className="h-3 w-3 md:h-4 md:w-4" />
-                          </Button>
+                          <Button disabled={!activePlayer} variant="outline" size="sm" onClick={() => updateStat(stat.key as any, -1)} className="flex-1 h-8 md:h-9 border-white/5 hover:text-destructive"><Minus className="h-3 w-3" /></Button>
+                          <Button disabled={!activePlayer} variant="outline" size="sm" onClick={() => updateStat(stat.key as any, 1)} className="flex-1 h-8 md:h-9 border-white/5 hover:text-primary"><Plus className="h-3 w-3" /></Button>
                         </div>
                       </div>
                     ))}
@@ -617,7 +551,6 @@ export default function StadiumBoothDashboard() {
 
               {/* SOUNDBOARD SECTION */}
               <section className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
-                {/* Organ Hits */}
                 <Card className="bg-card/80 border-white/10 shadow-xl">
                   <CardHeader className="py-3 md:py-4 border-b border-white/5">
                     <CardTitle className="text-[9px] md:text-[11px] font-black text-muted-foreground uppercase tracking-[0.3em] flex items-center gap-2">
@@ -626,19 +559,11 @@ export default function StadiumBoothDashboard() {
                   </CardHeader>
                   <CardContent className="grid grid-cols-2 gap-2 md:gap-3 pt-4 md:pt-5">
                     {ORGAN_HITS.map((hit) => (
-                      <Button 
-                        key={hit.name}
-                        variant="outline"
-                        onClick={() => playSoundboard(hit.videoId, hit.name)}
-                        className="h-10 md:h-12 border-secondary/20 text-secondary hover:bg-secondary/20 font-black uppercase text-[9px] md:text-[10px]"
-                      >
-                        🎹 {hit.name}
-                      </Button>
+                      <Button key={hit.name} variant="outline" onClick={() => playSoundboard(hit.videoId, hit.name)} className="h-10 md:h-12 border-secondary/20 text-secondary hover:bg-secondary/20 font-black uppercase text-[9px]">🎹 {hit.name}</Button>
                     ))}
                   </CardContent>
                 </Card>
 
-                {/* Hype Songs */}
                 <Card className="bg-card/80 border-white/10 shadow-xl">
                   <CardHeader className="py-3 md:py-4 border-b border-white/5">
                     <CardTitle className="text-[9px] md:text-[11px] font-black text-muted-foreground uppercase tracking-[0.3em] flex items-center gap-2">
@@ -647,14 +572,7 @@ export default function StadiumBoothDashboard() {
                   </CardHeader>
                   <CardContent className="grid grid-cols-2 gap-2 md:gap-3 pt-4 md:pt-5">
                     {HYPE_SONGS.map((song) => (
-                      <Button 
-                        key={song.name}
-                        variant="outline"
-                        onClick={() => playSoundboard(song.videoId, song.name)}
-                        className="h-10 md:h-12 border-primary/20 text-primary hover:bg-primary/20 font-black uppercase text-[9px] md:text-[10px]"
-                      >
-                        📣 {song.name}
-                      </Button>
+                      <Button key={song.name} variant="outline" onClick={() => playSoundboard(song.videoId, song.name)} className="h-10 md:h-12 border-primary/20 text-primary hover:bg-primary/20 font-black uppercase text-[9px]">📣 {song.name}</Button>
                     ))}
                   </CardContent>
                 </Card>
@@ -666,14 +584,12 @@ export default function StadiumBoothDashboard() {
                   <CheckCircle2 className="h-4 w-4 md:h-5 md:w-5 text-primary" />
                   <h2 className="text-sm md:text-base font-black uppercase tracking-widest text-primary">At Bat Player Announcement</h2>
                 </div>
-                
                 <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-1.5 md:gap-2">
-                  {roster.map((player) => (
+                  {sortedRoster.map((player) => (
                     <Button 
-                      key={player.id}
-                      variant="outline"
+                      key={player.id} variant="outline"
                       onClick={() => playLocalAnnouncerOnly(player.announcementAudioUrl, player.name)}
-                      className="flex flex-col h-12 md:h-14 gap-0.5 border-white/10 hover:border-primary/50 hover:bg-primary/10 bg-card/60 px-1 md:px-2"
+                      className="flex flex-col h-12 md:h-14 gap-0.5 border-white/10 hover:border-primary/50 bg-card/60 px-1"
                     >
                       <span className="text-[7px] md:text-[9px] font-black leading-tight text-center">#{player.number} {player.name.split(' ')[0]}</span>
                       <FileAudio className="h-2.5 w-2.5 md:h-3 md:w-3 text-primary/60" />
@@ -688,22 +604,21 @@ export default function StadiumBoothDashboard() {
                   <TableIcon className="h-4 w-4 md:h-5 md:w-5 text-secondary" />
                   <h2 className="text-sm md:text-base font-black uppercase tracking-widest text-secondary">Team Performance Tracker</h2>
                 </div>
-                
                 <Card className="bg-card/60 border-white/5 shadow-2xl overflow-hidden">
                   <Table>
                     <TableHeader className="bg-white/5">
                       <TableRow className="border-white/5 hover:bg-transparent">
-                        <TableHead className="w-[40px] md:w-[60px] text-center font-black text-[8px] md:text-[10px] uppercase">#</TableHead>
-                        <TableHead className="font-black text-[8px] md:text-[10px] uppercase">Player Name</TableHead>
-                        <TableHead className="text-center font-black text-[8px] md:text-[10px] uppercase">AB</TableHead>
-                        <TableHead className="text-center font-black text-[8px] md:text-[10px] uppercase">H</TableHead>
-                        <TableHead className="text-center font-black text-[8px] md:text-[10px] uppercase">R</TableHead>
-                        <TableHead className="text-center font-black text-[8px] md:text-[10px] uppercase">RBI</TableHead>
+                        <TableHead className="w-[40px] text-center font-black text-[8px] md:text-[10px]">#</TableHead>
+                        <TableHead className="font-black text-[8px] md:text-[10px]">PLAYER NAME</TableHead>
+                        <TableHead className="text-center font-black text-[8px] md:text-[10px]">AB</TableHead>
+                        <TableHead className="text-center font-black text-[8px] md:text-[10px]">HITS</TableHead>
+                        <TableHead className="text-center font-black text-[8px] md:text-[10px]">RUNS</TableHead>
+                        <TableHead className="text-center font-black text-[8px] md:text-[10px]">RBI</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {roster.map((player) => (
-                        <TableRow key={player.id} className="border-white/5 hover:bg-white/5">
+                      {sortedRoster.map((player) => (
+                        <TableRow key={player.id} className="border-white/5 hover:bg-white/5 transition-colors">
                           <TableCell className="text-center digit-font font-bold text-muted-foreground text-[10px] md:text-sm">{player.number}</TableCell>
                           <TableCell className="font-bold text-[10px] md:text-sm">{player.name}</TableCell>
                           <TableCell className="text-center digit-font text-white text-[10px] md:text-sm">{player.stats.ab}</TableCell>
@@ -735,12 +650,9 @@ export default function StadiumBoothDashboard() {
               <span className="text-[7px] font-black text-primary uppercase tracking-widest">Live Audio</span>
             </div>
           </div>
-          
           {activeAudioUrl && (
             <iframe 
-              ref={iframeRef}
-              key={activeAudioUrl}
-              src={activeAudioUrl} 
+              ref={iframeRef} key={activeAudioUrl} src={activeAudioUrl} 
               className="w-1 h-1 absolute opacity-0 pointer-events-none" 
               allow="autoplay; encrypted-media" 
             />
