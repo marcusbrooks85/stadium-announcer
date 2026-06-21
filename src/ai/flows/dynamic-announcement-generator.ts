@@ -38,6 +38,10 @@ Name: {{{playerName}}}
 Number: {{{playerNumber}}}
 Today's Stats: {{{stats.h}}} hits in {{{stats.ab}}} at-bats, with {{{stats.rbi}}} RBIs.
 
+Pronunciation Guidelines for specific names (Use these phonetic spellings in the script if it helps the TTS engine pronounce them correctly):
+- Jimena: "he-men-uh"
+- Jacobo: "ha-co-bo"
+
 Instructions:
 1. Be energetic, loud (use capitalization for emphasis if needed), and rhythmic.
 2. Mention their number and name.
