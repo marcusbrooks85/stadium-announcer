@@ -242,8 +242,7 @@ export default function StadiumBoothDashboard() {
       setActiveAudioUrl(embedUrl);
     };
 
-    audio.onerror = (e) => {
-      console.error("Announcer audio failed to load:", e);
+    audio.onerror = () => {
       setIsAnnouncing(false);
       // Fallback: Skip straight to walk-up music if the intro fails
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
@@ -255,7 +254,6 @@ export default function StadiumBoothDashboard() {
     try {
       await audio.play();
     } catch (e) {
-      console.error("Playback blocked or failed:", e);
       setIsAnnouncing(false);
       // Fallback: play the song directly if voice is blocked
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
