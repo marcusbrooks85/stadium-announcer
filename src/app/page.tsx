@@ -21,7 +21,9 @@ import {
   AlertCircle,
   Hash,
   Volume1,
-  Volume
+  Volume,
+  FileAudio,
+  CheckCircle2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -222,6 +224,19 @@ export default function StadiumBoothDashboard() {
     }, 50);
   };
 
+  /**
+   * Technical Validation: Plays a local audio file directly
+   */
+  const validateLocalAudio = (url: string) => {
+    stopEverything();
+    const audio = new Audio(url);
+    audio.volume = volume;
+    audioRef.current = audio;
+    audio.play().catch(() => {
+      // Fail silently for user but technically handleable
+    });
+  };
+
   const triggerSequence = async () => {
     if (!activePlayer || isAnnouncing || !selectedSong) return;
 
@@ -254,10 +269,9 @@ export default function StadiumBoothDashboard() {
     };
 
     audio.onerror = (e) => {
-      // Intentionally suppressed console.error to avoid dev overlay for missing local files
+      // If the local file fails, skip straight to the walk-up music
       if (audioRef.current === audio) {
         setIsAnnouncing(false);
-        // Fallback: Skip straight to walk-up music if the local intro fails
         playWalkUpMusic();
       }
     };
@@ -484,7 +498,7 @@ export default function StadiumBoothDashboard() {
             </section>
 
             {/* SOUNDBOARD SECTION */}
-            <section className="space-y-6 pb-20">
+            <section className="space-y-6">
               <div className="flex items-center gap-3 bg-card/40 p-4 rounded-xl border border-white/5">
                 <Volume2 className="h-6 w-6 text-secondary animate-bounce" />
                 <h2 className="text-xl font-black uppercase tracking-widest">Stadium Soundboard</h2>
@@ -532,6 +546,34 @@ export default function StadiumBoothDashboard() {
                     ))}
                   </CardContent>
                 </Card>
+              </div>
+            </section>
+
+            {/* LOCAL ASSET VALIDATION SECTION */}
+            <section className="space-y-6 pb-20 border-t border-white/10 pt-10">
+              <div className="flex items-center gap-3 bg-primary/20 p-4 rounded-xl border border-primary/30">
+                <CheckCircle2 className="h-6 w-6 text-primary" />
+                <div className="flex flex-col">
+                  <h2 className="text-xl font-black uppercase tracking-widest text-primary">Technical Asset Validation</h2>
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase">Verify local /public/audio/*.mp3 file connections</p>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+                {roster.map((player) => (
+                  <Button 
+                    key={player.id}
+                    variant="outline"
+                    onClick={() => validateLocalAudio(player.announcementAudioUrl)}
+                    className="flex flex-col h-24 gap-2 border-white/10 hover:border-primary/50 hover:bg-primary/10 transition-all bg-card/60"
+                  >
+                    <FileAudio className="h-6 w-6 text-primary" />
+                    <div className="flex flex-col items-center">
+                      <span className="text-[10px] font-black">{player.name.split(' ')[0]}</span>
+                      <span className="text-[8px] opacity-50 font-mono">.mp3</span>
+                    </div>
+                  </Button>
+                ))}
               </div>
             </section>
           </div>
