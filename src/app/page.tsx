@@ -50,18 +50,6 @@ import { cn } from "@/lib/utils";
 
 const INITIAL_ROSTER = [
   { 
-    id: "1", 
-    name: "Max Camargo", 
-    number: 6, 
-    announcementAudioUrl: "/audio/Max.mp3",
-    songs: [
-      { name: "Miss You (Bonus Track)", videoId: "2S5Ku0mVkzI", startAt: 0 },
-      { name: "Thunder - Imagine Dragons", videoId: "fKopy74weus", startAt: 0 },
-      { name: "Seven Nation Army", videoId: "0J2QdDbelmY", startAt: 0 }
-    ],
-    stats: { ab: 0, h: 0, r: 0, rbi: 0 } 
-  },
-  { 
     id: "2", 
     name: "Diomedes Plata", 
     number: 4, 
@@ -74,14 +62,14 @@ const INITIAL_ROSTER = [
     stats: { ab: 0, h: 0, r: 0, rbi: 0 } 
   },
   { 
-    id: "3", 
-    name: "Jimena Briones", 
-    number: 12, 
-    announcementAudioUrl: "/audio/Jimena.mp3",
+    id: "1", 
+    name: "Max Camargo", 
+    number: 6, 
+    announcementAudioUrl: "/audio/Max.mp3",
     songs: [
-      { name: "Watermelon Sugar", videoId: "KPM_BYl-EaQ", startAt: 0 },
-      { name: "Flowers - Miley Cyrus", videoId: "G7KNmW9a75Y", startAt: 0 },
-      { name: "Espresso - Sabrina Carpenter", videoId: "eVli-tstM5E", startAt: 0 }
+      { name: "Miss You (Bonus Track)", videoId: "2S5Ku0mVkzI", startAt: 0 },
+      { name: "Thunder - Imagine Dragons", videoId: "fKopy74weus", startAt: 0 },
+      { name: "Seven Nation Army", videoId: "0J2QdDbelmY", startAt: 0 }
     ],
     stats: { ab: 0, h: 0, r: 0, rbi: 0 } 
   },
@@ -98,18 +86,6 @@ const INITIAL_ROSTER = [
     stats: { ab: 0, h: 0, r: 0, rbi: 0 } 
   },
   { 
-    id: "5", 
-    name: "Camila Brooks", 
-    number: 10, 
-    announcementAudioUrl: "/audio/Camila.mp3",
-    songs: [
-      { name: "Not Like Us", videoId: "Xx1SrbxH1JU", startAt: 0 },
-      { name: "California Love", videoId: "LRt6TdSvHag", startAt: 0 },
-      { name: "HUMBLE. - Kendrick", videoId: "tvTRZJ-4EyI", startAt: 0 }
-    ],
-    stats: { ab: 0, h: 0, r: 0, rbi: 0 } 
-  },
-  { 
     id: "6", 
     name: "Zeke Jacobo", 
     number: 8, 
@@ -118,6 +94,18 @@ const INITIAL_ROSTER = [
       { name: "Under Control", videoId: "in8rYZQrwnw", startAt: 55 },
       { name: "Titanium - David Guetta", videoId: "JRfuAukYTKg", startAt: 0 },
       { name: "Levels - Avicii", videoId: "_ovdm2yX4MA", startAt: 0 }
+    ],
+    stats: { ab: 0, h: 0, r: 0, rbi: 0 } 
+  },
+  { 
+    id: "5", 
+    name: "Camila Brooks", 
+    number: 10, 
+    announcementAudioUrl: "/audio/Camila.mp3",
+    songs: [
+      { name: "Not Like Us", videoId: "Xx1SrbxH1JU", startAt: 0 },
+      { name: "California Love", videoId: "LRt6TdSvHag", startAt: 0 },
+      { name: "HUMBLE. - Kendrick", videoId: "tvTRZJ-4EyI", startAt: 0 }
     ],
     stats: { ab: 0, h: 0, r: 0, rbi: 0 } 
   },
@@ -133,7 +121,19 @@ const INITIAL_ROSTER = [
     ],
     stats: { ab: 0, h: 0, r: 0, rbi: 0 } 
   },
-];
+  { 
+    id: "3", 
+    name: "Jimena Briones", 
+    number: 12, 
+    announcementAudioUrl: "/audio/Jimena.mp3",
+    songs: [
+      { name: "Watermelon Sugar", videoId: "KPM_BYl-EaQ", startAt: 0 },
+      { name: "Flowers - Miley Cyrus", videoId: "G7KNmW9a75Y", startAt: 0 },
+      { name: "Espresso - Sabrina Carpenter", videoId: "eVli-tstM5E", startAt: 0 }
+    ],
+    stats: { ab: 0, h: 0, r: 0, rbi: 0 } 
+  },
+].sort((a, b) => a.number - b.number);
 
 const ORGAN_HITS = [
   { name: "BULLFIGHTER", videoId: "melJslO0IJY" },
@@ -227,7 +227,6 @@ export default function StadiumBoothDashboard() {
     setTimeout(() => {
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
       const timestamp = Date.now();
-      // Added enablejsapi=1 to allow volume control
       const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0&rel=0&enablejsapi=1&origin=${origin}&t=${timestamp}`;
       setActiveAudioUrl(embedUrl);
     }, 50);
@@ -255,7 +254,6 @@ export default function StadiumBoothDashboard() {
       setIsAnnouncing(false);
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
       const timestamp = Date.now();
-      // Added enablejsapi=1 to allow volume control
       const embedUrl = `https://www.youtube.com/embed/${selectedSong.videoId}?autoplay=1&start=${selectedSong.startAt}&mute=0&rel=0&enablejsapi=1&origin=${origin}&t=${timestamp}`;
       setActiveAudioUrl(embedUrl);
     };
@@ -294,44 +292,75 @@ export default function StadiumBoothDashboard() {
 
   return (
     <div className="flex flex-col h-screen bg-background text-foreground stadium-gradient overflow-hidden">
-      {/* SCOREBOARD */}
-      <header className="flex items-center justify-between p-3 md:p-4 border-b border-border shadow-2xl relative z-20 bg-card/80 backdrop-blur-md px-4 md:px-8">
-        <Button 
-          variant="outline" 
-          size="sm" 
-          className="border-primary/30 text-primary font-black uppercase tracking-widest text-[8px] md:text-[10px]"
-          onClick={emailStats}
-        >
-          <Mail className="h-3 w-3 mr-1 md:mr-2" /> <span className="hidden sm:inline">Email Game Stats</span><span className="sm:hidden">Stats</span>
-        </Button>
+      {/* FROZEN COMMAND HEADER */}
+      <header className="sticky top-0 z-50 flex flex-col gap-2 p-3 md:p-4 border-b border-border shadow-2xl bg-card/95 backdrop-blur-md">
+        <div className="flex items-center justify-between gap-2 max-w-7xl mx-auto w-full">
+          {/* EMAIL & SCOREBOARD (Squeezed for Mobile) */}
+          <div className="flex items-center gap-2 md:gap-8 overflow-hidden">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="border-primary/30 text-primary font-black uppercase tracking-widest text-[8px] md:text-[10px] h-8 md:h-10 px-2"
+              onClick={emailStats}
+            >
+              <Mail className="h-3 w-3 sm:mr-2" /> <span className="hidden sm:inline">Email Stats</span>
+            </Button>
 
-        <div className="flex items-center gap-4 md:gap-24 bg-background/50 px-4 md:px-8 py-2 md:py-3 rounded-2xl border border-white/5 shadow-inner">
-          <div className="flex flex-col items-center gap-0.5 md:gap-1">
-            <span className="text-[8px] md:text-[10px] font-bold tracking-widest text-muted-foreground uppercase">Away</span>
-            <div className="flex items-center gap-2 md:gap-4">
-              <Button variant="outline" size="icon" className="h-6 w-6 md:h-7 md:w-7 border-white/10" onClick={() => setAwayScore(Math.max(0, awayScore - 1))}><Minus className="h-2 w-2 md:h-3 md:w-3" /></Button>
-              <div className="w-10 md:w-16 text-center digit-font text-2xl md:text-4xl font-black text-secondary">{awayScore.toString().padStart(2, "0")}</div>
-              <Button variant="outline" size="icon" className="h-6 w-6 md:h-7 md:w-7 border-white/10" onClick={() => setAwayScore(awayScore + 1)}><Plus className="h-2 w-2 md:h-3 md:w-3" /></Button>
+            <div className="flex items-center gap-2 md:gap-8 bg-background/50 px-2 md:px-6 py-1 md:py-2 rounded-xl border border-white/5 shadow-inner">
+              <div className="flex flex-col items-center">
+                <span className="text-[7px] md:text-[9px] font-bold tracking-widest text-muted-foreground uppercase">Away</span>
+                <div className="flex items-center gap-1 md:gap-3">
+                  <Button variant="ghost" size="icon" className="h-5 w-5 md:h-7 md:w-7" onClick={() => setAwayScore(Math.max(0, awayScore - 1))}><Minus className="h-2 w-2 md:h-3 md:w-3" /></Button>
+                  <div className="w-6 md:w-12 text-center digit-font text-lg md:text-3xl font-black text-secondary">{awayScore}</div>
+                  <Button variant="ghost" size="icon" className="h-5 w-5 md:h-7 md:w-7" onClick={() => setAwayScore(awayScore + 1)}><Plus className="h-2 w-2 md:h-3 md:w-3" /></Button>
+                </div>
+              </div>
+              <div className="flex flex-col items-center">
+                <span className="text-[7px] md:text-[9px] font-bold tracking-widest text-muted-foreground uppercase">Home</span>
+                <div className="flex items-center gap-1 md:gap-3">
+                  <Button variant="ghost" size="icon" className="h-5 w-5 md:h-7 md:w-7" onClick={() => setHomeScore(Math.max(0, homeScore - 1))}><Minus className="h-2 w-2 md:h-3 md:w-3" /></Button>
+                  <div className="w-6 md:w-12 text-center digit-font text-lg md:text-3xl font-black text-primary">{homeScore}</div>
+                  <Button variant="ghost" size="icon" className="h-5 w-5 md:h-7 md:w-7" onClick={() => setHomeScore(homeScore + 1)}><Plus className="h-2 w-2 md:h-3 md:w-3" /></Button>
+                </div>
+              </div>
             </div>
           </div>
-          <div className="flex flex-col items-center gap-0.5 md:gap-1">
-            <span className="text-[8px] md:text-[10px] font-bold tracking-widest text-muted-foreground uppercase">Home</span>
-            <div className="flex items-center gap-2 md:gap-4">
-              <Button variant="outline" size="icon" className="h-6 w-6 md:h-7 md:w-7 border-white/10" onClick={() => setHomeScore(Math.max(0, homeScore - 1))}><Minus className="h-2 w-2 md:h-3 md:w-3" /></Button>
-              <div className="w-10 md:w-16 text-center digit-font text-2xl md:text-4xl font-black text-primary">{homeScore.toString().padStart(2, "0")}</div>
-              <Button variant="outline" size="icon" className="h-6 w-6 md:h-7 md:w-7 border-white/10" onClick={() => setHomeScore(homeScore + 1)}><Plus className="h-2 w-2 md:h-3 md:w-3" /></Button>
-            </div>
-          </div>
+
+          {/* KILL SWITCH (Frozen right) */}
+          <Button 
+            variant="destructive" 
+            size="sm"
+            onClick={stopEverything}
+            className="font-black px-2 md:px-6 h-8 md:h-12 border-2 border-white/10 text-[9px] md:text-xs shadow-lg"
+          >
+            <VolumeX className="sm:mr-2 h-4 w-4 md:h-5 md:w-5" /> <span className="hidden sm:inline">STOP ALL AUDIO</span><span className="sm:hidden">STOP</span>
+          </Button>
         </div>
 
-        <div className="w-8 md:w-32" /> {/* Spacer */}
+        {/* MASTER VOLUME (Sticky below) */}
+        <div className="max-w-7xl mx-auto w-full flex items-center gap-3 md:gap-6 bg-primary/5 p-2 rounded-lg border border-primary/10">
+          <div className="flex items-center gap-2">
+            {volume === 0 ? <VolumeX className="h-4 w-4 text-muted-foreground" /> : volume < 0.5 ? <Volume1 className="h-4 w-4 text-primary" /> : <Volume2 className="h-4 w-4 text-primary" />}
+            <span className="hidden sm:inline text-[10px] font-black uppercase tracking-widest">Master Volume</span>
+          </div>
+          <Slider 
+            value={[volume * 100]} 
+            onValueChange={(vals) => setVolume(vals[0] / 100)} 
+            max={100} 
+            step={1}
+            className="flex-1"
+          />
+          <Badge variant="outline" className="font-mono text-[10px] md:text-xs border-primary/30 text-primary w-10 text-center">
+            {Math.round(volume * 100)}%
+          </Badge>
+        </div>
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* TEAM ROSTER SIDEBAR (Hidden on Mobile) */}
+        {/* TEAM ROSTER SIDEBAR (Sorted Numerically) */}
         <aside className="w-80 bg-card/40 border-r border-border backdrop-blur-sm hidden lg:flex flex-col">
           <div className="p-5 border-b border-border flex items-center justify-between">
-            <div className="flex items-center gap-3"><Users className="h-5 w-5 text-primary" /><h2 className="font-headline font-bold uppercase tracking-widest text-sm">Team Roster</h2></div>
+            <div className="flex items-center gap-3"><Users className="h-5 w-5 text-primary" /><h2 className="font-headline font-bold uppercase tracking-widest text-sm">Numerical Roster</h2></div>
           </div>
           <ScrollArea className="flex-1">
             <div className="p-4 space-y-3">
@@ -366,42 +395,8 @@ export default function StadiumBoothDashboard() {
         <main className="flex-1 flex flex-col p-4 md:p-8 overflow-y-auto space-y-4 md:space-y-8 bg-black/10">
           <div className="max-w-5xl mx-auto w-full space-y-4 md:space-y-8">
             
-            {/* MASTER VOLUME & KILL SWITCH */}
-            <Card className="bg-primary/10 border-2 border-primary/20 shadow-2xl overflow-hidden">
-              <CardContent className="p-4 md:p-6">
-                <div className="flex flex-col md:flex-row items-center gap-4 md:gap-8">
-                  <div className="flex-1 w-full space-y-2 md:space-y-4">
-                    <div className="flex items-center justify-between px-2">
-                      <div className="flex items-center gap-2">
-                        {volume === 0 ? <VolumeX className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground" /> : volume < 0.5 ? <Volume1 className="h-4 w-4 md:h-5 md:w-5 text-primary" /> : <Volume2 className="h-4 w-4 md:h-5 md:w-5 text-primary" />}
-                        <span className="text-[10px] md:text-sm font-black uppercase tracking-[0.2em]">Master Stadium Volume</span>
-                      </div>
-                      <Badge variant="outline" className="font-mono text-base md:text-lg border-primary/30 text-primary">
-                        {Math.round(volume * 100)}%
-                      </Badge>
-                    </div>
-                    <Slider 
-                      value={[volume * 100]} 
-                      onValueChange={(vals) => setVolume(vals[0] / 100)} 
-                      max={100} 
-                      step={1}
-                      className="py-2 md:py-4"
-                    />
-                  </div>
-                  <Button 
-                    variant="destructive" 
-                    size="lg"
-                    onClick={stopEverything}
-                    className="w-full md:w-auto font-black px-4 md:px-8 h-12 md:h-16 border-2 border-white/10 text-xs md:text-sm"
-                  >
-                    <VolumeX className="mr-2 md:mr-3 h-5 w-5 md:h-6 md:w-6" /> STOP ALL AUDIO
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
             <section className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
-              {/* BATTER CONTROL CARD */}
+              {/* PLAYER AT BAT CARD */}
               <Card className="bg-card/80 border-2 border-white/5 overflow-hidden shadow-2xl">
                 <CardHeader className="pb-3 md:pb-4 border-b border-white/5 bg-white/5">
                   <div className="flex items-center justify-between">
@@ -415,7 +410,7 @@ export default function StadiumBoothDashboard() {
                   <div className="space-y-2">
                     <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Select Batter</span>
                     <Select value={activePlayerId || ""} onValueChange={(val) => setActivePlayerId(val)}>
-                      <SelectTrigger className="h-10 md:h-14 text-sm md:text-lg font-black bg-background/50 border-white/10">
+                      <SelectTrigger className="h-10 md:h-12 text-sm md:text-lg font-black bg-background/50 border-white/10">
                         <SelectValue placeholder="Waiting for Batter..." />
                       </SelectTrigger>
                       <SelectContent>
@@ -430,7 +425,7 @@ export default function StadiumBoothDashboard() {
 
                   {activePlayer && (
                     <div className="space-y-3 p-3 md:p-4 bg-background/40 rounded-xl border border-white/5">
-                      <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-muted-foreground">Choose Walk-Up Song</span>
+                      <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-muted-foreground">Walk-Up Track</span>
                       <div className="grid grid-cols-3 gap-2">
                         {activePlayer.songs.map((song, idx) => (
                           <Button
@@ -439,16 +434,16 @@ export default function StadiumBoothDashboard() {
                             size="sm"
                             onClick={() => setSelectedSongIndex(idx)}
                             className={cn(
-                              "h-10 md:h-12 text-[8px] md:text-[10px] uppercase font-black px-1 leading-tight flex flex-col items-center justify-center",
+                              "h-10 text-[8px] md:text-[9px] uppercase font-black px-1 flex flex-col items-center justify-center",
                               selectedSongIndex === idx ? "bg-secondary text-secondary-foreground" : "border-white/10"
                             )}
                           >
-                            <span className="opacity-60 text-[7px] md:text-[8px] mb-0.5">TRACK</span>
+                            <span className="opacity-60 text-[7px] mb-0.5">TRACK</span>
                             {idx + 1}
                           </Button>
                         ))}
                       </div>
-                      <div className="flex items-center gap-2 mt-1 md:mt-2 px-1 md:px-2 text-[9px] md:text-[10px] font-bold text-secondary">
+                      <div className="flex items-center gap-2 mt-1 px-1 text-[9px] md:text-[10px] font-bold text-secondary">
                         <Music2 className="h-3 w-3" />
                         <span className="truncate">{selectedSong?.name}</span>
                       </div>
@@ -458,12 +453,12 @@ export default function StadiumBoothDashboard() {
                   <Button 
                     disabled={!activePlayer || isAnnouncing} 
                     onClick={triggerSequence}
-                    className="w-full h-16 md:h-24 text-lg md:text-xl font-black bg-primary hover:bg-primary/90 shadow-[0_8px_16px_-4px_rgba(66,133,255,0.4)] transition-all active:scale-[0.98]"
+                    className="w-full h-16 md:h-20 text-base md:text-lg font-black bg-primary hover:bg-primary/90 shadow-[0_8px_16px_-4px_rgba(66,133,255,0.4)] transition-all active:scale-[0.98]"
                   >
                     {isAnnouncing ? (
-                      <Activity className="animate-pulse mr-2 md:mr-3 h-5 w-5 md:h-6 md:w-6" />
+                      <Activity className="animate-pulse mr-2 h-5 w-5 md:h-6 md:w-6" />
                     ) : (
-                      <Zap className="mr-2 md:mr-3 h-5 w-5 md:h-6 md:w-6 fill-white" />
+                      <Zap className="mr-2 h-5 w-5 md:h-6 md:w-6 fill-white" />
                     )}
                     {isAnnouncing ? "STADIUM ANNOUNCING..." : "RUN WALKON SEQUENCE"}
                   </Button>
@@ -485,7 +480,7 @@ export default function StadiumBoothDashboard() {
                     { key: "rbi", label: "Runs Batted In", color: "primary" }
                   ].map((stat) => (
                     <div key={stat.key} className="flex flex-col gap-1 md:gap-2 bg-background/50 p-2 md:p-3 rounded-xl border border-white/5">
-                      <div className="flex items-center justify-between mb-0.5 md:mb-1">
+                      <div className="flex items-center justify-between mb-0.5">
                         <span className="text-[8px] md:text-[10px] font-black uppercase tracking-widest text-muted-foreground">{stat.label}</span>
                         <span className={cn("text-xl md:text-2xl font-black digit-font", stat.color === 'primary' ? 'text-primary' : stat.color === 'secondary' ? 'text-secondary' : 'text-white')}>
                           {activePlayer ? (activePlayer.stats as any)[stat.key] : 0}
@@ -562,11 +557,11 @@ export default function StadiumBoothDashboard() {
               </Card>
             </section>
 
-            {/* QUICK AT BAT PLAYER ANNOUNCEMENT PANEL */}
+            {/* AT BAT PLAYER ANNOUNCEMENT PANEL (Quick Validation/Trigger) */}
             <section className="space-y-3 md:space-y-4 pt-6 md:pt-10 border-t border-white/10">
               <div className="flex items-center gap-3">
                 <CheckCircle2 className="h-4 w-4 md:h-5 md:w-5 text-primary" />
-                <h2 className="text-base md:text-lg font-black uppercase tracking-widest text-primary">At Bat Player Announcement</h2>
+                <h2 className="text-sm md:text-base font-black uppercase tracking-widest text-primary">At Bat Player Announcement</h2>
               </div>
               
               <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-1.5 md:gap-2">
@@ -575,20 +570,20 @@ export default function StadiumBoothDashboard() {
                     key={player.id}
                     variant="outline"
                     onClick={() => playLocalAnnouncerOnly(player.announcementAudioUrl)}
-                    className="flex flex-col h-10 md:h-14 gap-0.5 md:gap-1 border-white/10 hover:border-primary/50 hover:bg-primary/10 bg-card/60 px-1 md:px-2"
+                    className="flex flex-col h-12 md:h-14 gap-0.5 border-white/10 hover:border-primary/50 hover:bg-primary/10 bg-card/60 px-1 md:px-2"
                   >
                     <span className="text-[7px] md:text-[9px] font-black leading-tight text-center">#{player.number} {player.name.split(' ')[0]}</span>
-                    <FileAudio className="h-2 w-2 md:h-3 md:w-3 text-primary/60" />
+                    <FileAudio className="h-2.5 w-2.5 md:h-3 md:w-3 text-primary/60" />
                   </Button>
                 ))}
               </div>
             </section>
 
-            {/* TEAM TRACKER TABLE */}
+            {/* TEAM PLAYER TRACKER TABLE */}
             <section className="space-y-3 md:space-y-4 pt-6 md:pt-10 border-t border-white/10 pb-20">
               <div className="flex items-center gap-3">
                 <TableIcon className="h-4 w-4 md:h-5 md:w-5 text-secondary" />
-                <h2 className="text-base md:text-lg font-black uppercase tracking-widest text-secondary">Team Player Tracker</h2>
+                <h2 className="text-sm md:text-base font-black uppercase tracking-widest text-secondary">Team Performance Tracker</h2>
               </div>
               
               <Card className="bg-card/60 border-white/5 shadow-2xl overflow-hidden">
@@ -622,20 +617,19 @@ export default function StadiumBoothDashboard() {
         </main>
       </div>
 
-      {/* PERSISTENT AUDIO PLAYER UI (YouTube Iframe) */}
+      {/* HIDDEN YOUTUBE PLAYER */}
       <div className={cn(
-        "fixed bottom-4 right-4 md:bottom-8 md:right-8 w-48 md:w-64 h-16 md:h-20 bg-card border-2 border-primary rounded-2xl overflow-hidden shadow-[0_20px_40px_rgba(0,0,0,0.5)] z-50 transition-all duration-500",
+        "fixed bottom-4 right-4 w-48 h-12 bg-card border border-primary rounded-xl overflow-hidden shadow-2xl z-[100] transition-all duration-500",
         activeAudioUrl ? "translate-y-0 opacity-100" : "translate-y-32 opacity-0"
       )}>
         <div className="absolute inset-0 flex items-center justify-center bg-background/95 backdrop-blur-md pointer-events-none z-10">
           <div className="flex flex-col items-center gap-1">
-            <div className="flex gap-1 items-end h-4 md:h-5">
-               <div className="w-0.5 md:w-1 bg-primary animate-[bounce_0.6s_infinite] h-2 md:h-3" />
-               <div className="w-0.5 md:w-1 bg-primary animate-[bounce_0.8s_infinite] h-4 md:h-5" />
-               <div className="w-0.5 md:w-1 bg-primary animate-[bounce_0.5s_infinite] h-1 md:h-2" />
-               <div className="w-0.5 md:w-1 bg-primary animate-[bounce_0.7s_infinite] h-3 md:h-4" />
+            <div className="flex gap-1 items-end h-3">
+               <div className="w-0.5 bg-primary animate-[bounce_0.6s_infinite] h-2" />
+               <div className="w-0.5 bg-primary animate-[bounce_0.8s_infinite] h-3" />
+               <div className="w-0.5 bg-primary animate-[bounce_0.5s_infinite] h-1" />
             </div>
-            <span className="text-[8px] md:text-[9px] font-black text-primary uppercase tracking-[0.2em]">Stadium Audio Live</span>
+            <span className="text-[7px] font-black text-primary uppercase tracking-widest">Live Audio</span>
           </div>
         </div>
         
@@ -648,15 +642,6 @@ export default function StadiumBoothDashboard() {
             allow="autoplay; encrypted-media" 
           />
         )}
-        
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          className="absolute top-1 md:top-2 right-1 md:right-2 h-4 w-4 md:h-5 md:w-5 p-0 hover:bg-white/10 text-muted-foreground z-20" 
-          onClick={stopEverything}
-        >
-          <VolumeX className="h-2 w-2 md:h-3 md:w-3" />
-        </Button>
       </div>
     </div>
   );
