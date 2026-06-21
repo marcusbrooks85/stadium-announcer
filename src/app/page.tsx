@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { 
   Trophy, 
   Users, 
@@ -15,7 +15,8 @@ import {
   Loader2,
   Music2,
   Zap,
-  VolumeX
+  VolumeX,
+  Target
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -67,20 +68,26 @@ export default function StadiumBoothDashboard() {
   const [activePlayerId, setActivePlayerId] = useState<string | null>(null);
   const [isAnnouncing, setIsAnnouncing] = useState(false);
   const [isStreamingAudio, setIsStreamingAudio] = useState(false);
-  const [musicPlayerUrl, setMusicPlayerUrl] = useState<string | null>(null);
-  const [soundboardUrl, setSoundboardUrl] = useState<string | null>(null);
+  const [activeAudioUrl, setActiveAudioUrl] = useState<string | null>(null);
   const [aiScript, setAiScript] = useState<string>("");
   const [isGeneratingScript, setIsGeneratingScript] = useState(false);
   
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  const activePlayer = roster.find((p) => p.id === activePlayerId);
+  const activePlayer = useMemo(() => 
+    roster.find((p) => p.id === activePlayerId),
+    [roster, activePlayerId]
+  );
 
+  // Auto-generate script when player or stats change
   useEffect(() => {
     if (activePlayer) {
-      generateHypeScript(activePlayer);
+      const timer = setTimeout(() => {
+        generateHypeScript(activePlayer);
+      }, 300); // Debounce to avoid excessive calls
+      return () => clearTimeout(timer);
     }
-  }, [activePlayerId]);
+  }, [activePlayerId, activePlayer?.stats.ab, activePlayer?.stats.h, activePlayer?.stats.r, activePlayer?.stats.rbi]);
 
   const generateHypeScript = async (player: typeof INITIAL_ROSTER[0]) => {
     setIsGeneratingScript(true);
@@ -128,8 +135,8 @@ export default function StadiumBoothDashboard() {
       audioRef.current = audio;
 
       audio.onended = () => {
-        const embedUrl = `https://www.youtube.com/embed/${activePlayer.videoId}?autoplay=1&start=${activePlayer.startAt}`;
-        setMusicPlayerUrl(embedUrl);
+        const embedUrl = `https://www.youtube.com/embed/${activePlayer.videoId}?autoplay=1&start=${activePlayer.startAt}&mute=0`;
+        setActiveAudioUrl(embedUrl);
         setIsAnnouncing(false);
       };
 
@@ -146,8 +153,9 @@ export default function StadiumBoothDashboard() {
 
   const playSoundboard = (videoId: string) => {
     stopEverything();
-    const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1`;
-    setSoundboardUrl(embedUrl);
+    // Add timestamp to force iframe reload/autoplay if same video is clicked twice
+    const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0&rel=0&t=${Date.now()}`;
+    setActiveAudioUrl(embedUrl);
   };
 
   const stopEverything = () => {
@@ -155,8 +163,7 @@ export default function StadiumBoothDashboard() {
       audioRef.current.pause();
       audioRef.current = null;
     }
-    setMusicPlayerUrl(null);
-    setSoundboardUrl(null);
+    setActiveAudioUrl(null);
     setIsAnnouncing(false);
     setIsStreamingAudio(false);
   };
@@ -207,7 +214,12 @@ export default function StadiumBoothDashboard() {
                   <div className="flex justify-between items-start">
                     <div>
                       <h3 className="font-bold text-lg">{player.name}</h3>
-                      <p className="text-xs opacity-70">#{player.number}</p>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs opacity-70">#{player.number}</span>
+                        <Badge variant="secondary" className="text-[10px] py-0 px-1 bg-white/10">
+                          H: {player.stats.h} | RBI: {player.stats.rbi}
+                        </Badge>
+                      </div>
                     </div>
                   </div>
                 </button>
@@ -243,7 +255,7 @@ export default function StadiumBoothDashboard() {
                     {isGeneratingScript ? (
                       <div className="flex items-center gap-2 text-muted-foreground">
                         <Loader2 className="h-5 w-5 animate-spin" />
-                        Generating script...
+                        Syncing stats to script...
                       </div>
                     ) : (
                       activePlayer ? aiScript : "Select a player to generate script..."
@@ -272,15 +284,20 @@ export default function StadiumBoothDashboard() {
                 </CardHeader>
                 <CardContent className="grid grid-cols-2 gap-3">
                   {["ab", "h", "r", "rbi"].map((stat) => (
-                    <Button 
-                      key={stat}
-                      disabled={!activePlayer}
-                      onClick={() => updateStat(stat as any, 1)}
-                      className="h-20 flex flex-col border-2 border-white/5 bg-background/40 hover:bg-primary/20"
-                    >
-                      <Zap className="h-4 w-4 mb-1" />
-                      <span className="text-lg font-black uppercase">ADD {stat}</span>
-                    </Button>
+                    <div key={stat} className="flex flex-col gap-2">
+                       <Button 
+                        disabled={!activePlayer}
+                        onClick={() => updateStat(stat as any, 1)}
+                        className="h-20 flex flex-col border-2 border-white/5 bg-background/40 hover:bg-primary/20"
+                      >
+                        <Zap className="h-4 w-4 mb-1 text-primary" />
+                        <span className="text-lg font-black uppercase">ADD {stat}</span>
+                      </Button>
+                      <div className="flex justify-between items-center px-2">
+                        <span className="text-xs font-bold text-muted-foreground uppercase">{stat} Total:</span>
+                        <span className="text-sm font-bold text-primary">{activePlayer ? (activePlayer.stats as any)[stat] : 0}</span>
+                      </div>
+                    </div>
                   ))}
                 </CardContent>
               </Card>
@@ -345,8 +362,8 @@ export default function StadiumBoothDashboard() {
         </main>
       </div>
 
-      {/* HIDDEN AUDIO PLAYERS */}
-      {(musicPlayerUrl || soundboardUrl) && (
+      {/* HIDDEN AUDIO PLAYER */}
+      {activeAudioUrl && (
         <div className="fixed bottom-4 right-4 w-48 h-24 bg-card border-2 border-primary rounded-xl overflow-hidden shadow-2xl z-50">
            <div className="absolute inset-0 flex items-center justify-center bg-background/80">
               <div className="flex flex-col items-center gap-1">
@@ -354,8 +371,10 @@ export default function StadiumBoothDashboard() {
                 <span className="text-[10px] font-black text-primary uppercase">Audio Active</span>
               </div>
            </div>
+           {/* The key attribute forces the iframe to re-mount and re-trigger autoplay when the URL changes */}
            <iframe 
-             src={musicPlayerUrl || soundboardUrl || ""} 
+             key={activeAudioUrl}
+             src={activeAudioUrl} 
              className="w-full h-full opacity-0 pointer-events-none" 
              allow="autoplay; encrypted-media" 
            />
