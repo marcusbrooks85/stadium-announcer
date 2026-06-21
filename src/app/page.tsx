@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
@@ -12,7 +11,8 @@ import {
   Activity, 
   Music,
   ChevronDown,
-  Volume2
+  Volume2,
+  Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,6 +27,12 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { runAnnouncementGenerator } from "@/ai/flows/dynamic-announcement-generator";
+import { generateAnnouncerAudio } from "@/ai/flows/announcer-tts-flow";
+
+// --- PREMIUM TTS CONFIGURATION ---
+const PREMIUM_TTS_API_KEY = "sk_..."; // Replace with your ElevenLabs/API key if applicable
+const PREMIUM_TTS_VOICE_ID = "Algenib"; // Using Gemini's premium 'Algenib' voice for professional stadium feel
+// ----------------------------------
 
 // Roster Data
 const INITIAL_ROSTER = [
@@ -45,9 +51,12 @@ export default function StadiumBoothDashboard() {
   const [roster, setRoster] = useState(INITIAL_ROSTER);
   const [activePlayerId, setActivePlayerId] = useState<string | null>(null);
   const [isAnnouncing, setIsAnnouncing] = useState(false);
+  const [isStreamingAudio, setIsStreamingAudio] = useState(false);
   const [musicPlayerUrl, setMusicPlayerUrl] = useState<string | null>(null);
   const [aiScript, setAiScript] = useState<string>("");
   const [isGeneratingScript, setIsGeneratingScript] = useState(false);
+  
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const activePlayer = roster.find((p) => p.id === activePlayerId);
 
@@ -63,7 +72,6 @@ export default function StadiumBoothDashboard() {
   const generateHypeScript = async (player: typeof INITIAL_ROSTER[0]) => {
     setIsGeneratingScript(true);
     try {
-      // Logic for GenAI flow if provided, else fallback to tuned template
       const result = await runAnnouncementGenerator({
         playerName: player.name,
         playerNumber: player.number,
@@ -88,31 +96,58 @@ export default function StadiumBoothDashboard() {
     );
   };
 
-  const runAnnouncement = () => {
-    if (!activePlayer || isAnnouncing) return;
+  /**
+   * Premium Trigger Sequence:
+   * 1. Fetches high-quality professional audio from Genkit Flow.
+   * 2. Plays the announcer's voice.
+   * 3. On audio completion, triggers the YouTube walk-up music.
+   */
+  const triggerSequence = async () => {
+    if (!activePlayer || isAnnouncing || isStreamingAudio) return;
 
-    setIsAnnouncing(true);
-    setMusicPlayerUrl(null); // Reset music
+    stopEverything();
+    setIsStreamingAudio(true);
 
-    const utterance = new SpeechSynthesisUtterance(aiScript);
-    utterance.pitch = 0.85;
-    utterance.rate = 0.82;
-    utterance.volume = 1;
+    try {
+      // 1. Fetch high-quality announcer audio
+      const { media } = await generateAnnouncerAudio({
+        text: aiScript,
+        voice: PREMIUM_TTS_VOICE_ID
+      });
 
-    utterance.onend = () => {
-      // Start music after announcement ends
-      const embedUrl = `https://www.youtube.com/embed/${activePlayer.videoId}?autoplay=1&start=${activePlayer.startAt}`;
-      setMusicPlayerUrl(embedUrl);
-      setIsAnnouncing(false);
-    };
+      setIsStreamingAudio(false);
+      setIsAnnouncing(true);
 
-    window.speechSynthesis.speak(utterance);
+      // 2. Play announcer voice
+      const audio = new Audio(media);
+      audioRef.current = audio;
+
+      audio.onended = () => {
+        // 3. Trigger walk-up music after announcement
+        const embedUrl = `https://www.youtube.com/embed/${activePlayer.videoId}?autoplay=1&start=${activePlayer.startAt}`;
+        setMusicPlayerUrl(embedUrl);
+        setIsAnnouncing(false);
+      };
+
+      audio.play().catch(e => {
+        console.error("Audio playback failed", e);
+        setIsAnnouncing(false);
+      });
+
+    } catch (error) {
+      console.error("TTS Streaming failed", error);
+      setIsStreamingAudio(false);
+    }
   };
 
   const stopEverything = () => {
-    window.speechSynthesis.cancel();
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
     setMusicPlayerUrl(null);
     setIsAnnouncing(false);
+    setIsStreamingAudio(false);
   };
 
   return (
@@ -257,7 +292,12 @@ export default function StadiumBoothDashboard() {
                     <Volume2 className="h-4 w-4 text-secondary" /> Announcement Status
                   </label>
                   <div className="h-14 flex items-center px-4 bg-card rounded-xl border-2 border-white/5">
-                    {isAnnouncing ? (
+                    {isStreamingAudio ? (
+                      <div className="flex items-center gap-3 text-secondary animate-pulse">
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                        <span className="font-bold uppercase text-sm">Streaming Premium Audio...</span>
+                      </div>
+                    ) : isAnnouncing ? (
                       <div className="flex items-center gap-3 text-secondary animate-pulse">
                         <div className="flex gap-1 items-end h-4">
                           <div className="w-1 h-full bg-secondary animate-[bounce_1s_infinite_0s]" />
@@ -269,7 +309,7 @@ export default function StadiumBoothDashboard() {
                     ) : musicPlayerUrl ? (
                       <div className="flex items-center gap-3 text-primary">
                         <Play className="h-5 w-5 fill-current" />
-                        <span className="font-bold uppercase text-sm">Music Playing</span>
+                        <span className="font-bold uppercase text-sm">Walk-up Music Playing</span>
                       </div>
                     ) : (
                       <span className="text-muted-foreground font-medium text-sm">Standby</span>
@@ -281,13 +321,13 @@ export default function StadiumBoothDashboard() {
               <Card className="bg-card/80 border-2 border-white/5 shadow-xl overflow-hidden group">
                 <CardHeader className="bg-background/40 pb-4 border-b border-border">
                   <CardTitle className="text-sm font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                    <Mic2 className="h-4 w-4 text-primary" /> Script Preview
+                    <Mic2 className="h-4 w-4 text-primary" /> Premium Script Preview
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="pt-6 pb-8 space-y-6">
                   <div className={cn(
                     "min-h-[120px] p-6 rounded-xl bg-background/60 border-2 border-white/5 text-2xl font-bold leading-relaxed transition-all duration-500",
-                    isGeneratingScript && "opacity-50 blur-[1px]",
+                    (isGeneratingScript || isStreamingAudio) && "opacity-50 blur-[1px]",
                     !activePlayer && "text-muted-foreground flex items-center justify-center italic text-lg"
                   )}>
                     {activePlayer ? aiScript : "Select a player to generate announcer script..."}
@@ -295,15 +335,19 @@ export default function StadiumBoothDashboard() {
 
                   <div className="flex gap-4">
                     <Button
-                      disabled={!activePlayer || isAnnouncing}
-                      onClick={runAnnouncement}
+                      disabled={!activePlayer || isAnnouncing || isStreamingAudio}
+                      onClick={triggerSequence}
                       className={cn(
                         "flex-1 h-20 text-xl font-black uppercase tracking-wider rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] transition-all active:scale-95",
-                        isAnnouncing ? "bg-muted" : "bg-primary hover:bg-primary/90 text-white"
+                        (isAnnouncing || isStreamingAudio) ? "bg-muted" : "bg-primary hover:bg-primary/90 text-white"
                       )}
                     >
-                      <Mic2 className="h-8 w-8 mr-3" />
-                      📢 Run Announcement & Walk-Up
+                      {isStreamingAudio ? (
+                        <Loader2 className="h-8 w-8 mr-3 animate-spin" />
+                      ) : (
+                        <Mic2 className="h-8 w-8 mr-3" />
+                      )}
+                      📢 Start Premium Broadcast
                     </Button>
                     <Button
                       variant="destructive"
