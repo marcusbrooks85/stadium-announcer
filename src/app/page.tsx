@@ -18,7 +18,9 @@ import {
   Target,
   ChevronRight,
   AlertCircle,
-  Hash
+  Hash,
+  Volume1,
+  Volume
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,6 +33,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 import { generateAnnouncerAudio } from "@/ai/flows/announcer-tts-flow";
 
@@ -152,6 +155,7 @@ export default function StadiumBoothDashboard() {
   const [isAnnouncing, setIsAnnouncing] = useState(false);
   const [isStreamingAudio, setIsStreamingAudio] = useState(false);
   const [activeAudioUrl, setActiveAudioUrl] = useState<string | null>(null);
+  const [volume, setVolume] = useState(0.8); // 0 to 1
   
   // Audio caching state to eliminate repeat requests
   const [audioCache, setAudioCache] = useState<Record<string, string>>({});
@@ -179,6 +183,21 @@ export default function StadiumBoothDashboard() {
       }
     }
   }, []);
+
+  // Sync volume with existing audio and iframe
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = volume;
+    }
+    // Attempt to update YouTube volume via postMessage if iframe exists
+    const iframe = document.querySelector('iframe[src*="youtube.com"]');
+    if (iframe && (iframe as HTMLIFrameElement).contentWindow) {
+      (iframe as HTMLIFrameElement).contentWindow?.postMessage(
+        JSON.stringify({ event: "command", func: "setVolume", args: [volume * 100] }),
+        "*"
+      );
+    }
+  }, [volume]);
 
   // Reset song selection when player changes
   useEffect(() => {
@@ -259,6 +278,7 @@ export default function StadiumBoothDashboard() {
 
     setIsAnnouncing(true);
     const audio = new Audio(announcementMedia);
+    audio.volume = volume;
     audioRef.current = audio;
 
     audio.onended = () => {
@@ -336,6 +356,42 @@ export default function StadiumBoothDashboard() {
         <main className="flex-1 flex flex-col p-8 overflow-y-auto space-y-8 bg-black/10">
           <div className="max-w-5xl mx-auto w-full space-y-8">
             
+            {/* VOLUME & MASTER CONTROLS */}
+            <Card className="bg-primary/10 border-2 border-primary/20 shadow-2xl overflow-hidden">
+              <CardContent className="p-6">
+                <div className="flex flex-col md:flex-row items-center gap-8">
+                  <div className="flex-1 w-full space-y-4">
+                    <div className="flex items-center justify-between px-2">
+                      <div className="flex items-center gap-2">
+                        {volume === 0 ? <VolumeX className="h-5 w-5 text-muted-foreground" /> : volume < 0.5 ? <Volume1 className="h-5 w-5 text-primary" /> : <Volume2 className="h-5 w-5 text-primary" />}
+                        <span className="text-sm font-black uppercase tracking-[0.2em]">Master Stadium Volume</span>
+                      </div>
+                      <Badge variant="outline" className="font-mono text-lg border-primary/30 text-primary">
+                        {Math.round(volume * 100)}%
+                      </Badge>
+                    </div>
+                    <Slider 
+                      value={[volume * 100]} 
+                      onValueChange={(vals) => setVolume(vals[0] / 100)} 
+                      max={100} 
+                      step={1}
+                      className="py-4"
+                    />
+                  </div>
+                  <div className="flex items-center gap-4">
+                     <Button 
+                      variant="destructive" 
+                      size="lg"
+                      onClick={stopEverything}
+                      className="font-black px-8 h-16 border-2 border-white/10 shadow-[0_0_30px_rgba(239,68,68,0.3)] active:scale-95 transition-all"
+                    >
+                      <VolumeX className="mr-3 h-6 w-6" /> EMERGENCY KILL-SWITCH
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
             <section className="grid grid-cols-1 md:grid-cols-2 gap-8">
               {/* BATTER CONTROL CARD */}
               <Card className="bg-card/80 border-2 border-white/5 overflow-hidden shadow-2xl">
@@ -456,19 +512,9 @@ export default function StadiumBoothDashboard() {
 
             {/* SOUNDBOARD SECTION */}
             <section className="space-y-6 pb-20">
-              <div className="flex items-center justify-between bg-card/40 p-4 rounded-xl border border-white/5">
-                <div className="flex items-center gap-3">
-                  <Volume2 className="h-6 w-6 text-secondary animate-bounce" />
-                  <h2 className="text-xl font-black uppercase tracking-widest">Stadium Soundboard</h2>
-                </div>
-                <Button 
-                  variant="destructive" 
-                  size="lg"
-                  onClick={stopEverything}
-                  className="font-black px-6 h-12 border-2 border-white/10 shadow-[0_0_20px_rgba(239,68,68,0.2)] animate-pulse hover:animate-none"
-                >
-                  <VolumeX className="mr-3 h-5 w-5" /> EMERGENCY STOP
-                </Button>
+              <div className="flex items-center gap-3 bg-card/40 p-4 rounded-xl border border-white/5">
+                <Volume2 className="h-6 w-6 text-secondary animate-bounce" />
+                <h2 className="text-xl font-black uppercase tracking-widest">Stadium Soundboard</h2>
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
