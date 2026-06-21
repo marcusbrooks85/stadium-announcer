@@ -25,7 +25,8 @@ import {
   FileAudio,
   CheckCircle2,
   Mail,
-  Table as TableIcon
+  Table as TableIcon,
+  ShieldCheck
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -169,9 +170,11 @@ export default function StadiumBoothDashboard() {
   const [isAnnouncing, setIsAnnouncing] = useState(false);
   const [activeAudioUrl, setActiveAudioUrl] = useState<string | null>(null);
   const [volume, setVolume] = useState(0.8);
+  const [isWakeLocked, setIsWakeLocked] = useState(false);
   
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const wakeLockRef = useRef<any>(null);
 
   const activePlayer = useMemo(() => 
     roster.find((p) => p.id === activePlayerId),
@@ -183,14 +186,57 @@ export default function StadiumBoothDashboard() {
     return activePlayer.songs[selectedSongIndex] || activePlayer.songs[0];
   }, [activePlayer, selectedSongIndex]);
 
+  // Screen Wake Lock Implementation
+  useEffect(() => {
+    const requestWakeLock = async () => {
+      if ('wakeLock' in navigator) {
+        try {
+          wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
+          setIsWakeLocked(true);
+          wakeLockRef.current.addEventListener('release', () => {
+            setIsWakeLocked(false);
+          });
+        } catch (err) {
+          console.warn('Wake Lock request failed');
+        }
+      }
+    };
+
+    requestWakeLock();
+
+    const handleVisibilityChange = async () => {
+      if (wakeLockRef.current !== null && document.visibilityState === 'visible') {
+        await requestWakeLock();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (wakeLockRef.current) wakeLockRef.current.release();
+    };
+  }, []);
+
+  // Media Session Metadata Management
+  const updateMediaSession = (title: string, artist: string = "Stadium Announcer") => {
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title,
+        artist,
+        album: "Stadium Booth Live",
+        artwork: [
+          { src: 'https://picsum.photos/seed/baseball/512/512', sizes: '512x512', type: 'image/png' }
+        ]
+      });
+      navigator.mediaSession.playbackState = 'playing';
+    }
+  };
+
   useEffect(() => {
     if (audioRef.current) {
       audioRef.current.volume = volume;
     }
-  }, [volume]);
-
-  useEffect(() => {
-    if (activeAudioUrl && iframeRef.current) {
+    if (iframeRef.current && activeAudioUrl) {
       const msg = JSON.stringify({
         event: 'command',
         func: 'setVolume',
@@ -223,12 +269,16 @@ export default function StadiumBoothDashboard() {
       audioRef.current.src = "";
       audioRef.current = null;
     }
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.playbackState = 'none';
+    }
     setActiveAudioUrl(null);
     setIsAnnouncing(false);
   };
 
-  const playSoundboard = (videoId: string) => {
+  const playSoundboard = (videoId: string, songName?: string) => {
     stopEverything();
+    updateMediaSession(songName || "Crowd Pump-Up");
     setTimeout(() => {
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
       const timestamp = Date.now();
@@ -237,8 +287,9 @@ export default function StadiumBoothDashboard() {
     }, 50);
   };
 
-  const playLocalAnnouncerOnly = (url: string) => {
+  const playLocalAnnouncerOnly = (url: string, playerName: string) => {
     stopEverything();
+    updateMediaSession(`Now Batting: ${playerName}`);
     const audio = new Audio(url);
     audio.volume = volume;
     audioRef.current = audio;
@@ -249,6 +300,7 @@ export default function StadiumBoothDashboard() {
     if (!activePlayer || isAnnouncing || !selectedSong) return;
     stopEverything();
     setIsAnnouncing(true);
+    updateMediaSession(`Announcing: ${activePlayer.name}`);
 
     const audio = new Audio(activePlayer.announcementAudioUrl);
     audio.volume = volume;
@@ -257,6 +309,7 @@ export default function StadiumBoothDashboard() {
     const playWalkUpMusic = () => {
       if (audioRef.current !== audio) return;
       setIsAnnouncing(false);
+      updateMediaSession(selectedSong.name, activePlayer.name);
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
       const timestamp = Date.now();
       const embedUrl = `https://www.youtube.com/embed/${selectedSong.videoId}?autoplay=1&start=${selectedSong.startAt}&mute=0&rel=0&enablejsapi=1&origin=${origin}&t=${timestamp}`;
@@ -302,7 +355,7 @@ export default function StadiumBoothDashboard() {
         <header className="sticky top-0 z-50 flex flex-col gap-2 p-3 md:p-4 border-b border-border shadow-2xl bg-card/95 backdrop-blur-md">
           {/* TOP ROW: EMAIL & SCORES & DESKTOP STOP */}
           <div className="flex items-center justify-between gap-2 max-w-7xl mx-auto w-full">
-            <div className="flex-none">
+            <div className="flex-none flex items-center gap-2">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button 
@@ -318,6 +371,12 @@ export default function StadiumBoothDashboard() {
                   <p>Email game stats</p>
                 </TooltipContent>
               </Tooltip>
+              {isWakeLocked && (
+                <div className="hidden lg:flex items-center gap-1.5 px-2 py-1 rounded-full bg-green-500/10 border border-green-500/20">
+                  <ShieldCheck className="h-3 w-3 text-green-500" />
+                  <span className="text-[8px] font-black uppercase text-green-500 tracking-tighter">STADIUM ALIVE</span>
+                </div>
+              )}
             </div>
 
             {/* CENTERED SCORE TILES */}
@@ -570,7 +629,7 @@ export default function StadiumBoothDashboard() {
                       <Button 
                         key={hit.name}
                         variant="outline"
-                        onClick={() => playSoundboard(hit.videoId)}
+                        onClick={() => playSoundboard(hit.videoId, hit.name)}
                         className="h-10 md:h-12 border-secondary/20 text-secondary hover:bg-secondary/20 font-black uppercase text-[9px] md:text-[10px]"
                       >
                         🎹 {hit.name}
@@ -591,7 +650,7 @@ export default function StadiumBoothDashboard() {
                       <Button 
                         key={song.name}
                         variant="outline"
-                        onClick={() => playSoundboard(song.videoId)}
+                        onClick={() => playSoundboard(song.videoId, song.name)}
                         className="h-10 md:h-12 border-primary/20 text-primary hover:bg-primary/20 font-black uppercase text-[9px] md:text-[10px]"
                       >
                         📣 {song.name}
@@ -613,7 +672,7 @@ export default function StadiumBoothDashboard() {
                     <Button 
                       key={player.id}
                       variant="outline"
-                      onClick={() => playLocalAnnouncerOnly(player.announcementAudioUrl)}
+                      onClick={() => playLocalAnnouncerOnly(player.announcementAudioUrl, player.name)}
                       className="flex flex-col h-12 md:h-14 gap-0.5 border-white/10 hover:border-primary/50 hover:bg-primary/10 bg-card/60 px-1 md:px-2"
                     >
                       <span className="text-[7px] md:text-[9px] font-black leading-tight text-center">#{player.number} {player.name.split(' ')[0]}</span>
