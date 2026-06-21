@@ -257,6 +257,7 @@ export default function StadiumBoothDashboard() {
       console.error("Local announcer audio failed to load:", e);
       if (audioRef.current === audio) {
         setIsAnnouncing(false);
+        // Fallback: Skip straight to walk-up music if the intro fails
         playWalkUpMusic();
       }
     };
