@@ -23,7 +23,9 @@ import {
   Volume1,
   Volume,
   FileAudio,
-  CheckCircle2
+  CheckCircle2,
+  Mail,
+  Table as TableIcon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,18 +39,21 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 
-/**
- * Hard-coded Roster Data.
- * announcementAudioUrl points to local files in /public/audio/
- */
 const INITIAL_ROSTER = [
   { 
     id: "1", 
     name: "Max Camargo", 
     number: 6, 
-    announcementScript: "NOW BATTING, NUMBER 6, MAX CAMARGO!",
     announcementAudioUrl: "/audio/Max.mp3",
     songs: [
       { name: "Miss You (Bonus Track)", videoId: "2S5Ku0mVkzI", startAt: 0 },
@@ -61,7 +66,6 @@ const INITIAL_ROSTER = [
     id: "2", 
     name: "Diomedes Plata", 
     number: 4, 
-    announcementScript: "NOW BATTING, NUMBER 4, DIOMEDES PLATA!",
     announcementAudioUrl: "/audio/Diomedes.mp3",
     songs: [
       { name: "WE LA (EAST LA Remix)", videoId: "l-eMsVOTCY4", startAt: 80 },
@@ -74,7 +78,6 @@ const INITIAL_ROSTER = [
     id: "3", 
     name: "Jimena Briones", 
     number: 12, 
-    announcementScript: "NOW BATTING, NUMBER 12, JIMENA BRIONES!",
     announcementAudioUrl: "/audio/Jimena.mp3",
     songs: [
       { name: "Watermelon Sugar", videoId: "KPM_BYl-EaQ", startAt: 0 },
@@ -87,7 +90,6 @@ const INITIAL_ROSTER = [
     id: "4", 
     name: "Alexa Franco", 
     number: 7, 
-    announcementScript: "NOW BATTING, NUMBER 7, ALEXA FRANCO!",
     announcementAudioUrl: "/audio/Alexa.mp3",
     songs: [
       { name: "BATTER UP", videoId: "olDWm2veCrM", startAt: 60 },
@@ -100,7 +102,6 @@ const INITIAL_ROSTER = [
     id: "5", 
     name: "Camila Brooks", 
     number: 10, 
-    announcementScript: "NOW BATTING, NUMBER 10, CAMILA BROOKS!",
     announcementAudioUrl: "/audio/Camila.mp3",
     songs: [
       { name: "Not Like Us", videoId: "Xx1SrbxH1JU", startAt: 0 },
@@ -113,7 +114,6 @@ const INITIAL_ROSTER = [
     id: "6", 
     name: "Zeke Jacobo", 
     number: 8, 
-    announcementScript: "NOW BATTING, NUMBER 8, ZEKE JACOBO!",
     announcementAudioUrl: "/audio/Zeke.mp3",
     songs: [
       { name: "Under Control", videoId: "in8rYZQrwnw", startAt: 55 },
@@ -126,7 +126,6 @@ const INITIAL_ROSTER = [
     id: "7", 
     name: "Aldrich Munoz", 
     number: 11, 
-    announcementScript: "NOW BATTING, NUMBER 11, ALDRICH MUNOZ!",
     announcementAudioUrl: "/audio/Aldrich.mp3",
     songs: [
       { name: "MONTAGEM SUPERSONIC", videoId: "iI6Ypo8D-Pg", startAt: 0 },
@@ -177,14 +176,12 @@ export default function StadiumBoothDashboard() {
     return activePlayer.songs[selectedSongIndex] || activePlayer.songs[0];
   }, [activePlayer, selectedSongIndex]);
 
-  // Sync volume with existing audio
   useEffect(() => {
     if (audioRef.current) {
       audioRef.current.volume = volume;
     }
   }, [volume]);
 
-  // Reset song selection when player changes
   useEffect(() => {
     setSelectedSongIndex(0);
   }, [activePlayerId]);
@@ -202,7 +199,6 @@ export default function StadiumBoothDashboard() {
 
   const stopEverything = () => {
     if (audioRef.current) {
-      // Important: Remove listeners to prevent state updates after kill
       audioRef.current.onended = null;
       audioRef.current.onerror = null;
       audioRef.current.pause();
@@ -215,7 +211,6 @@ export default function StadiumBoothDashboard() {
 
   const playSoundboard = (videoId: string) => {
     stopEverything();
-    // Use timeout to ensure state update settles for iframe re-mount
     setTimeout(() => {
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
       const timestamp = Date.now();
@@ -224,37 +219,25 @@ export default function StadiumBoothDashboard() {
     }, 50);
   };
 
-  /**
-   * Technical Validation: Plays a local audio file directly
-   */
   const validateLocalAudio = (url: string) => {
     stopEverything();
     const audio = new Audio(url);
     audio.volume = volume;
     audioRef.current = audio;
-    audio.play().catch(() => {
-      // Fail silently for user
-    });
+    audio.play().catch(() => {});
   };
 
   const triggerSequence = async () => {
     if (!activePlayer || isAnnouncing || !selectedSong) return;
-
-    // 1. Clear any current audio or video
     stopEverything();
-    
-    // 2. Start the announcement sequence
     setIsAnnouncing(true);
 
     const audio = new Audio(activePlayer.announcementAudioUrl);
     audio.volume = volume;
-    audio.preload = "auto";
     audioRef.current = audio;
 
     const playWalkUpMusic = () => {
-      // Final double-check that we are still supposed to be playing for this player
       if (audioRef.current !== audio) return;
-
       setIsAnnouncing(false);
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
       const timestamp = Date.now();
@@ -268,8 +251,7 @@ export default function StadiumBoothDashboard() {
       }
     };
 
-    audio.onerror = (e) => {
-      // If the local file fails, skip straight to the walk-up music
+    audio.onerror = () => {
       if (audioRef.current === audio) {
         setIsAnnouncing(false);
         playWalkUpMusic();
@@ -285,28 +267,49 @@ export default function StadiumBoothDashboard() {
     }
   };
 
+  const emailStats = () => {
+    const scoreText = `GAME SCORE\nAway: ${awayScore} | Home: ${homeScore}\n\n`;
+    const rosterStatsText = roster.map(p => 
+      `${p.name} (#${p.number}): AB: ${p.stats.ab}, H: ${p.stats.h}, R: ${p.stats.r}, RBI: ${p.stats.rbi}`
+    ).join('\n');
+    
+    const mailtoUrl = `mailto:?subject=Stadium Game Report&body=${encodeURIComponent(scoreText + rosterStatsText)}`;
+    window.location.href = mailtoUrl;
+  };
+
   return (
     <div className="flex flex-col h-screen bg-background text-foreground stadium-gradient overflow-hidden">
       {/* SCOREBOARD */}
-      <header className="flex justify-center p-4 border-b border-border shadow-2xl relative z-20 bg-card/80 backdrop-blur-md">
-        <div className="flex items-center gap-12 md:gap-24 bg-background/50 px-8 py-4 rounded-2xl border border-white/5 shadow-inner">
+      <header className="flex items-center justify-between p-4 border-b border-border shadow-2xl relative z-20 bg-card/80 backdrop-blur-md px-8">
+        <Button 
+          variant="outline" 
+          size="sm" 
+          className="border-primary/30 text-primary font-black uppercase tracking-widest text-[10px]"
+          onClick={emailStats}
+        >
+          <Mail className="h-3 w-3 mr-2" /> Email Game Stats
+        </Button>
+
+        <div className="flex items-center gap-12 md:gap-24 bg-background/50 px-8 py-3 rounded-2xl border border-white/5 shadow-inner">
           <div className="flex flex-col items-center gap-1">
-            <span className="text-[10px] font-bold tracking-widest text-muted-foreground uppercase">Away Team</span>
+            <span className="text-[10px] font-bold tracking-widest text-muted-foreground uppercase">Away</span>
             <div className="flex items-center gap-4">
-              <Button variant="outline" size="icon" className="h-9 w-9 border-white/10" onClick={() => setAwayScore(Math.max(0, awayScore - 1))}><Minus className="h-4 w-4" /></Button>
-              <div className="w-20 text-center digit-font text-5xl font-black text-secondary drop-shadow-[0_0_10px_rgba(46,177,217,0.3)]">{awayScore.toString().padStart(2, "0")}</div>
-              <Button variant="outline" size="icon" className="h-9 w-9 border-white/10" onClick={() => setAwayScore(awayScore + 1)}><Plus className="h-4 w-4" /></Button>
+              <Button variant="outline" size="icon" className="h-7 w-7 border-white/10" onClick={() => setAwayScore(Math.max(0, awayScore - 1))}><Minus className="h-3 w-3" /></Button>
+              <div className="w-16 text-center digit-font text-4xl font-black text-secondary">{awayScore.toString().padStart(2, "0")}</div>
+              <Button variant="outline" size="icon" className="h-7 w-7 border-white/10" onClick={() => setAwayScore(awayScore + 1)}><Plus className="h-3 w-3" /></Button>
             </div>
           </div>
           <div className="flex flex-col items-center gap-1">
-            <span className="text-[10px] font-bold tracking-widest text-muted-foreground uppercase">Home Team</span>
+            <span className="text-[10px] font-bold tracking-widest text-muted-foreground uppercase">Home</span>
             <div className="flex items-center gap-4">
-              <Button variant="outline" size="icon" className="h-9 w-9 border-white/10" onClick={() => setHomeScore(Math.max(0, homeScore - 1))}><Minus className="h-4 w-4" /></Button>
-              <div className="w-20 text-center digit-font text-5xl font-black text-primary drop-shadow-[0_0_10px_rgba(66,133,255,0.3)]">{homeScore.toString().padStart(2, "0")}</div>
-              <Button variant="outline" size="icon" className="h-9 w-9 border-white/10" onClick={() => setHomeScore(homeScore + 1)}><Plus className="h-4 w-4" /></Button>
+              <Button variant="outline" size="icon" className="h-7 w-7 border-white/10" onClick={() => setHomeScore(Math.max(0, homeScore - 1))}><Minus className="h-3 w-3" /></Button>
+              <div className="w-16 text-center digit-font text-4xl font-black text-primary">{homeScore.toString().padStart(2, "0")}</div>
+              <Button variant="outline" size="icon" className="h-7 w-7 border-white/10" onClick={() => setHomeScore(homeScore + 1)}><Plus className="h-3 w-3" /></Button>
             </div>
           </div>
         </div>
+
+        <div className="w-32" /> {/* Spacer */}
       </header>
 
       <div className="flex flex-1 overflow-hidden">
@@ -322,21 +325,21 @@ export default function StadiumBoothDashboard() {
                   key={player.id} 
                   onClick={() => setActivePlayerId(player.id)}
                   className={cn(
-                    "w-full text-left p-4 rounded-xl border transition-all duration-200 group relative overflow-hidden",
+                    "w-full text-left p-4 rounded-xl border transition-all duration-200 group",
                     activePlayerId === player.id 
-                      ? "bg-primary border-primary shadow-[0_8px_16px_rgba(66,133,255,0.2)]" 
-                      : "bg-background/40 border-white/5 hover:bg-white/5 hover:border-white/10"
+                      ? "bg-primary border-primary" 
+                      : "bg-background/40 border-white/5 hover:bg-white/5"
                   )}
                 >
-                  <div className="flex justify-between items-center relative z-10">
+                  <div className="flex justify-between items-center">
                     <div>
-                      <h3 className="font-bold text-base leading-tight group-hover:translate-x-1 transition-transform">{player.name}</h3>
+                      <h3 className="font-bold text-base leading-tight">{player.name}</h3>
                       <div className="flex items-center gap-3 mt-1">
                         <span className="text-[10px] font-black bg-black/20 px-1.5 py-0.5 rounded">#{player.number}</span>
-                        <span className="text-[9px] font-bold uppercase text-white/60">HITS: {player.stats.h} | RBI: {player.stats.rbi}</span>
+                        <span className="text-[9px] font-bold uppercase text-white/60">HITS: {player.stats.h}</span>
                       </div>
                     </div>
-                    {activePlayerId === player.id && <ChevronRight className="h-5 w-5 animate-pulse" />}
+                    {activePlayerId === player.id && <ChevronRight className="h-5 w-5" />}
                   </div>
                 </button>
               ))}
@@ -370,16 +373,14 @@ export default function StadiumBoothDashboard() {
                       className="py-4"
                     />
                   </div>
-                  <div className="flex items-center gap-4">
-                     <Button 
-                      variant="destructive" 
-                      size="lg"
-                      onClick={stopEverything}
-                      className="font-black px-8 h-16 border-2 border-white/10 shadow-[0_0_30px_rgba(239,68,68,0.3)] active:scale-95 transition-all"
-                    >
-                      <VolumeX className="mr-3 h-6 w-6" /> EMERGENCY KILL-SWITCH
-                    </Button>
-                  </div>
+                  <Button 
+                    variant="destructive" 
+                    size="lg"
+                    onClick={stopEverything}
+                    className="font-black px-8 h-16 border-2 border-white/10"
+                  >
+                    <VolumeX className="mr-3 h-6 w-6" /> KILL SWITCH
+                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -390,14 +391,14 @@ export default function StadiumBoothDashboard() {
                 <CardHeader className="pb-4 border-b border-white/5 bg-white/5">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                      <Mic2 className="h-4 w-4" /> Booth Operations
+                      <Mic2 className="h-4 w-4" /> Player At Bat
                     </CardTitle>
                     {activePlayer && <Badge variant="secondary" className="font-black text-[9px]">{activePlayer.name.toUpperCase()}</Badge>}
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-6 pt-6">
                   <div className="space-y-2">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Select Current Batter</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Select Batter</span>
                     <Select value={activePlayerId || ""} onValueChange={(val) => setActivePlayerId(val)}>
                       <SelectTrigger className="h-14 text-lg font-black bg-background/50 border-white/10">
                         <SelectValue placeholder="Waiting for Batter..." />
@@ -424,7 +425,7 @@ export default function StadiumBoothDashboard() {
                             onClick={() => setSelectedSongIndex(idx)}
                             className={cn(
                               "h-12 text-[10px] uppercase font-black px-2 leading-tight flex flex-col items-center justify-center",
-                              selectedSongIndex === idx ? "bg-secondary text-secondary-foreground shadow-lg shadow-secondary/20" : "border-white/10 hover:bg-white/5"
+                              selectedSongIndex === idx ? "bg-secondary text-secondary-foreground" : "border-white/10"
                             )}
                           >
                             <span className="opacity-60 text-[8px] mb-0.5">TRACK</span>
@@ -439,22 +440,15 @@ export default function StadiumBoothDashboard() {
                     </div>
                   )}
                   
-                  <div className={cn(
-                    "p-6 rounded-xl bg-black/40 border-2 border-white/5 text-xl font-headline font-bold min-h-[120px] flex items-center justify-center text-center leading-snug tracking-tight",
-                    !activePlayer && "text-muted-foreground text-sm italic"
-                  )}>
-                    {activePlayer ? activePlayer.announcementScript : "SELECT A PLAYER TO START"}
-                  </div>
-
                   <Button 
                     disabled={!activePlayer || isAnnouncing} 
                     onClick={triggerSequence}
-                    className="w-full h-20 text-xl font-black bg-primary hover:bg-primary/90 shadow-[0_12px_24px_-8px_rgba(66,133,255,0.4)] transition-all active:scale-[0.98] group"
+                    className="w-full h-24 text-xl font-black bg-primary hover:bg-primary/90 shadow-[0_12px_24px_-8px_rgba(66,133,255,0.4)] transition-all active:scale-[0.98]"
                   >
                     {isAnnouncing ? (
                       <Activity className="animate-pulse mr-3 h-6 w-6" />
                     ) : (
-                      <Zap className="mr-3 h-6 w-6 fill-white group-hover:scale-125 transition-transform" />
+                      <Zap className="mr-3 h-6 w-6 fill-white" />
                     )}
                     {isAnnouncing ? "STADIUM ANNOUNCING..." : "RUN ANNOUNCEMENT"}
                   </Button>
@@ -475,20 +469,32 @@ export default function StadiumBoothDashboard() {
                     { key: "r", label: "Runs Scored", color: "secondary" },
                     { key: "rbi", label: "Runs Batted In", color: "primary" }
                   ].map((stat) => (
-                    <div key={stat.key} className="flex flex-col gap-2">
-                       <Button 
-                        disabled={!activePlayer}
-                        onClick={() => updateStat(stat.key as any, 1)}
-                        className="h-20 flex flex-col border-2 border-white/10 bg-background/50 hover:bg-primary/10 hover:border-primary/50 transition-all group relative overflow-hidden"
-                      >
-                        <Plus className="h-4 w-4 mb-2 text-primary group-hover:scale-150 transition-transform relative z-10" />
-                        <span className="text-xs font-black uppercase tracking-widest relative z-10">{stat.label}</span>
-                      </Button>
-                      <div className="flex justify-between items-center bg-black/20 px-4 py-2 rounded-lg border border-white/5">
-                        <span className="text-[10px] font-black text-muted-foreground uppercase">{stat.key}</span>
+                    <div key={stat.key} className="flex flex-col gap-2 bg-background/50 p-3 rounded-xl border border-white/5">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{stat.label}</span>
                         <span className={cn("text-2xl font-black digit-font", stat.color === 'primary' ? 'text-primary' : stat.color === 'secondary' ? 'text-secondary' : 'text-white')}>
                           {activePlayer ? (activePlayer.stats as any)[stat.key] : 0}
                         </span>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button 
+                          disabled={!activePlayer}
+                          variant="outline"
+                          size="sm"
+                          onClick={() => updateStat(stat.key as any, -1)}
+                          className="flex-1 h-9 border-white/5 hover:bg-destructive/10 hover:text-destructive"
+                        >
+                          <Minus className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          disabled={!activePlayer}
+                          variant="outline"
+                          size="sm"
+                          onClick={() => updateStat(stat.key as any, 1)}
+                          className="flex-1 h-9 border-white/5 hover:bg-primary/10 hover:text-primary"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
                   ))}
@@ -497,83 +503,105 @@ export default function StadiumBoothDashboard() {
             </section>
 
             {/* SOUNDBOARD SECTION */}
-            <section className="space-y-6">
-              <div className="flex items-center gap-3 bg-card/40 p-4 rounded-xl border border-white/5">
-                <Volume2 className="h-6 w-6 text-secondary animate-bounce" />
-                <h2 className="text-xl font-black uppercase tracking-widest">Stadium Soundboard</h2>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Organ Hits */}
-                <Card className="bg-card/80 border-white/10 shadow-xl">
-                  <CardHeader className="py-4 border-b border-white/5">
-                    <CardTitle className="text-[11px] font-black text-muted-foreground uppercase tracking-[0.3em] flex items-center gap-2">
-                      <Music className="h-4 w-4 text-secondary" /> Organ Master
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="grid grid-cols-2 gap-3 pt-5">
-                    {ORGAN_HITS.map((hit) => (
-                      <Button 
-                        key={hit.name}
-                        variant="outline"
-                        onClick={() => playSoundboard(hit.videoId)}
-                        className="h-14 border-secondary/20 text-secondary hover:bg-secondary/20 hover:border-secondary transition-all font-black uppercase text-xs"
-                      >
-                        🎹 {hit.name}
-                      </Button>
-                    ))}
-                  </CardContent>
-                </Card>
+            <section className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {/* Organ Hits */}
+              <Card className="bg-card/80 border-white/10 shadow-xl">
+                <CardHeader className="py-4 border-b border-white/5">
+                  <CardTitle className="text-[11px] font-black text-muted-foreground uppercase tracking-[0.3em] flex items-center gap-2">
+                    <Music className="h-4 w-4 text-secondary" /> Organ Master
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="grid grid-cols-2 gap-3 pt-5">
+                  {ORGAN_HITS.map((hit) => (
+                    <Button 
+                      key={hit.name}
+                      variant="outline"
+                      onClick={() => playSoundboard(hit.videoId)}
+                      className="h-12 border-secondary/20 text-secondary hover:bg-secondary/20 font-black uppercase text-[10px]"
+                    >
+                      🎹 {hit.name}
+                    </Button>
+                  ))}
+                </CardContent>
+              </Card>
 
-                {/* Hype Songs */}
-                <Card className="bg-card/80 border-white/10 shadow-xl">
-                  <CardHeader className="py-4 border-b border-white/5">
-                    <CardTitle className="text-[11px] font-black text-muted-foreground uppercase tracking-[0.3em] flex items-center gap-2">
-                      <Play className="h-4 w-4 text-primary" /> Crowd Pump-Up
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="grid grid-cols-2 gap-3 pt-5">
-                    {HYPE_SONGS.map((song) => (
-                      <Button 
-                        key={song.name}
-                        variant="outline"
-                        onClick={() => playSoundboard(song.videoId)}
-                        className="h-14 border-primary/20 text-primary hover:bg-primary/20 hover:border-primary transition-all font-black uppercase text-xs"
-                      >
-                        📣 {song.name}
-                      </Button>
-                    ))}
-                  </CardContent>
-                </Card>
-              </div>
+              {/* Hype Songs */}
+              <Card className="bg-card/80 border-white/10 shadow-xl">
+                <CardHeader className="py-4 border-b border-white/5">
+                  <CardTitle className="text-[11px] font-black text-muted-foreground uppercase tracking-[0.3em] flex items-center gap-2">
+                    <Play className="h-4 w-4 text-primary" /> Crowd Pump-Up
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="grid grid-cols-2 gap-3 pt-5">
+                  {HYPE_SONGS.map((song) => (
+                    <Button 
+                      key={song.name}
+                      variant="outline"
+                      onClick={() => playSoundboard(song.videoId)}
+                      className="h-12 border-primary/20 text-primary hover:bg-primary/20 font-black uppercase text-[10px]"
+                    >
+                      📣 {song.name}
+                    </Button>
+                  ))}
+                </CardContent>
+              </Card>
             </section>
 
             {/* AT BAT PLAYER ANNOUNCEMENT SECTION */}
-            <section className="space-y-6 pb-20 border-t border-white/10 pt-10">
-              <div className="flex items-center gap-3 bg-primary/20 p-4 rounded-xl border border-primary/30">
-                <CheckCircle2 className="h-6 w-6 text-primary" />
-                <div className="flex flex-col">
-                  <h2 className="text-xl font-black uppercase tracking-widest text-primary">At Bat Player Announcement</h2>
-                  <p className="text-[10px] font-bold text-muted-foreground uppercase">Verify local announcer audio connections</p>
-                </div>
+            <section className="space-y-4 pt-10 border-t border-white/10">
+              <div className="flex items-center gap-3">
+                <CheckCircle2 className="h-5 w-5 text-primary" />
+                <h2 className="text-lg font-black uppercase tracking-widest text-primary">At Bat Player Announcement</h2>
               </div>
               
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+              <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2">
                 {roster.map((player) => (
                   <Button 
                     key={player.id}
                     variant="outline"
                     onClick={() => validateLocalAudio(player.announcementAudioUrl)}
-                    className="flex flex-col h-24 gap-2 border-white/10 hover:border-primary/50 hover:bg-primary/10 transition-all bg-card/60 px-2"
+                    className="flex flex-col h-14 gap-1 border-white/10 hover:border-primary/50 hover:bg-primary/10 bg-card/60 px-2"
                   >
-                    <FileAudio className="h-6 w-6 text-primary" />
-                    <div className="flex flex-col items-center text-center">
-                      <span className="text-[10px] font-black leading-tight">#{player.number} {player.name}</span>
-                      <span className="text-[8px] opacity-50 font-mono">.mp3</span>
-                    </div>
+                    <span className="text-[9px] font-black leading-tight text-center">#{player.number} {player.name.split(' ')[0]}</span>
+                    <FileAudio className="h-3 w-3 text-primary/60" />
                   </Button>
                 ))}
               </div>
+            </section>
+
+            {/* TEAM STAT TRACKER TABLE */}
+            <section className="space-y-4 pt-10 border-t border-white/10 pb-20">
+              <div className="flex items-center gap-3">
+                <TableIcon className="h-5 w-5 text-secondary" />
+                <h2 className="text-lg font-black uppercase tracking-widest text-secondary">Team Player Tracker</h2>
+              </div>
+              
+              <Card className="bg-card/60 border-white/5 shadow-2xl overflow-hidden">
+                <Table>
+                  <TableHeader className="bg-white/5">
+                    <TableRow className="border-white/5 hover:bg-transparent">
+                      <TableHead className="w-[60px] text-center font-black text-[10px] uppercase">#</TableHead>
+                      <TableHead className="font-black text-[10px] uppercase">Player Name</TableHead>
+                      <TableHead className="text-center font-black text-[10px] uppercase">AB</TableHead>
+                      <TableHead className="text-center font-black text-[10px] uppercase">H</TableHead>
+                      <TableHead className="text-center font-black text-[10px] uppercase">R</TableHead>
+                      <TableHead className="text-center font-black text-[10px] uppercase">RBI</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {roster.map((player) => (
+                      <TableRow key={player.id} className="border-white/5 hover:bg-white/5">
+                        <TableCell className="text-center digit-font font-bold text-muted-foreground">{player.number}</TableCell>
+                        <TableCell className="font-bold">{player.name}</TableCell>
+                        <TableCell className="text-center digit-font text-white">{player.stats.ab}</TableCell>
+                        <TableCell className="text-center digit-font text-primary">{player.stats.h}</TableCell>
+                        <TableCell className="text-center digit-font text-secondary">{player.stats.r}</TableCell>
+                        <TableCell className="text-center digit-font text-primary">{player.stats.rbi}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Card>
             </section>
           </div>
         </main>
@@ -581,22 +609,21 @@ export default function StadiumBoothDashboard() {
 
       {/* PERSISTENT HIDDEN AUDIO PLAYER */}
       <div className={cn(
-        "fixed bottom-8 right-8 w-64 h-24 bg-card border-2 border-primary rounded-2xl overflow-hidden shadow-[0_20px_40px_rgba(0,0,0,0.5)] z-50 transition-all duration-500",
+        "fixed bottom-8 right-8 w-64 h-20 bg-card border-2 border-primary rounded-2xl overflow-hidden shadow-[0_20px_40px_rgba(0,0,0,0.5)] z-50 transition-all duration-500",
         activeAudioUrl ? "translate-y-0 opacity-100" : "translate-y-32 opacity-0"
       )}>
         <div className="absolute inset-0 flex items-center justify-center bg-background/95 backdrop-blur-md pointer-events-none z-10">
-          <div className="flex flex-col items-center gap-2">
-            <div className="flex gap-1 items-end h-6">
-               <div className="w-1 bg-primary animate-[bounce_0.6s_infinite] h-4" />
-               <div className="w-1 bg-primary animate-[bounce_0.8s_infinite] h-6" />
-               <div className="w-1 bg-primary animate-[bounce_0.5s_infinite] h-3" />
-               <div className="w-1 bg-primary animate-[bounce_0.7s_infinite] h-5" />
+          <div className="flex flex-col items-center gap-1">
+            <div className="flex gap-1 items-end h-5">
+               <div className="w-1 bg-primary animate-[bounce_0.6s_infinite] h-3" />
+               <div className="w-1 bg-primary animate-[bounce_0.8s_infinite] h-5" />
+               <div className="w-1 bg-primary animate-[bounce_0.5s_infinite] h-2" />
+               <div className="w-1 bg-primary animate-[bounce_0.7s_infinite] h-4" />
             </div>
-            <span className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">Stadium Audio Live</span>
+            <span className="text-[9px] font-black text-primary uppercase tracking-[0.2em]">Stadium Audio Live</span>
           </div>
         </div>
         
-        {/* The key property forces a fresh iframe mount when the URL changes */}
         {activeAudioUrl && (
           <iframe 
             key={activeAudioUrl}
@@ -609,12 +636,13 @@ export default function StadiumBoothDashboard() {
         <Button 
           variant="ghost" 
           size="icon" 
-          className="absolute top-2 right-2 h-6 w-6 p-0 hover:bg-white/10 text-muted-foreground hover:text-white z-20" 
+          className="absolute top-2 right-2 h-5 w-5 p-0 hover:bg-white/10 text-muted-foreground z-20" 
           onClick={stopEverything}
         >
-          <VolumeX className="h-4 w-4" />
+          <VolumeX className="h-3 w-3" />
         </Button>
       </div>
     </div>
   );
 }
+
