@@ -60,6 +60,7 @@ const announcementFlow = ai.defineFlow(
   },
   async (input) => {
     const { output } = await prompt(input);
+    // Ensure we return a string, falling back to a safe default if needed
     return output?.script || `NOW AT BAT, NUMBER ${input.playerNumber}, ${input.playerName.toUpperCase()}!`;
   }
 );

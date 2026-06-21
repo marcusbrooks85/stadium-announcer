@@ -13,7 +13,8 @@ import {
   Volume2,
   Loader2,
   Music2,
-  Zap
+  Zap,
+  VolumeX
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -192,9 +193,21 @@ export default function StadiumBoothDashboard() {
           <ScrollArea className="flex-1">
             <div className="p-4 space-y-3">
               {roster.map((player) => (
-                <button key={player.id} onClick={() => setActivePlayerId(player.id)} className={cn("w-full text-left p-4 rounded-xl border transition-all", activePlayerId === player.id ? "bg-primary border-primary shadow-lg" : "bg-background/40 border-white/5 hover:bg-white/5")}>
+                <button 
+                  key={player.id} 
+                  onClick={() => setActivePlayerId(player.id)}
+                  className={cn(
+                    "w-full text-left p-4 rounded-xl border transition-all",
+                    activePlayerId === player.id 
+                      ? "bg-primary border-primary shadow-lg" 
+                      : "bg-background/40 border-white/5 hover:bg-white/5"
+                  )}
+                >
                   <div className="flex justify-between items-start">
-                    <div><h3 className="font-bold text-lg">{player.name}</h3><p className="text-xs opacity-70">#{player.number}</p></div>
+                    <div>
+                      <h3 className="font-bold text-lg">{player.name}</h3>
+                      <p className="text-xs opacity-70">#{player.number}</p>
+                    </div>
                   </div>
                 </button>
               ))}
@@ -208,27 +221,62 @@ export default function StadiumBoothDashboard() {
             {/* ANNOUNCER CONTROLS */}
             <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Card className="bg-card/80 border-2 border-white/5">
-                <CardHeader><CardTitle className="text-sm font-black uppercase tracking-widest text-muted-foreground">Broadcast Station</CardTitle></CardHeader>
+                <CardHeader>
+                  <CardTitle className="text-sm font-black uppercase tracking-widest text-muted-foreground">Broadcast Station</CardTitle>
+                </CardHeader>
                 <CardContent className="space-y-4">
                   <Select value={activePlayerId || ""} onValueChange={(val) => setActivePlayerId(val)}>
-                    <SelectTrigger className="h-14 text-lg font-bold"><SelectValue placeholder="Choose a player..." /></SelectTrigger>
-                    <SelectContent>{roster.map((p) => <SelectItem key={p.id} value={p.id}>#{p.number} {p.name}</SelectItem>)}</SelectContent>
+                    <SelectTrigger className="h-14 text-lg font-bold">
+                      <SelectValue placeholder="Choose a player..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {roster.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          #{p.number} {p.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
                   </Select>
+                  
                   <div className="p-4 rounded-xl bg-background/60 border-2 border-white/5 text-xl font-bold min-h-[80px]">
-                    {activePlayer ? aiScript : "Select a player..."}
+                    {isGeneratingScript ? (
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                        Generating script...
+                      </div>
+                    ) : (
+                      activePlayer ? aiScript : "Select a player to generate script..."
+                    )}
                   </div>
-                  <Button disabled={!activePlayer || isAnnouncing || isStreamingAudio} onClick={triggerSequence} className="w-full h-16 text-xl font-black bg-primary hover:bg-primary/90">
-                    {isStreamingAudio ? <Loader2 className="animate-spin mr-2" /> : <Mic2 className="mr-2" />} 📢 START WALK-UP
+
+                  <Button 
+                    disabled={!activePlayer || isAnnouncing || isStreamingAudio} 
+                    onClick={triggerSequence}
+                    className="w-full h-16 text-xl font-black bg-primary hover:bg-primary/90"
+                  >
+                    {isStreamingAudio ? (
+                      <Loader2 className="animate-spin mr-2" />
+                    ) : (
+                      <Mic2 className="mr-2" />
+                    )}
+                    📢 START WALK-UP
                   </Button>
                 </CardContent>
               </Card>
 
               {/* STAT UPDATER */}
               <Card className="bg-card/80 border-2 border-white/5">
-                <CardHeader><CardTitle className="text-sm font-black uppercase tracking-widest text-muted-foreground">Live Stats Updater</CardTitle></CardHeader>
+                <CardHeader>
+                  <CardTitle className="text-sm font-black uppercase tracking-widest text-muted-foreground">Live Stats Updater</CardTitle>
+                </CardHeader>
                 <CardContent className="grid grid-cols-2 gap-3">
                   {["ab", "h", "r", "rbi"].map((stat) => (
-                    <Button key={stat} disabled={!activePlayer} onClick={() => updateStat(stat as any, 1)} className="h-20 flex flex-col border-2 border-white/5 bg-background/40 hover:bg-primary/20">
+                    <Button 
+                      key={stat}
+                      disabled={!activePlayer}
+                      onClick={() => updateStat(stat as any, 1)}
+                      className="h-20 flex flex-col border-2 border-white/5 bg-background/40 hover:bg-primary/20"
+                    >
                       <Zap className="h-4 w-4 mb-1" />
                       <span className="text-lg font-black uppercase">ADD {stat}</span>
                     </Button>
@@ -239,32 +287,58 @@ export default function StadiumBoothDashboard() {
 
             {/* SOUNDBOARD */}
             <section className="space-y-4">
-              <div className="flex items-center gap-2"><Volume2 className="h-6 w-6 text-secondary" /><h2 className="text-xl font-black uppercase tracking-wider">Stadium Soundboard</h2></div>
+              <div className="flex items-center gap-2">
+                <Volume2 className="h-6 w-6 text-secondary" />
+                <h2 className="text-xl font-black uppercase tracking-wider">Stadium Soundboard</h2>
+              </div>
+              
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Organ Hits */}
                 <Card className="bg-card/80 border-white/5">
-                  <CardHeader><CardTitle className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Organ Hits</CardTitle></CardHeader>
+                  <CardHeader>
+                    <CardTitle className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Organ Hits</CardTitle>
+                  </CardHeader>
                   <CardContent className="grid grid-cols-2 gap-2">
                     {ORGAN_HITS.map((hit) => (
-                      <Button key={hit.name} variant="outline" onClick={() => playSoundboard(hit.videoId)} className="h-12 border-secondary/30 text-secondary hover:bg-secondary/10">
+                      <Button 
+                        key={hit.name}
+                        variant="outline"
+                        onClick={() => playSoundboard(hit.videoId)}
+                        className="h-12 border-secondary/30 text-secondary hover:bg-secondary/10"
+                      >
                         🎹 {hit.name}
                       </Button>
                     ))}
                   </CardContent>
                 </Card>
+
                 {/* Hype Songs */}
                 <Card className="bg-card/80 border-white/5">
-                  <CardHeader><CardTitle className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Crowd Hype Songs</CardTitle></CardHeader>
+                  <CardHeader>
+                    <CardTitle className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Crowd Hype Songs</CardTitle>
+                  </CardHeader>
                   <CardContent className="grid grid-cols-2 gap-2">
                     {HYPE_SONGS.map((song) => (
-                      <Button key={song.name} variant="outline" onClick={() => playSoundboard(song.videoId)} className="h-12 border-primary/30 text-primary hover:bg-primary/10">
+                      <Button 
+                        key={song.name}
+                        variant="outline"
+                        onClick={() => playSoundboard(song.videoId)}
+                        className="h-12 border-primary/30 text-primary hover:bg-primary/10"
+                      >
                         🎵 {song.name}
                       </Button>
                     ))}
                   </CardContent>
                 </Card>
               </div>
-              <Button variant="destructive" onClick={stopEverything} className="w-full h-12 font-black">STOP ALL SOUNDS</Button>
+
+              <Button 
+                variant="destructive" 
+                onClick={stopEverything}
+                className="w-full h-12 font-black"
+              >
+                <VolumeX className="mr-2 h-5 w-5" /> STOP ALL SOUNDS
+              </Button>
             </section>
           </div>
         </main>
@@ -279,7 +353,11 @@ export default function StadiumBoothDashboard() {
                 <span className="text-[10px] font-black text-primary uppercase">Audio Active</span>
               </div>
            </div>
-           <iframe src={musicPlayerUrl || soundboardUrl || ""} className="w-full h-full opacity-0 pointer-events-none" allow="autoplay; encrypted-media" />
+           <iframe 
+             src={musicPlayerUrl || soundboardUrl || ""} 
+             className="w-full h-full opacity-0 pointer-events-none" 
+             allow="autoplay; encrypted-media" 
+           />
         </div>
       )}
     </div>
