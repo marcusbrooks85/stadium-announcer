@@ -98,20 +98,20 @@ const INITIAL_ROSTER = [
   },
   { 
     id: "5", 
-    name: "Cami", 
+    name: "Camila Brooks", 
     number: 10, 
-    announcementScript: "NOW BATTING, NUMBER 10, CAMI!",
-    announcementAudioUrl: "/audio/Cami.mp3",
+    announcementScript: "NOW BATTING, NUMBER 10, CAMILA!",
+    announcementAudioUrl: "/audio/Camila.mp3",
     songs: [
       { name: "Not Like Us", videoId: "Xx1SrbxH1JU", startAt: 0 },
-      { name: "California Love", videoId: "mwgZalAFNhM", startAt: 0 },
+      { name: "Track 2", videoId: "LRt6TdSvHag", startAt: 0 },
       { name: "HUMBLE. - Kendrick", videoId: "tvTRZJ-4EyI", startAt: 0 }
     ],
     stats: { ab: 0, h: 0, r: 0, rbi: 0 } 
   },
   { 
     id: "6", 
-    name: "Zeke", 
+    name: "Zeke Jacobo", 
     number: 8, 
     announcementScript: "NOW BATTING, NUMBER 8, ZEKE!",
     announcementAudioUrl: "/audio/Zeke.mp3",
@@ -549,13 +549,13 @@ export default function StadiumBoothDashboard() {
               </div>
             </section>
 
-            {/* LOCAL ASSET VALIDATION SECTION */}
+            {/* AT BAT PLAYER ANNOUNCEMENT SECTION */}
             <section className="space-y-6 pb-20 border-t border-white/10 pt-10">
               <div className="flex items-center gap-3 bg-primary/20 p-4 rounded-xl border border-primary/30">
                 <CheckCircle2 className="h-6 w-6 text-primary" />
                 <div className="flex flex-col">
-                  <h2 className="text-xl font-black uppercase tracking-widest text-primary">Technical Asset Validation</h2>
-                  <p className="text-[10px] font-bold text-muted-foreground uppercase">Verify local /audio/*.mp3 file connections</p>
+                  <h2 className="text-xl font-black uppercase tracking-widest text-primary">At Bat Player Announcement</h2>
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase">Verify local announcer audio connections</p>
                 </div>
               </div>
               
@@ -565,11 +565,11 @@ export default function StadiumBoothDashboard() {
                     key={player.id}
                     variant="outline"
                     onClick={() => validateLocalAudio(player.announcementAudioUrl)}
-                    className="flex flex-col h-24 gap-2 border-white/10 hover:border-primary/50 hover:bg-primary/10 transition-all bg-card/60"
+                    className="flex flex-col h-24 gap-2 border-white/10 hover:border-primary/50 hover:bg-primary/10 transition-all bg-card/60 px-2"
                   >
                     <FileAudio className="h-6 w-6 text-primary" />
-                    <div className="flex flex-col items-center">
-                      <span className="text-[10px] font-black">{player.name.split(' ')[0]}</span>
+                    <div className="flex flex-col items-center text-center">
+                      <span className="text-[10px] font-black leading-tight">#{player.number} {player.name}</span>
                       <span className="text-[8px] opacity-50 font-mono">.mp3</span>
                     </div>
                   </Button>
