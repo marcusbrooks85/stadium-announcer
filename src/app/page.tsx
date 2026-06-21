@@ -36,7 +36,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
-import { generateAnnouncerAudio } from "@/ai/flows/announcer-tts-flow";
 
 /**
  * Hard-coded Roster Data.
@@ -161,7 +160,6 @@ export default function StadiumBoothDashboard() {
   const [activePlayerId, setActivePlayerId] = useState<string | null>(null);
   const [selectedSongIndex, setSelectedSongIndex] = useState(0);
   const [isAnnouncing, setIsAnnouncing] = useState(false);
-  const [isStreamingAudio, setIsStreamingAudio] = useState(false);
   const [activeAudioUrl, setActiveAudioUrl] = useState<string | null>(null);
   const [volume, setVolume] = useState(0.8);
   
@@ -207,11 +205,11 @@ export default function StadiumBoothDashboard() {
     }
     setActiveAudioUrl(null);
     setIsAnnouncing(false);
-    setIsStreamingAudio(false);
   };
 
   const playSoundboard = (videoId: string) => {
     stopEverything();
+    // Use timeout to ensure state update settles for iframe re-mount
     setTimeout(() => {
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
       const timestamp = Date.now();
@@ -221,12 +219,12 @@ export default function StadiumBoothDashboard() {
   };
 
   const triggerSequence = async () => {
-    if (!activePlayer || isAnnouncing || isStreamingAudio || !selectedSong) return;
+    if (!activePlayer || isAnnouncing || !selectedSong) return;
 
     stopEverything();
-    
-    // PRIORITY 1: Try to play the hard-coded Google Drive audio link
     setIsAnnouncing(true);
+
+    // Hard-coded Google Drive audio link
     const audio = new Audio(activePlayer.announcementAudioUrl);
     audio.volume = volume;
     audioRef.current = audio;
@@ -239,36 +237,21 @@ export default function StadiumBoothDashboard() {
       setActiveAudioUrl(embedUrl);
     };
 
-    audio.onerror = async () => {
-      // PRIORITY 2: Fallback to dynamic generation if the hard-coded link fails
-      console.warn(`Static audio failed at ${activePlayer.announcementAudioUrl}, falling back to AI generation...`);
+    audio.onerror = (e) => {
+      console.error("Announcer audio failed to load:", e);
       setIsAnnouncing(false);
-      setIsStreamingAudio(true);
-      try {
-        const { media } = await generateAnnouncerAudio({
-          text: activePlayer.announcementScript,
-          voice: "Algenib"
-        });
-        setIsStreamingAudio(false);
-        setIsAnnouncing(true);
-        const fallbackAudio = new Audio(media);
-        fallbackAudio.volume = volume;
-        audioRef.current = fallbackAudio;
-        fallbackAudio.onended = audio.onended;
-        await fallbackAudio.play();
-      } catch (err) {
-        console.error("Audio sequence failed entirely", err);
-        setIsStreamingAudio(false);
-        // Play song directly as final fallback
-        audio.onended();
-      }
+      // Fallback: Skip straight to walk-up music
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      const timestamp = Date.now();
+      const embedUrl = `https://www.youtube.com/embed/${selectedSong.videoId}?autoplay=1&start=${selectedSong.startAt}&mute=0&rel=0&enablejsapi=1&origin=${origin}&t=${timestamp}`;
+      setActiveAudioUrl(embedUrl);
     };
 
     try {
       await audio.play();
     } catch (e) {
-      // Trigger fallback on catch
-      audio.onerror(null as any);
+      console.error("Playback blocked or failed:", e);
+      setIsAnnouncing(false);
     }
   };
 
@@ -435,18 +418,16 @@ export default function StadiumBoothDashboard() {
                   </div>
 
                   <Button 
-                    disabled={!activePlayer || isAnnouncing || isStreamingAudio} 
+                    disabled={!activePlayer || isAnnouncing} 
                     onClick={triggerSequence}
                     className="w-full h-20 text-xl font-black bg-primary hover:bg-primary/90 shadow-[0_12px_24px_-8px_rgba(66,133,255,0.4)] transition-all active:scale-[0.98] group"
                   >
-                    {isStreamingAudio ? (
-                      <Loader2 className="animate-spin mr-3 h-6 w-6" />
-                    ) : isAnnouncing ? (
+                    {isAnnouncing ? (
                       <Activity className="animate-pulse mr-3 h-6 w-6" />
                     ) : (
                       <Zap className="mr-3 h-6 w-6 fill-white group-hover:scale-125 transition-transform" />
                     )}
-                    {isStreamingAudio ? "SYNCING..." : isAnnouncing ? "STADIUM ANNOUNCING..." : "START WALK-UP SEQUENCE"}
+                    {isAnnouncing ? "STADIUM ANNOUNCING..." : "START WALK-UP SEQUENCE"}
                   </Button>
                 </CardContent>
               </Card>
