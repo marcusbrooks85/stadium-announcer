@@ -35,7 +35,7 @@ import { cn } from "@/lib/utils";
 import { generateAnnouncerAudio } from "@/ai/flows/announcer-tts-flow";
 
 /**
- * Roster Data with static scripts to eliminate AI text generation calls.
+ * Roster Data with hard-coded scripts to eliminate AI text generation calls.
  * Track 1 updated with specific provided titles, YouTube IDs, and start times.
  */
 const INITIAL_ROSTER = [
@@ -153,6 +153,9 @@ export default function StadiumBoothDashboard() {
   const [isStreamingAudio, setIsStreamingAudio] = useState(false);
   const [activeAudioUrl, setActiveAudioUrl] = useState<string | null>(null);
   
+  // Audio caching state to eliminate repeat requests
+  const [audioCache, setAudioCache] = useState<Record<string, string>>({});
+  
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const activePlayer = useMemo(() => 
@@ -164,6 +167,18 @@ export default function StadiumBoothDashboard() {
     if (!activePlayer) return null;
     return activePlayer.songs[selectedSongIndex] || activePlayer.songs[0];
   }, [activePlayer, selectedSongIndex]);
+
+  // Load persistent audio cache on mount
+  useEffect(() => {
+    const savedCache = localStorage.getItem('stadium_audio_cache');
+    if (savedCache) {
+      try {
+        setAudioCache(JSON.parse(savedCache));
+      } catch (e) {
+        console.error("Failed to load audio cache", e);
+      }
+    }
+  }, []);
 
   // Reset song selection when player changes
   useEffect(() => {
@@ -207,42 +222,54 @@ export default function StadiumBoothDashboard() {
     if (!activePlayer || isAnnouncing || isStreamingAudio || !selectedSong) return;
 
     stopEverything();
-    setIsStreamingAudio(true);
+    
+    // Check if audio is already cached for this player
+    let announcementMedia = audioCache[activePlayer.id];
 
-    try {
-      // Use the archived script directly from the roster data
-      const announcementText = activePlayer.announcementScript;
+    if (!announcementMedia) {
+      setIsStreamingAudio(true);
+      try {
+        // Use the archived script directly from the roster data
+        const announcementText = activePlayer.announcementScript;
 
-      const { media } = await generateAnnouncerAudio({
-        text: announcementText,
-        voice: "Algenib"
-      });
+        const { media } = await generateAnnouncerAudio({
+          text: announcementText,
+          voice: "Algenib"
+        });
 
-      setIsStreamingAudio(false);
-      setIsAnnouncing(true);
-
-      const audio = new Audio(media);
-      audioRef.current = audio;
-
-      audio.onended = () => {
-        setIsAnnouncing(false);
+        announcementMedia = media;
+        
+        // Save to cache
+        const newCache = { ...audioCache, [activePlayer.id]: media };
+        setAudioCache(newCache);
+        localStorage.setItem('stadium_audio_cache', JSON.stringify(newCache));
+        
+        setIsStreamingAudio(false);
+      } catch (error) {
+        console.error("Sequence generation failed", error);
+        setIsStreamingAudio(false);
+        // Fallback to song only if generation fails
         const origin = typeof window !== 'undefined' ? window.location.origin : '';
         const timestamp = Date.now();
         const embedUrl = `https://www.youtube.com/embed/${selectedSong.videoId}?autoplay=1&start=${selectedSong.startAt}&mute=0&rel=0&enablejsapi=1&origin=${origin}&t=${timestamp}`;
         setActiveAudioUrl(embedUrl);
-      };
+        return;
+      }
+    }
 
-      await audio.play();
-    } catch (error) {
-      console.error("Sequence failed", error);
-      setIsStreamingAudio(false);
+    setIsAnnouncing(true);
+    const audio = new Audio(announcementMedia);
+    audioRef.current = audio;
+
+    audio.onended = () => {
       setIsAnnouncing(false);
-      // Fallback to song only
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
       const timestamp = Date.now();
       const embedUrl = `https://www.youtube.com/embed/${selectedSong.videoId}?autoplay=1&start=${selectedSong.startAt}&mute=0&rel=0&enablejsapi=1&origin=${origin}&t=${timestamp}`;
       setActiveAudioUrl(embedUrl);
-    }
+    };
+
+    await audio.play();
   };
 
   return (
@@ -360,6 +387,7 @@ export default function StadiumBoothDashboard() {
                       <div className="flex items-center gap-2 mt-2 px-2 text-[10px] font-bold text-secondary animate-in fade-in slide-in-from-left-2">
                         <Music2 className="h-3 w-3" />
                         <span className="truncate">{selectedSong?.name}</span>
+                        {audioCache[activePlayer.id] && <Badge className="ml-auto text-[8px] bg-green-500/20 text-green-400 border-green-500/50">CACHED</Badge>}
                       </div>
                     </div>
                   )}
@@ -508,6 +536,7 @@ export default function StadiumBoothDashboard() {
           </div>
         </div>
         
+        {/* Conditional rendering fixes the Next.js hydration error with empty src attribute */}
         {activeAudioUrl ? (
           <iframe 
             key={activeAudioUrl}
