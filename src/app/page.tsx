@@ -119,19 +119,20 @@ const INITIAL_ROSTER = [
 
 const ORGAN_HITS = [
   { name: "CHARGE!", videoId: "melJslO0IJY" },
-  { name: "Take Me Out", videoId: "kzTfu6LwbD8" },
+  { name: "DEFENSE!", videoId: "QPwozG816lk" },
+  { name: "TAKE ME OUT", videoId: "kzTfu6LwbD8" },
   { name: "JAWS", videoId: "QamKhi1cxIs" },
-  { name: "Let's Go Team", videoId: "jcylen-X1no" },
-  { name: "Bullfighter", videoId: "1aQ3nk-W0GI" },
+  { name: "LET'S GO TEAM", videoId: "jcylen-X1no" },
+  { name: "BULLFIGHTER", videoId: "1aQ3nk-W0GI" },
 ];
 
 const HYPE_SONGS = [
-  { name: "The Hey Song", videoId: "EBohdltpVUY" },
-  { name: "Start Me Up", videoId: "IqCwFuHqb0o" },
-  { name: "La Chona", videoId: "eekVbkhY4kI" },
-  { name: "Trophies", videoId: "7JR10AThY8M" },
-  { name: "Bring Em Out", videoId: "vkSFh6HMUtQ" },
-  { name: "The Ooooo Song", videoId: "vn7iMXF5R_4" },
+  { name: "HEY SONG", videoId: "EBohdltpVUY" },
+  { name: "START ME UP", videoId: "IqCwFuHqb0o" },
+  { name: "LA CHONA", videoId: "eekVbkhY4kI" },
+  { name: "TROPHIES", videoId: "7JR10AThY8M" },
+  { name: "BRING EM OUT", videoId: "vkSFh6HMUtQ" },
+  { name: "Ooooooo SONG", videoId: "vn7iMXF5R_4" },
 ];
 
 export default function StadiumBoothDashboard() {
@@ -215,13 +216,14 @@ export default function StadiumBoothDashboard() {
 
   const playSoundboard = (videoId: string) => {
     stopEverything();
-    // Use a short delay to ensure React handles the unmount/remount of the iframe source
+    // Delay to ensure the iframe re-mounts correctly with fresh params
     setTimeout(() => {
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
       const timestamp = Date.now();
+      // Using embed format with specific stadium parameters
       const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0&rel=0&enablejsapi=1&origin=${origin}&t=${timestamp}`;
       setActiveAudioUrl(embedUrl);
-    }, 50);
+    }, 100);
   };
 
   const triggerSequence = async () => {
@@ -480,7 +482,7 @@ export default function StadiumBoothDashboard() {
                   <CardContent className="grid grid-cols-2 gap-3 pt-5">
                     {ORGAN_HITS.map((hit) => (
                       <Button 
-                        key={hit.name}
+                        key={hit.videoId}
                         variant="outline"
                         onClick={() => playSoundboard(hit.videoId)}
                         className="h-14 border-secondary/20 text-secondary hover:bg-secondary/20 hover:border-secondary transition-all font-black uppercase text-xs"
@@ -501,7 +503,7 @@ export default function StadiumBoothDashboard() {
                   <CardContent className="grid grid-cols-2 gap-3 pt-5">
                     {HYPE_SONGS.map((song) => (
                       <Button 
-                        key={song.name}
+                        key={song.videoId}
                         variant="outline"
                         onClick={() => playSoundboard(song.videoId)}
                         className="h-14 border-primary/20 text-primary hover:bg-primary/20 hover:border-primary transition-all font-black uppercase text-xs"
