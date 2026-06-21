@@ -32,15 +32,17 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { runAnnouncementGenerator } from "@/ai/flows/dynamic-announcement-generator";
 import { generateAnnouncerAudio } from "@/ai/flows/announcer-tts-flow";
 
-// Roster Data with 3 song choices per player
+/**
+ * Roster Data with archived static scripts to eliminate AI generation calls.
+ */
 const INITIAL_ROSTER = [
   { 
     id: "1", 
     name: "Max Camargo", 
     number: 6, 
+    announcementScript: "NOW BATTING, NUMBER 6, MAX CAMARGO!",
     songs: [
       { name: "Miss You - Oliver Tree", videoId: "2Vv-BfVoq4g", startAt: 0 },
       { name: "Thunder - Imagine Dragons", videoId: "fKopy74weus", startAt: 0 },
@@ -52,6 +54,7 @@ const INITIAL_ROSTER = [
     id: "2", 
     name: "Diomedes Plata", 
     number: 4, 
+    announcementScript: "NOW BATTING, NUMBER 4, DIOMEDES PLATA!",
     songs: [
       { name: "We LA - Will.I.AM", videoId: "I6vR9v-vTAY", startAt: 80 },
       { name: "Level Up - Ciara", videoId: "Dh-ULbQmmF8", startAt: 0 },
@@ -63,6 +66,7 @@ const INITIAL_ROSTER = [
     id: "3", 
     name: "Jimena Briones", 
     number: 12, 
+    announcementScript: "NOW BATTING, NUMBER 12, JIMENA BRIONES!",
     songs: [
       { name: "Watermelon Sugar", videoId: "L0X03zR0rQk", startAt: 0 },
       { name: "Flowers - Miley Cyrus", videoId: "G7KNmW9a75Y", startAt: 0 },
@@ -74,6 +78,7 @@ const INITIAL_ROSTER = [
     id: "4", 
     name: "Alexa Franco", 
     number: 7, 
+    announcementScript: "NOW BATTING, NUMBER 7, ALEXA FRANCO!",
     songs: [
       { name: "Batter Up - Babymonster", videoId: "m_9H0qLzS7A", startAt: 58 },
       { name: "Shake It Off - T-Swift", videoId: "nfWlot6h_JM", startAt: 0 },
@@ -85,6 +90,7 @@ const INITIAL_ROSTER = [
     id: "5", 
     name: "Camila Brooks", 
     number: 10, 
+    announcementScript: "NOW BATTING, NUMBER 10, CAMILA BROOKS!",
     songs: [
       { name: "Not Like Us - Kendrick", videoId: "T6eK-mAk_7M", startAt: 0 },
       { name: "California Love", videoId: "mwgZalAFNhM", startAt: 0 },
@@ -96,6 +102,7 @@ const INITIAL_ROSTER = [
     id: "6", 
     name: "Ezekiel Jacobo", 
     number: 8, 
+    announcementScript: "NOW BATTING, NUMBER 8, EZEKIEL JACOBO!",
     songs: [
       { name: "Under Control - Calvin Harris", videoId: "T9K6Z1T2V8g", startAt: 55 },
       { name: "Titanium - David Guetta", videoId: "JRfuAukYTKg", startAt: 0 },
@@ -107,6 +114,7 @@ const INITIAL_ROSTER = [
     id: "7", 
     name: "Aldrich Munoz", 
     number: 11, 
+    announcementScript: "NOW BATTING, NUMBER 11, ALDRICH MUNOZ!",
     songs: [
       { name: "Montagem supersonic - VZSIK", videoId: "_qV_T9v_0U0", startAt: 0 },
       { name: "Sicko Mode - Travis Scott", videoId: "d-JBBNg8YKs", startAt: 0 },
@@ -143,8 +151,6 @@ export default function StadiumBoothDashboard() {
   const [isAnnouncing, setIsAnnouncing] = useState(false);
   const [isStreamingAudio, setIsStreamingAudio] = useState(false);
   const [activeAudioUrl, setActiveAudioUrl] = useState<string | null>(null);
-  const [aiScript, setAiScript] = useState<string>("");
-  const [isGeneratingScript, setIsGeneratingScript] = useState(false);
   
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -158,30 +164,10 @@ export default function StadiumBoothDashboard() {
     return activePlayer.songs[selectedSongIndex] || activePlayer.songs[0];
   }, [activePlayer, selectedSongIndex]);
 
-  // Reset song selection and generate script ONLY when player changes
+  // Reset song selection when player changes
   useEffect(() => {
     setSelectedSongIndex(0);
-    if (activePlayer) {
-      generateStandardScript(activePlayer);
-    } else {
-      setAiScript("");
-    }
   }, [activePlayerId]);
-
-  const generateStandardScript = async (player: typeof INITIAL_ROSTER[0]) => {
-    setIsGeneratingScript(true);
-    try {
-      const result = await runAnnouncementGenerator({
-        playerName: player.name,
-        playerNumber: player.number,
-      });
-      if (result) setAiScript(result);
-    } catch (error) {
-      console.error("AI Generation failed", error);
-    } finally {
-      setIsGeneratingScript(false);
-    }
-  };
 
   const updateStat = (type: "ab" | "h" | "r" | "rbi", delta: number) => {
     if (!activePlayerId) return;
@@ -207,13 +193,13 @@ export default function StadiumBoothDashboard() {
 
   const playSoundboard = (videoId: string) => {
     stopEverything();
-    // Delay to ensure the iframe re-mounts correctly with fresh params
+    // Use timeout to ensure the state transition is handled by React before remounting the iframe
     setTimeout(() => {
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
       const timestamp = Date.now();
       const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0&rel=0&enablejsapi=1&origin=${origin}&t=${timestamp}`;
       setActiveAudioUrl(embedUrl);
-    }, 100);
+    }, 50);
   };
 
   const triggerSequence = async () => {
@@ -223,8 +209,11 @@ export default function StadiumBoothDashboard() {
     setIsStreamingAudio(true);
 
     try {
+      // Use the archived script from the roster data
+      const announcementText = activePlayer.announcementScript;
+
       const { media } = await generateAnnouncerAudio({
-        text: aiScript || `NOW BATTING, NUMBER ${activePlayer.number}, ${activePlayer.name.toUpperCase()}!`,
+        text: announcementText,
         voice: "Algenib"
       });
 
@@ -247,6 +236,7 @@ export default function StadiumBoothDashboard() {
       console.error("Sequence failed", error);
       setIsStreamingAudio(false);
       setIsAnnouncing(false);
+      // Fallback to song only
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
       const timestamp = Date.now();
       const embedUrl = `https://www.youtube.com/embed/${selectedSong.videoId}?autoplay=1&start=${selectedSong.startAt}&mute=0&rel=0&enablejsapi=1&origin=${origin}&t=${timestamp}`;
@@ -377,14 +367,7 @@ export default function StadiumBoothDashboard() {
                     "p-6 rounded-xl bg-black/40 border-2 border-white/5 text-xl font-headline font-bold min-h-[120px] flex items-center justify-center text-center leading-snug tracking-tight",
                     !activePlayer && "text-muted-foreground text-sm italic"
                   )}>
-                    {isGeneratingScript ? (
-                      <div className="flex flex-col items-center gap-3">
-                        <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                        <span className="text-[11px] font-black uppercase tracking-[0.2em] animate-pulse">Initializing...</span>
-                      </div>
-                    ) : (
-                      activePlayer ? aiScript : "SELECT A PLAYER FROM THE ROSTER TO GENERATE ANNOUNCEMENT"
-                    )}
+                    {activePlayer ? activePlayer.announcementScript : "SELECT A PLAYER FROM THE ROSTER TO LOAD ARCHIVED ANNOUNCEMENT"}
                   </div>
 
                   <Button 
@@ -399,7 +382,7 @@ export default function StadiumBoothDashboard() {
                     ) : (
                       <Zap className="mr-3 h-6 w-6 fill-white group-hover:scale-125 transition-transform" />
                     )}
-                    {isStreamingAudio ? "GENERATING AUDIO..." : isAnnouncing ? "STADIUM ANNOUNCING..." : "START WALK-UP SEQUENCE"}
+                    {isStreamingAudio ? "PREPARING AUDIO..." : isAnnouncing ? "STADIUM ANNOUNCING..." : "START WALK-UP SEQUENCE"}
                   </Button>
                 </CardContent>
               </Card>
@@ -408,7 +391,7 @@ export default function StadiumBoothDashboard() {
               <Card className="bg-card/80 border-2 border-white/5 overflow-hidden shadow-2xl">
                 <CardHeader className="pb-4 border-b border-white/5 bg-white/5">
                   <CardTitle className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                    <Target className="h-4 w-4" /> Dynamic Game Tracker
+                    <Target className="h-4 w-4" /> Game Tracker
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="grid grid-cols-2 gap-4 pt-6">
