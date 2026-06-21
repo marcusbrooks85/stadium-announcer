@@ -40,7 +40,7 @@ import { generateAnnouncerAudio } from "@/ai/flows/announcer-tts-flow";
 
 /**
  * Hard-coded Roster Data.
- * announcementAudioUrl points to local .mp3 files in /public/audio/announcements/
+ * announcementAudioUrl points to direct download links for Google Drive audio files.
  */
 const INITIAL_ROSTER = [
   { 
@@ -48,7 +48,7 @@ const INITIAL_ROSTER = [
     name: "Max Camargo", 
     number: 6, 
     announcementScript: "NOW BATTING, NUMBER 6, MAX CAMARGO!",
-    announcementAudioUrl: "/audio/announcements/Max.mp3",
+    announcementAudioUrl: "https://docs.google.com/uc?export=download&id=1d6MjhPxofBaDyPYoiLJXvgWa7N_1fGMK",
     songs: [
       { name: "Miss You (Bonus Track)", videoId: "2S5Ku0mVkzI", startAt: 0 },
       { name: "Thunder - Imagine Dragons", videoId: "fKopy74weus", startAt: 0 },
@@ -61,7 +61,7 @@ const INITIAL_ROSTER = [
     name: "Diomedes Plata", 
     number: 4, 
     announcementScript: "NOW BATTING, NUMBER 4, DIOMEDES PLATA!",
-    announcementAudioUrl: "/audio/announcements/Diomedes.mp3",
+    announcementAudioUrl: "https://docs.google.com/uc?export=download&id=1Pr4SH1OreWeEWBNc6vB3G7mv5-K5rVyD",
     songs: [
       { name: "WE LA (EAST LA Remix)", videoId: "l-eMsVOTCY4", startAt: 80 },
       { name: "Level Up - Ciara", videoId: "Dh-ULbQmmF8", startAt: 0 },
@@ -74,7 +74,7 @@ const INITIAL_ROSTER = [
     name: "Jimena Briones", 
     number: 12, 
     announcementScript: "NOW BATTING, NUMBER 12, JIMENA BRIONES!",
-    announcementAudioUrl: "/audio/announcements/Jimena.mp3",
+    announcementAudioUrl: "https://docs.google.com/uc?export=download&id=1zxfQ7NodQVzWwy0sIGvAuoMQeC_OmWAg",
     songs: [
       { name: "Watermelon Sugar", videoId: "KPM_BYl-EaQ", startAt: 0 },
       { name: "Flowers - Miley Cyrus", videoId: "G7KNmW9a75Y", startAt: 0 },
@@ -87,7 +87,7 @@ const INITIAL_ROSTER = [
     name: "Alexa Franco", 
     number: 7, 
     announcementScript: "NOW BATTING, NUMBER 7, ALEXA FRANCO!",
-    announcementAudioUrl: "/audio/announcements/Alexa.mp3",
+    announcementAudioUrl: "https://docs.google.com/uc?export=download&id=1aUh63H_4EheI3RJ3_YQfwvdoWFaUwV8J",
     songs: [
       { name: "BATTER UP", videoId: "olDWm2veCrM", startAt: 58 },
       { name: "Shake It Off - T-Swift", videoId: "nfWlot6h_JM", startAt: 0 },
@@ -100,7 +100,7 @@ const INITIAL_ROSTER = [
     name: "Camila Brooks", 
     number: 10, 
     announcementScript: "NOW BATTING, NUMBER 10, CAMILA BROOKS!",
-    announcementAudioUrl: "/audio/announcements/Camila.mp3",
+    announcementAudioUrl: "https://docs.google.com/uc?export=download&id=1cg-6W3BgdGKuWegwgAQjgtN4XOjWLLml",
     songs: [
       { name: "Not Like Us", videoId: "Xx1SrbxH1JU", startAt: 0 },
       { name: "California Love", videoId: "mwgZalAFNhM", startAt: 0 },
@@ -113,7 +113,7 @@ const INITIAL_ROSTER = [
     name: "Ezekiel Jacobo", 
     number: 8, 
     announcementScript: "NOW BATTING, NUMBER 8, EZEKIEL JACOBO!",
-    announcementAudioUrl: "/audio/announcements/Ezekiel.mp3",
+    announcementAudioUrl: "https://docs.google.com/uc?export=download&id=1btNGsAShMRxNlsS7o0fl459FVf9Zcf70",
     songs: [
       { name: "Under Control", videoId: "in8rYZQrwnw", startAt: 55 },
       { name: "Titanium - David Guetta", videoId: "JRfuAukYTKg", startAt: 0 },
@@ -126,7 +126,7 @@ const INITIAL_ROSTER = [
     name: "Aldrich Munoz", 
     number: 11, 
     announcementScript: "NOW BATTING, NUMBER 11, ALDRICH MUNOZ!",
-    announcementAudioUrl: "/audio/announcements/Aldrich.mp3",
+    announcementAudioUrl: "https://docs.google.com/uc?export=download&id=1Y3Yjm22wBNqGi8ZF5mXBhKCT6LnLLxNI",
     songs: [
       { name: "MONTAGEM SUPERSONIC", videoId: "iI6Ypo8D-Pg", startAt: 0 },
       { name: "Sicko Mode - Travis Scott", videoId: "d-JBBNg8YKs", startAt: 0 },
@@ -225,7 +225,7 @@ export default function StadiumBoothDashboard() {
 
     stopEverything();
     
-    // PRIORITY 1: Try to play the hard-coded MP3 file
+    // PRIORITY 1: Try to play the hard-coded Google Drive audio link
     setIsAnnouncing(true);
     const audio = new Audio(activePlayer.announcementAudioUrl);
     audio.volume = volume;
@@ -240,8 +240,8 @@ export default function StadiumBoothDashboard() {
     };
 
     audio.onerror = async () => {
-      // PRIORITY 2: Fallback to dynamic generation if the hard-coded file is missing/fails
-      console.warn(`Static audio missing at ${activePlayer.announcementAudioUrl}, falling back to AI generation...`);
+      // PRIORITY 2: Fallback to dynamic generation if the hard-coded link fails
+      console.warn(`Static audio failed at ${activePlayer.announcementAudioUrl}, falling back to AI generation...`);
       setIsAnnouncing(false);
       setIsStreamingAudio(true);
       try {
@@ -267,7 +267,7 @@ export default function StadiumBoothDashboard() {
     try {
       await audio.play();
     } catch (e) {
-      // Trigger fallback on catch (e.g. 404 Not Found)
+      // Trigger fallback on catch
       audio.onerror(null as any);
     }
   };
