@@ -143,7 +143,7 @@ export default function StadiumBoothDashboard() {
   const [selectedSongIndex, setSelectedSongIndex] = useState(0);
   const [isAnnouncing, setIsAnnouncing] = useState(false);
   const [isStreamingAudio, setIsStreamingAudio] = useState(false);
-  const [activeAudioUrl, setActiveAudioUrl] = useState<string>("");
+  const [activeAudioUrl, setActiveAudioUrl] = useState<string | null>(null);
   const [aiScript, setAiScript] = useState<string>("");
   const [isGeneratingScript, setIsGeneratingScript] = useState(false);
   
@@ -209,7 +209,7 @@ export default function StadiumBoothDashboard() {
       audioRef.current.src = "";
       audioRef.current = null;
     }
-    setActiveAudioUrl("about:blank");
+    setActiveAudioUrl(null);
     setIsAnnouncing(false);
     setIsStreamingAudio(false);
   };
@@ -522,7 +522,7 @@ export default function StadiumBoothDashboard() {
       {/* PERSISTENT HIDDEN AUDIO PLAYER */}
       <div className={cn(
         "fixed bottom-8 right-8 w-64 h-24 bg-card border-2 border-primary rounded-2xl overflow-hidden shadow-[0_20px_40px_rgba(0,0,0,0.5)] z-50 transition-all duration-500",
-        activeAudioUrl && activeAudioUrl !== "about:blank" ? "translate-y-0 opacity-100" : "translate-y-32 opacity-0"
+        activeAudioUrl ? "translate-y-0 opacity-100" : "translate-y-32 opacity-0"
       )}>
         <div className="absolute inset-0 flex items-center justify-center bg-background/95 backdrop-blur-md pointer-events-none z-10">
           <div className="flex flex-col items-center gap-2">
@@ -536,19 +536,21 @@ export default function StadiumBoothDashboard() {
           </div>
         </div>
         
-        {/* The key property forces a fresh iframe mount when the URL changes */}
-        <iframe 
-          key={activeAudioUrl}
-          src={activeAudioUrl} 
-          className="w-1 h-1 absolute opacity-0 pointer-events-none" 
-          allow="autoplay; encrypted-media" 
-        />
+        {/* The key property forces a fresh iframe mount when the URL changes. Conditionally render to avoid empty src error. */}
+        {activeAudioUrl && (
+          <iframe 
+            key={activeAudioUrl}
+            src={activeAudioUrl} 
+            className="w-1 h-1 absolute opacity-0 pointer-events-none" 
+            allow="autoplay; encrypted-media" 
+          />
+        )}
         
         <Button 
           variant="ghost" 
           size="icon" 
           className="absolute top-2 right-2 h-6 w-6 p-0 hover:bg-white/10 text-muted-foreground hover:text-white z-20" 
-          onClick={() => setActiveAudioUrl("about:blank")}
+          onClick={() => setActiveAudioUrl(null)}
         >
           <VolumeX className="h-4 w-4" />
         </Button>
