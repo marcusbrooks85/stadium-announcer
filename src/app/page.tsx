@@ -577,4 +577,3 @@ export default function StadiumBoothDashboard() {
     </div>
   );
 }
-
