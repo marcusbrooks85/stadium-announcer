@@ -39,8 +39,7 @@ import { cn } from "@/lib/utils";
 
 /**
  * Hard-coded Roster Data.
- * announcementAudioUrl points to direct download links for Google Drive audio files.
- * Format: https://docs.google.com/uc?export=download&id=FILE_ID
+ * announcementAudioUrl points to local files in /public/audio/
  */
 const INITIAL_ROSTER = [
   { 
@@ -48,7 +47,7 @@ const INITIAL_ROSTER = [
     name: "Max Camargo", 
     number: 6, 
     announcementScript: "NOW BATTING, NUMBER 6, MAX CAMARGO!",
-    announcementAudioUrl: "https://docs.google.com/uc?export=download&id=1d6MjhPxofBaDyPYoiLJXvgWa7N_1fGMK",
+    announcementAudioUrl: "/audio/Max.mp3",
     songs: [
       { name: "Miss You (Bonus Track)", videoId: "2S5Ku0mVkzI", startAt: 0 },
       { name: "Thunder - Imagine Dragons", videoId: "fKopy74weus", startAt: 0 },
@@ -61,7 +60,7 @@ const INITIAL_ROSTER = [
     name: "Diomedes Plata", 
     number: 4, 
     announcementScript: "NOW BATTING, NUMBER 4, DIOMEDES PLATA!",
-    announcementAudioUrl: "https://docs.google.com/uc?export=download&id=1Pr4SH1OreWeEWBNc6vB3G7mv5-K5rVyD",
+    announcementAudioUrl: "/audio/Diomedes.mp3",
     songs: [
       { name: "WE LA (EAST LA Remix)", videoId: "l-eMsVOTCY4", startAt: 80 },
       { name: "Level Up - Ciara", videoId: "Dh-ULbQmmF8", startAt: 0 },
@@ -74,7 +73,7 @@ const INITIAL_ROSTER = [
     name: "Jimena Briones", 
     number: 12, 
     announcementScript: "NOW BATTING, NUMBER 12, JIMENA BRIONES!",
-    announcementAudioUrl: "https://docs.google.com/uc?export=download&id=1zxfQ7NodQVzWwy0sIGvAuoMQeC_OmWAg",
+    announcementAudioUrl: "/audio/Jimena.mp3",
     songs: [
       { name: "Watermelon Sugar", videoId: "KPM_BYl-EaQ", startAt: 0 },
       { name: "Flowers - Miley Cyrus", videoId: "G7KNmW9a75Y", startAt: 0 },
@@ -87,7 +86,7 @@ const INITIAL_ROSTER = [
     name: "Alexa Franco", 
     number: 7, 
     announcementScript: "NOW BATTING, NUMBER 7, ALEXA FRANCO!",
-    announcementAudioUrl: "https://docs.google.com/uc?export=download&id=1aUh63H_4EheI3RJ3_YQfwvdoWFaUwV8J",
+    announcementAudioUrl: "/audio/Alexa.mp3",
     songs: [
       { name: "BATTER UP", videoId: "olDWm2veCrM", startAt: 58 },
       { name: "Shake It Off - T-Swift", videoId: "nfWlot6h_JM", startAt: 0 },
@@ -100,7 +99,7 @@ const INITIAL_ROSTER = [
     name: "Cami", 
     number: 10, 
     announcementScript: "NOW BATTING, NUMBER 10, CAMI!",
-    announcementAudioUrl: "https://docs.google.com/uc?export=download&id=1cg-6W3BgdGKuWegwgAQjgtN4XOjWLLml",
+    announcementAudioUrl: "/audio/Cami.mp3",
     songs: [
       { name: "Not Like Us", videoId: "Xx1SrbxH1JU", startAt: 0 },
       { name: "California Love", videoId: "mwgZalAFNhM", startAt: 0 },
@@ -113,7 +112,7 @@ const INITIAL_ROSTER = [
     name: "Zeke", 
     number: 8, 
     announcementScript: "NOW BATTING, NUMBER 8, ZEKE!",
-    announcementAudioUrl: "https://docs.google.com/uc?export=download&id=1btNGsAShMRxNlsS7o0fl459FVf9Zcf70",
+    announcementAudioUrl: "/audio/Zeke.mp3",
     songs: [
       { name: "Under Control", videoId: "in8rYZQrwnw", startAt: 55 },
       { name: "Titanium - David Guetta", videoId: "JRfuAukYTKg", startAt: 0 },
@@ -126,7 +125,7 @@ const INITIAL_ROSTER = [
     name: "Aldrich Munoz", 
     number: 11, 
     announcementScript: "NOW BATTING, NUMBER 11, ALDRICH MUNOZ!",
-    announcementAudioUrl: "https://docs.google.com/uc?export=download&id=1Y3Yjm22wBNqGi8ZF5mXBhKCT6LnLLxNI",
+    announcementAudioUrl: "/audio/Aldrich.mp3",
     songs: [
       { name: "MONTAGEM SUPERSONIC", videoId: "iI6Ypo8D-Pg", startAt: 0 },
       { name: "Sicko Mode - Travis Scott", videoId: "d-JBBNg8YKs", startAt: 0 },
@@ -239,7 +238,7 @@ export default function StadiumBoothDashboard() {
 
     const playWalkUpMusic = () => {
       // Final double-check that we are still supposed to be playing for this player
-      if (audioRef.current !== audio && !isAnnouncing) return;
+      if (audioRef.current !== audio) return;
 
       setIsAnnouncing(false);
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
@@ -254,9 +253,10 @@ export default function StadiumBoothDashboard() {
       }
     };
 
-    audio.onerror = () => {
+    audio.onerror = (e) => {
+      console.error("Local announcer audio failed to load:", e);
       if (audioRef.current === audio) {
-        // Fallback: play the song directly if voice fails
+        setIsAnnouncing(false);
         playWalkUpMusic();
       }
     };
@@ -264,6 +264,7 @@ export default function StadiumBoothDashboard() {
     try {
       await audio.play();
     } catch (e) {
+      console.error("Playback error:", e);
       if (audioRef.current === audio) {
         playWalkUpMusic();
       }
@@ -420,7 +421,7 @@ export default function StadiumBoothDashboard() {
                       <div className="flex items-center gap-2 mt-2 px-2 text-[10px] font-bold text-secondary">
                         <Music2 className="h-3 w-3" />
                         <span className="truncate">{selectedSong?.name}</span>
-                        <Badge className="ml-auto text-[8px] bg-blue-500/20 text-blue-400 border-blue-500/50">STATIC SYNC</Badge>
+                        <Badge className="ml-auto text-[8px] bg-blue-500/20 text-blue-400 border-blue-500/50">LOCAL SYNC</Badge>
                       </div>
                     </div>
                   )}
@@ -429,7 +430,7 @@ export default function StadiumBoothDashboard() {
                     "p-6 rounded-xl bg-black/40 border-2 border-white/5 text-xl font-headline font-bold min-h-[120px] flex items-center justify-center text-center leading-snug tracking-tight",
                     !activePlayer && "text-muted-foreground text-sm italic"
                   )}>
-                    {activePlayer ? activePlayer.announcementScript : "SELECT A PLAYER TO LOAD STATIC ASSETS"}
+                    {activePlayer ? activePlayer.announcementScript : "SELECT A PLAYER TO START"}
                   </div>
 
                   <Button 
@@ -442,7 +443,7 @@ export default function StadiumBoothDashboard() {
                     ) : (
                       <Zap className="mr-3 h-6 w-6 fill-white group-hover:scale-125 transition-transform" />
                     )}
-                    {isAnnouncing ? "STADIUM ANNOUNCING..." : "START WALK-UP SEQUENCE"}
+                    {isAnnouncing ? "STADIUM ANNOUNCING..." : "RUN ANNOUNCEMENT"}
                   </Button>
                 </CardContent>
               </Card>
