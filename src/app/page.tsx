@@ -118,21 +118,21 @@ const INITIAL_ROSTER = [
 ];
 
 const ORGAN_HITS = [
-  { name: "CHARGE!", videoId: "melJslO0IJY" },
-  { name: "DEFENSE!", videoId: "QPwozG816lk" },
-  { name: "TAKE ME OUT", videoId: "kzTfu6LwbD8" },
-  { name: "JAWS", videoId: "QamKhi1cxIs" },
-  { name: "LET'S GO TEAM", videoId: "jcylen-X1no" },
-  { name: "BULLFIGHTER", videoId: "1aQ3nk-W0GI" },
+  { name: "BULLFIGHTER", videoId: "melJslO0IJY" },
+  { name: "JAWS", videoId: "QPwozG816lk" },
+  { name: "LET'S GO TEAM", videoId: "kzTfu6LwbD8" },
+  { name: "TAKE ME OUT", videoId: "QamKhi1cxIs" },
+  { name: "THREE CHARGES", videoId: "jcylen-X1no" },
+  { name: "CAVALRY CHARGE", videoId: "1aQ3nk-W0GI" },
 ];
 
 const HYPE_SONGS = [
   { name: "HEY SONG", videoId: "EBohdltpVUY" },
-  { name: "START ME UP", videoId: "IqCwFuHqb0o" },
-  { name: "LA CHONA", videoId: "eekVbkhY4kI" },
-  { name: "TROPHIES", videoId: "7JR10AThY8M" },
-  { name: "BRING EM OUT", videoId: "vkSFh6HMUtQ" },
-  { name: "Ooooooo SONG", videoId: "vn7iMXF5R_4" },
+  { name: "OOOOOOO SONG", videoId: "IqCwFuHqb0o" },
+  { name: "CLAP YOUR HANDS", videoId: "eekVbkhY4kI" },
+  { name: "START ME UP", videoId: "7JR10AThY8M" },
+  { name: "TROPHIES", videoId: "vkSFh6HMUtQ" },
+  { name: "BRING EM OUT", videoId: "vn7iMXF5R_4" },
 ];
 
 export default function StadiumBoothDashboard() {
