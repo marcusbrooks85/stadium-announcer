@@ -84,8 +84,10 @@ export default function StadiumBoothDashboard() {
     if (activePlayer) {
       const timer = setTimeout(() => {
         generateHypeScript(activePlayer);
-      }, 300); // Debounce to avoid excessive calls
+      }, 300);
       return () => clearTimeout(timer);
+    } else {
+      setAiScript("");
     }
   }, [activePlayerId, activePlayer?.stats.ab, activePlayer?.stats.h, activePlayer?.stats.r, activePlayer?.stats.rbi]);
 
@@ -124,7 +126,7 @@ export default function StadiumBoothDashboard() {
 
     try {
       const { media } = await generateAnnouncerAudio({
-        text: aiScript,
+        text: aiScript || `NOW AT BAT, NUMBER ${activePlayer.number}, ${activePlayer.name.toUpperCase()}!`,
         voice: "Algenib"
       });
 
@@ -135,32 +137,33 @@ export default function StadiumBoothDashboard() {
       audioRef.current = audio;
 
       audio.onended = () => {
-        const embedUrl = `https://www.youtube.com/embed/${activePlayer.videoId}?autoplay=1&start=${activePlayer.startAt}&mute=0`;
+        const embedUrl = `https://www.youtube.com/embed/${activePlayer.videoId}?autoplay=1&start=${activePlayer.startAt}&mute=0&rel=0&enablejsapi=1`;
         setActiveAudioUrl(embedUrl);
         setIsAnnouncing(false);
       };
 
-      audio.play().catch(e => {
-        console.error("Audio playback failed", e);
-        setIsAnnouncing(false);
-      });
-
+      await audio.play();
     } catch (error) {
-      console.error("TTS Streaming failed", error);
+      console.error("Sequence failed", error);
       setIsStreamingAudio(false);
+      setIsAnnouncing(false);
+      // Fallback: Just play the music if TTS fails
+      const embedUrl = `https://www.youtube.com/embed/${activePlayer.videoId}?autoplay=1&start=${activePlayer.startAt}&mute=0&rel=0&enablejsapi=1`;
+      setActiveAudioUrl(embedUrl);
     }
   };
 
   const playSoundboard = (videoId: string) => {
     stopEverything();
-    // Add timestamp to force iframe reload/autoplay if same video is clicked twice
-    const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0&rel=0&t=${Date.now()}`;
+    // Use timestamp to force iframe reload for repeat plays
+    const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0&rel=0&enablejsapi=1&t=${Date.now()}`;
     setActiveAudioUrl(embedUrl);
   };
 
   const stopEverything = () => {
     if (audioRef.current) {
       audioRef.current.pause();
+      audioRef.current.src = "";
       audioRef.current = null;
     }
     setActiveAudioUrl(null);
@@ -174,7 +177,7 @@ export default function StadiumBoothDashboard() {
       <header className="flex justify-center p-6 bg-card border-b border-border shadow-2xl relative z-20">
         <div className="flex items-center gap-16 md:gap-32 bg-background/50 p-6 rounded-2xl border border-white/5 shadow-inner backdrop-blur-md">
           <div className="flex flex-col items-center gap-2">
-            <span className="text-sm font-bold tracking-widest text-muted-foreground">AWAY</span>
+            <span className="text-sm font-bold tracking-widest text-muted-foreground uppercase">Away Team</span>
             <div className="flex items-center gap-4">
               <Button variant="outline" size="icon" onClick={() => setAwayScore(Math.max(0, awayScore - 1))}><Minus /></Button>
               <div className="w-24 text-center digit-font text-6xl font-black text-secondary">{awayScore.toString().padStart(2, "0")}</div>
@@ -182,7 +185,7 @@ export default function StadiumBoothDashboard() {
             </div>
           </div>
           <div className="flex flex-col items-center gap-2">
-            <span className="text-sm font-bold tracking-widest text-muted-foreground">HOME</span>
+            <span className="text-sm font-bold tracking-widest text-muted-foreground uppercase">Home Team</span>
             <div className="flex items-center gap-4">
               <Button variant="outline" size="icon" onClick={() => setHomeScore(Math.max(0, homeScore - 1))}><Minus /></Button>
               <div className="w-24 text-center digit-font text-6xl font-black text-primary">{homeScore.toString().padStart(2, "0")}</div>
@@ -196,7 +199,7 @@ export default function StadiumBoothDashboard() {
         {/* TEAM ROSTER */}
         <aside className="w-80 bg-card/50 border-r border-border backdrop-blur-sm hidden lg:flex flex-col">
           <div className="p-4 border-b border-border bg-card flex items-center justify-between">
-            <div className="flex items-center gap-2"><Users className="h-5 w-5 text-primary" /><h2 className="font-headline font-bold uppercase tracking-wider text-sm">Team Roster</h2></div>
+            <div className="flex items-center gap-2"><Users className="h-5 w-5 text-primary" /><h2 className="font-headline font-bold uppercase tracking-wider text-sm">Active Roster</h2></div>
           </div>
           <ScrollArea className="flex-1">
             <div className="p-4 space-y-3">
@@ -207,16 +210,16 @@ export default function StadiumBoothDashboard() {
                   className={cn(
                     "w-full text-left p-4 rounded-xl border transition-all",
                     activePlayerId === player.id 
-                      ? "bg-primary border-primary shadow-lg" 
+                      ? "bg-primary border-primary shadow-lg ring-2 ring-primary/20" 
                       : "bg-background/40 border-white/5 hover:bg-white/5"
                   )}
                 >
                   <div className="flex justify-between items-start">
                     <div>
-                      <h3 className="font-bold text-lg">{player.name}</h3>
+                      <h3 className="font-bold text-lg leading-none mb-1">{player.name}</h3>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs opacity-70">#{player.number}</span>
-                        <Badge variant="secondary" className="text-[10px] py-0 px-1 bg-white/10">
+                        <span className="text-xs font-bold opacity-70">#{player.number}</span>
+                        <Badge variant="secondary" className="text-[9px] py-0 px-1 bg-white/10 uppercase font-bold">
                           H: {player.stats.h} | RBI: {player.stats.rbi}
                         </Badge>
                       </div>
@@ -234,13 +237,15 @@ export default function StadiumBoothDashboard() {
             {/* ANNOUNCER CONTROLS */}
             <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Card className="bg-card/80 border-2 border-white/5">
-                <CardHeader>
-                  <CardTitle className="text-sm font-black uppercase tracking-widest text-muted-foreground">Broadcast Station</CardTitle>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                    <Mic2 className="h-4 w-4" /> Announcer Booth
+                  </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <Select value={activePlayerId || ""} onValueChange={(val) => setActivePlayerId(val)}>
-                    <SelectTrigger className="h-14 text-lg font-bold">
-                      <SelectValue placeholder="Choose a player..." />
+                    <SelectTrigger className="h-14 text-lg font-bold bg-background/50 border-white/10">
+                      <SelectValue placeholder="Select Batter..." />
                     </SelectTrigger>
                     <SelectContent>
                       {roster.map((p) => (
@@ -251,36 +256,43 @@ export default function StadiumBoothDashboard() {
                     </SelectContent>
                   </Select>
                   
-                  <div className="p-4 rounded-xl bg-background/60 border-2 border-white/5 text-xl font-bold min-h-[80px]">
+                  <div className={cn(
+                    "p-4 rounded-xl bg-background/60 border-2 border-white/5 text-xl font-bold min-h-[100px] flex items-center justify-center text-center leading-tight",
+                    !activePlayer && "text-muted-foreground text-sm italic"
+                  )}>
                     {isGeneratingScript ? (
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Loader2 className="h-5 w-5 animate-spin" />
-                        Syncing stats to script...
+                      <div className="flex flex-col items-center gap-2">
+                        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                        <span className="text-xs uppercase tracking-widest">Generating Hype Script...</span>
                       </div>
                     ) : (
-                      activePlayer ? aiScript : "Select a player to generate script..."
+                      activePlayer ? aiScript : "Select a player from the roster to prepare the announcement."
                     )}
                   </div>
 
                   <Button 
                     disabled={!activePlayer || isAnnouncing || isStreamingAudio} 
                     onClick={triggerSequence}
-                    className="w-full h-16 text-xl font-black bg-primary hover:bg-primary/90"
+                    className="w-full h-20 text-xl font-black bg-primary hover:bg-primary/90 shadow-xl shadow-primary/20 transition-transform active:scale-95 group"
                   >
                     {isStreamingAudio ? (
-                      <Loader2 className="animate-spin mr-2" />
+                      <Loader2 className="animate-spin mr-3 h-6 w-6" />
+                    ) : isAnnouncing ? (
+                      <Activity className="animate-pulse mr-3 h-6 w-6" />
                     ) : (
-                      <Mic2 className="mr-2" />
+                      <Zap className="mr-3 h-6 w-6 fill-white group-hover:animate-bounce" />
                     )}
-                    📢 START WALK-UP
+                    {isStreamingAudio ? "PREPARING AUDIO..." : isAnnouncing ? "LIVE ANNOUNCING..." : "START WALK-UP SEQUENCE"}
                   </Button>
                 </CardContent>
               </Card>
 
               {/* STAT UPDATER */}
               <Card className="bg-card/80 border-2 border-white/5">
-                <CardHeader>
-                  <CardTitle className="text-sm font-black uppercase tracking-widest text-muted-foreground">Live Stats Updater</CardTitle>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                    <Target className="h-4 w-4" /> Live Game Stats
+                  </CardTitle>
                 </CardHeader>
                 <CardContent className="grid grid-cols-2 gap-3">
                   {["ab", "h", "r", "rbi"].map((stat) => (
@@ -288,14 +300,14 @@ export default function StadiumBoothDashboard() {
                        <Button 
                         disabled={!activePlayer}
                         onClick={() => updateStat(stat as any, 1)}
-                        className="h-20 flex flex-col border-2 border-white/5 bg-background/40 hover:bg-primary/20"
+                        className="h-20 flex flex-col border-2 border-white/5 bg-background/40 hover:bg-primary/20 hover:border-primary/50 transition-all group"
                       >
-                        <Zap className="h-4 w-4 mb-1 text-primary" />
-                        <span className="text-lg font-black uppercase">ADD {stat}</span>
+                        <Plus className="h-4 w-4 mb-1 text-primary group-hover:scale-125 transition-transform" />
+                        <span className="text-lg font-black uppercase">{stat}</span>
                       </Button>
                       <div className="flex justify-between items-center px-2">
-                        <span className="text-xs font-bold text-muted-foreground uppercase">{stat} Total:</span>
-                        <span className="text-sm font-bold text-primary">{activePlayer ? (activePlayer.stats as any)[stat] : 0}</span>
+                        <span className="text-[10px] font-black text-muted-foreground uppercase">{stat} Total</span>
+                        <span className="text-sm font-black text-primary">{activePlayer ? (activePlayer.stats as any)[stat] : 0}</span>
                       </div>
                     </div>
                   ))}
@@ -304,17 +316,28 @@ export default function StadiumBoothDashboard() {
             </section>
 
             {/* SOUNDBOARD */}
-            <section className="space-y-4">
-              <div className="flex items-center gap-2">
-                <Volume2 className="h-6 w-6 text-secondary" />
-                <h2 className="text-xl font-black uppercase tracking-wider">Stadium Soundboard</h2>
+            <section className="space-y-4 pb-12">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Volume2 className="h-6 w-6 text-secondary" />
+                  <h2 className="text-xl font-black uppercase tracking-wider">Stadium Soundboard</h2>
+                </div>
+                <Button 
+                  variant="destructive" 
+                  onClick={stopEverything}
+                  className="h-10 font-black px-6 shadow-lg shadow-destructive/20 border-2 border-white/10"
+                >
+                  <VolumeX className="mr-2 h-5 w-5" /> STOP ALL SOUNDS
+                </Button>
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Organ Hits */}
                 <Card className="bg-card/80 border-white/5">
                   <CardHeader>
-                    <CardTitle className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Organ Hits</CardTitle>
+                    <CardTitle className="text-xs font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                      <Music className="h-3 w-3" /> Classic Organ Hits
+                    </CardTitle>
                   </CardHeader>
                   <CardContent className="grid grid-cols-2 gap-2">
                     {ORGAN_HITS.map((hit) => (
@@ -322,7 +345,7 @@ export default function StadiumBoothDashboard() {
                         key={hit.name}
                         variant="outline"
                         onClick={() => playSoundboard(hit.videoId)}
-                        className="h-12 border-secondary/30 text-secondary hover:bg-secondary/10"
+                        className="h-14 border-secondary/30 text-secondary hover:bg-secondary/10 font-bold uppercase text-xs"
                       >
                         🎹 {hit.name}
                       </Button>
@@ -333,7 +356,9 @@ export default function StadiumBoothDashboard() {
                 {/* Hype Songs */}
                 <Card className="bg-card/80 border-white/5">
                   <CardHeader>
-                    <CardTitle className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Crowd Hype Songs</CardTitle>
+                    <CardTitle className="text-xs font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                      <Play className="h-3 w-3" /> Crowd Hype Songs
+                    </CardTitle>
                   </CardHeader>
                   <CardContent className="grid grid-cols-2 gap-2">
                     {HYPE_SONGS.map((song) => (
@@ -341,7 +366,7 @@ export default function StadiumBoothDashboard() {
                         key={song.name}
                         variant="outline"
                         onClick={() => playSoundboard(song.videoId)}
-                        className="h-12 border-primary/30 text-primary hover:bg-primary/10"
+                        className="h-14 border-primary/30 text-primary hover:bg-primary/10 font-bold uppercase text-xs"
                       >
                         🎵 {song.name}
                       </Button>
@@ -349,14 +374,6 @@ export default function StadiumBoothDashboard() {
                   </CardContent>
                 </Card>
               </div>
-
-              <Button 
-                variant="destructive" 
-                onClick={stopEverything}
-                className="w-full h-12 font-black"
-              >
-                <VolumeX className="mr-2 h-5 w-5" /> STOP ALL SOUNDS
-              </Button>
             </section>
           </div>
         </main>
@@ -364,19 +381,19 @@ export default function StadiumBoothDashboard() {
 
       {/* HIDDEN AUDIO PLAYER */}
       {activeAudioUrl && (
-        <div className="fixed bottom-4 right-4 w-48 h-24 bg-card border-2 border-primary rounded-xl overflow-hidden shadow-2xl z-50">
-           <div className="absolute inset-0 flex items-center justify-center bg-background/80">
+        <div className="fixed bottom-6 right-6 w-48 h-24 bg-card border-2 border-primary rounded-xl overflow-hidden shadow-2xl z-50 animate-in slide-in-from-bottom-4">
+           <div className="absolute inset-0 flex items-center justify-center bg-background/90 backdrop-blur-sm">
               <div className="flex flex-col items-center gap-1">
                 <Music2 className="h-6 w-6 text-primary animate-bounce" />
-                <span className="text-[10px] font-black text-primary uppercase">Audio Active</span>
+                <span className="text-[10px] font-black text-primary uppercase tracking-widest">Stadium Audio Active</span>
               </div>
            </div>
-           {/* The key attribute forces the iframe to re-mount and re-trigger autoplay when the URL changes */}
+           {/* Key forces fresh load/autoplay on URL change */}
            <iframe 
              key={activeAudioUrl}
              src={activeAudioUrl} 
-             className="w-full h-full opacity-0 pointer-events-none" 
-             allow="autoplay; encrypted-media" 
+             className="w-1 h-1 absolute opacity-0" 
+             allow="autoplay; encrypted-media; jsapi" 
            />
         </div>
       )}
