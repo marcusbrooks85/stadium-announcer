@@ -16,7 +16,8 @@ import {
   Zap,
   VolumeX,
   Target,
-  ChevronRight
+  ChevronRight,
+  AlertCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -199,6 +200,26 @@ export default function StadiumBoothDashboard() {
     );
   };
 
+  const stopEverything = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.src = "";
+      audioRef.current = null;
+    }
+    setActiveAudioUrl(null);
+    setIsAnnouncing(false);
+    setIsStreamingAudio(false);
+  };
+
+  const playSoundboard = (videoId: string) => {
+    stopEverything();
+    // Use setTimeout to ensure React handles the unmount/remount of the iframe
+    setTimeout(() => {
+      const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0&rel=0&enablejsapi=1&origin=${typeof window !== 'undefined' ? window.location.origin : ''}&t=${Date.now()}`;
+      setActiveAudioUrl(embedUrl);
+    }, 50);
+  };
+
   const triggerSequence = async () => {
     if (!activePlayer || isAnnouncing || isStreamingAudio || !selectedSong) return;
 
@@ -219,8 +240,8 @@ export default function StadiumBoothDashboard() {
 
       audio.onended = () => {
         setIsAnnouncing(false);
-        // Direct trigger of walk-up music after announcer ends
-        const embedUrl = `https://www.youtube.com/embed/${selectedSong.videoId}?autoplay=1&start=${selectedSong.startAt}&mute=0&rel=0&enablejsapi=1&t=${Date.now()}`;
+        // Trigger walk-up music
+        const embedUrl = `https://www.youtube.com/embed/${selectedSong.videoId}?autoplay=1&start=${selectedSong.startAt}&mute=0&rel=0&enablejsapi=1&origin=${typeof window !== 'undefined' ? window.location.origin : ''}&t=${Date.now()}`;
         setActiveAudioUrl(embedUrl);
       };
 
@@ -229,28 +250,10 @@ export default function StadiumBoothDashboard() {
       console.error("Sequence failed", error);
       setIsStreamingAudio(false);
       setIsAnnouncing(false);
-      // Fallback: Just play the music if TTS fails
-      const embedUrl = `https://www.youtube.com/embed/${selectedSong.videoId}?autoplay=1&start=${selectedSong.startAt}&mute=0&rel=0&enablejsapi=1&t=${Date.now()}`;
+      // Fallback: Just play the music
+      const embedUrl = `https://www.youtube.com/embed/${selectedSong.videoId}?autoplay=1&start=${selectedSong.startAt}&mute=0&rel=0&enablejsapi=1&origin=${typeof window !== 'undefined' ? window.location.origin : ''}&t=${Date.now()}`;
       setActiveAudioUrl(embedUrl);
     }
-  };
-
-  const playSoundboard = (videoId: string) => {
-    stopEverything();
-    // Use timestamp to force iframe reload for repeat plays
-    const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0&rel=0&enablejsapi=1&t=${Date.now()}`;
-    setActiveAudioUrl(embedUrl);
-  };
-
-  const stopEverything = () => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.src = "";
-      audioRef.current = null;
-    }
-    setActiveAudioUrl(null);
-    setIsAnnouncing(false);
-    setIsStreamingAudio(false);
   };
 
   return (
@@ -357,7 +360,7 @@ export default function StadiumBoothDashboard() {
                         ))}
                       </div>
                       <div className="text-[10px] italic text-center text-white/40 truncate px-2">
-                        Selected: {selectedSong?.name}
+                        {selectedSong?.name}
                       </div>
                     </div>
                   )}
@@ -369,7 +372,7 @@ export default function StadiumBoothDashboard() {
                     {isGeneratingScript ? (
                       <div className="flex flex-col items-center gap-2">
                         <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                        <span className="text-[10px] uppercase tracking-widest">Regenerating Script...</span>
+                        <span className="text-[10px] uppercase tracking-widest">Regenerating...</span>
                       </div>
                     ) : (
                       activePlayer ? aiScript : "Select a batter to begin."
@@ -388,7 +391,7 @@ export default function StadiumBoothDashboard() {
                     ) : (
                       <Zap className="mr-3 h-5 w-5 fill-white group-hover:animate-bounce" />
                     )}
-                    {isStreamingAudio ? "LOADING..." : isAnnouncing ? "LIVE ANNOUNCING" : "START SEQUENCE"}
+                    {isStreamingAudio ? "PREPARING..." : isAnnouncing ? "LIVE ANNOUNCING" : "START WALK-UP"}
                   </Button>
                 </CardContent>
               </Card>
@@ -413,7 +416,9 @@ export default function StadiumBoothDashboard() {
                       </Button>
                       <div className="flex justify-between items-center px-2">
                         <span className="text-[9px] font-black text-muted-foreground uppercase">{stat}</span>
-                        <span className="text-[10px] font-black text-primary">{activePlayer ? (activePlayer.stats as any)[stat] : 0}</span>
+                        <span className="text-[10px] font-black text-primary">
+                          {activePlayer ? (activePlayer.stats as any)[stat] : 0}
+                        </span>
                       </div>
                     </div>
                   ))}
@@ -434,7 +439,7 @@ export default function StadiumBoothDashboard() {
                   onClick={stopEverything}
                   className="font-black px-4 h-9 border-2 border-white/10"
                 >
-                  <VolumeX className="mr-2 h-4 w-4" /> KILL ALL AUDIO
+                  <VolumeX className="mr-2 h-4 w-4" /> STOP ALL AUDIO
                 </Button>
               </div>
               
@@ -443,7 +448,7 @@ export default function StadiumBoothDashboard() {
                 <Card className="bg-card/80 border-white/5">
                   <CardHeader className="py-3">
                     <CardTitle className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
-                      <Music className="h-3 w-3" /> Classic Organ Hits
+                      <Music className="h-3 w-3" /> Stadium Organ
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="grid grid-cols-2 gap-2">
@@ -464,7 +469,7 @@ export default function StadiumBoothDashboard() {
                 <Card className="bg-card/80 border-white/5">
                   <CardHeader className="py-3">
                     <CardTitle className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
-                      <Play className="h-3 w-3" /> Crowd Hype Songs
+                      <Play className="h-3 w-3" /> Crowd Hype
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="grid grid-cols-2 gap-2">
@@ -488,19 +493,22 @@ export default function StadiumBoothDashboard() {
 
       {/* HIDDEN AUDIO PLAYER */}
       {activeAudioUrl && (
-        <div className="fixed bottom-6 right-6 w-40 h-20 bg-card border-2 border-primary rounded-xl overflow-hidden shadow-2xl z-50 animate-in slide-in-from-bottom-4">
-           <div className="absolute inset-0 flex items-center justify-center bg-background/90 backdrop-blur-sm">
+        <div className="fixed bottom-6 right-6 w-48 h-20 bg-card border-2 border-primary rounded-xl overflow-hidden shadow-2xl z-50 animate-in slide-in-from-bottom-4 flex flex-col items-center justify-center p-2">
+           <div className="absolute inset-0 flex items-center justify-center bg-background/90 backdrop-blur-sm pointer-events-none">
               <div className="flex flex-col items-center gap-1">
                 <Music2 className="h-5 w-5 text-primary animate-bounce" />
-                <span className="text-[9px] font-black text-primary uppercase tracking-widest">Stadium Music On</span>
+                <span className="text-[9px] font-black text-primary uppercase tracking-widest">Audio Playing...</span>
               </div>
            </div>
            <iframe 
              key={activeAudioUrl}
              src={activeAudioUrl} 
              className="w-1 h-1 absolute opacity-0" 
-             allow="autoplay; encrypted-media; jsapi" 
+             allow="autoplay; encrypted-media" 
            />
+           <Button variant="ghost" size="sm" className="absolute top-1 right-1 h-4 w-4 p-0" onClick={() => setActiveAudioUrl(null)}>
+             <VolumeX className="h-3 w-3" />
+           </Button>
         </div>
       )}
     </div>
