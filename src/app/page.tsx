@@ -254,10 +254,10 @@ export default function StadiumBoothDashboard() {
     };
 
     audio.onerror = (e) => {
-      console.error("Local announcer audio failed to load:", e);
+      // Intentionally suppressed console.error to avoid dev overlay for missing local files
       if (audioRef.current === audio) {
         setIsAnnouncing(false);
-        // Fallback: Skip straight to walk-up music if the intro fails
+        // Fallback: Skip straight to walk-up music if the local intro fails
         playWalkUpMusic();
       }
     };
@@ -265,7 +265,6 @@ export default function StadiumBoothDashboard() {
     try {
       await audio.play();
     } catch (e) {
-      console.error("Playback error:", e);
       if (audioRef.current === audio) {
         playWalkUpMusic();
       }
@@ -578,3 +577,4 @@ export default function StadiumBoothDashboard() {
     </div>
   );
 }
+
