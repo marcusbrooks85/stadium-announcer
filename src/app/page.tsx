@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo } from "react";
@@ -163,19 +162,18 @@ export default function StadiumBoothDashboard() {
   useEffect(() => {
     setSelectedSongIndex(0);
     if (activePlayer) {
-      generateHypeScript(activePlayer);
+      generateStandardScript(activePlayer);
     } else {
       setAiScript("");
     }
   }, [activePlayerId]);
 
-  const generateHypeScript = async (player: typeof INITIAL_ROSTER[0]) => {
+  const generateStandardScript = async (player: typeof INITIAL_ROSTER[0]) => {
     setIsGeneratingScript(true);
     try {
       const result = await runAnnouncementGenerator({
         playerName: player.name,
         playerNumber: player.number,
-        stats: player.stats
       });
       if (result) setAiScript(result);
     } catch (error) {
@@ -226,7 +224,7 @@ export default function StadiumBoothDashboard() {
 
     try {
       const { media } = await generateAnnouncerAudio({
-        text: aiScript || `NOW AT BAT, NUMBER ${activePlayer.number}, ${activePlayer.name.toUpperCase()}!`,
+        text: aiScript || `NOW BATTING, NUMBER ${activePlayer.number}, ${activePlayer.name.toUpperCase()}!`,
         voice: "Algenib"
       });
 
@@ -382,7 +380,7 @@ export default function StadiumBoothDashboard() {
                     {isGeneratingScript ? (
                       <div className="flex flex-col items-center gap-3">
                         <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                        <span className="text-[11px] font-black uppercase tracking-[0.2em] animate-pulse">Analyzing Stats...</span>
+                        <span className="text-[11px] font-black uppercase tracking-[0.2em] animate-pulse">Initializing...</span>
                       </div>
                     ) : (
                       activePlayer ? aiScript : "SELECT A PLAYER FROM THE ROSTER TO GENERATE ANNOUNCEMENT"
