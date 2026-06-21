@@ -202,7 +202,11 @@ export default function StadiumBoothDashboard() {
   const stopEverything = () => {
     if (audioRef.current) {
       audioRef.current.pause();
+      // Important: Remove listeners to prevent state updates after kill
+      audioRef.current.onended = null;
+      audioRef.current.onerror = null;
       audioRef.current.src = "";
+      audioRef.current = null;
     }
     setActiveAudioUrl(null);
     setIsAnnouncing(false);
@@ -233,8 +237,10 @@ export default function StadiumBoothDashboard() {
     audio.preload = "auto";
     audioRef.current = audio;
 
-    audio.onended = () => {
-      // 3. When intro finishes, unlock UI and play the walk-up song
+    const playWalkUpMusic = () => {
+      // Final double-check that we are still supposed to be playing for this player
+      if (audioRef.current !== audio && !isAnnouncing) return;
+
       setIsAnnouncing(false);
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
       const timestamp = Date.now();
@@ -242,24 +248,25 @@ export default function StadiumBoothDashboard() {
       setActiveAudioUrl(embedUrl);
     };
 
+    audio.onended = () => {
+      if (audioRef.current === audio) {
+        playWalkUpMusic();
+      }
+    };
+
     audio.onerror = () => {
-      setIsAnnouncing(false);
-      // Fallback: Skip straight to walk-up music if the intro fails
-      const origin = typeof window !== 'undefined' ? window.location.origin : '';
-      const timestamp = Date.now();
-      const embedUrl = `https://www.youtube.com/embed/${selectedSong.videoId}?autoplay=1&start=${selectedSong.startAt}&mute=0&rel=0&enablejsapi=1&origin=${origin}&t=${timestamp}`;
-      setActiveAudioUrl(embedUrl);
+      if (audioRef.current === audio) {
+        // Fallback: play the song directly if voice fails
+        playWalkUpMusic();
+      }
     };
 
     try {
       await audio.play();
     } catch (e) {
-      setIsAnnouncing(false);
-      // Fallback: play the song directly if voice is blocked
-      const origin = typeof window !== 'undefined' ? window.location.origin : '';
-      const timestamp = Date.now();
-      const embedUrl = `https://www.youtube.com/embed/${selectedSong.videoId}?autoplay=1&start=${selectedSong.startAt}&mute=0&rel=0&enablejsapi=1&origin=${origin}&t=${timestamp}`;
-      setActiveAudioUrl(embedUrl);
+      if (audioRef.current === audio) {
+        playWalkUpMusic();
+      }
     }
   };
 
@@ -561,7 +568,7 @@ export default function StadiumBoothDashboard() {
           variant="ghost" 
           size="icon" 
           className="absolute top-2 right-2 h-6 w-6 p-0 hover:bg-white/10 text-muted-foreground hover:text-white z-20" 
-          onClick={() => setActiveAudioUrl(null)}
+          onClick={stopEverything}
         >
           <VolumeX className="h-4 w-4" />
         </Button>
