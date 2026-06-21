@@ -100,11 +100,11 @@ const INITIAL_ROSTER = [
     id: "5", 
     name: "Camila Brooks", 
     number: 10, 
-    announcementScript: "NOW BATTING, NUMBER 10, CAMILA!",
+    announcementScript: "NOW BATTING, NUMBER 10, CAMILA BROOKS!",
     announcementAudioUrl: "/audio/Camila.mp3",
     songs: [
       { name: "Not Like Us", videoId: "Xx1SrbxH1JU", startAt: 0 },
-      { name: "Track 2", videoId: "LRt6TdSvHag", startAt: 0 },
+      { name: "California Love", videoId: "LRt6TdSvHag", startAt: 0 },
       { name: "HUMBLE. - Kendrick", videoId: "tvTRZJ-4EyI", startAt: 0 }
     ],
     stats: { ab: 0, h: 0, r: 0, rbi: 0 } 
@@ -113,7 +113,7 @@ const INITIAL_ROSTER = [
     id: "6", 
     name: "Zeke Jacobo", 
     number: 8, 
-    announcementScript: "NOW BATTING, NUMBER 8, ZEKE!",
+    announcementScript: "NOW BATTING, NUMBER 8, ZEKE JACOBO!",
     announcementAudioUrl: "/audio/Zeke.mp3",
     songs: [
       { name: "Under Control", videoId: "in8rYZQrwnw", startAt: 55 },
@@ -435,7 +435,6 @@ export default function StadiumBoothDashboard() {
                       <div className="flex items-center gap-2 mt-2 px-2 text-[10px] font-bold text-secondary">
                         <Music2 className="h-3 w-3" />
                         <span className="truncate">{selectedSong?.name}</span>
-                        <Badge className="ml-auto text-[8px] bg-blue-500/20 text-blue-400 border-blue-500/50">LOCAL SYNC</Badge>
                       </div>
                     </div>
                   )}
