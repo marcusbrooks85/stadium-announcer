@@ -22,10 +22,14 @@ const AnnouncementInputSchema = z.object({
 
 export type AnnouncementInput = z.infer<typeof AnnouncementInputSchema>;
 
+const AnnouncementOutputSchema = z.object({
+  script: z.string().describe('The energetic stadium announcement script.'),
+});
+
 const prompt = ai.definePrompt({
   name: 'announcementPrompt',
   input: { schema: AnnouncementInputSchema },
-  output: { schema: z.string() },
+  output: { schema: AnnouncementOutputSchema },
   prompt: `You are a professional stadium announcer for a Major League Baseball game. 
 Your job is to introduce the next batter with maximum hype and energy.
 
@@ -41,7 +45,7 @@ Instructions:
 4. Keep it concise enough to be read in 5-10 seconds.
 5. Do NOT include any stage directions like [Music starts] or [Cheering]. Just the spoken words.
 
-Announcement:`,
+Announcement Script:`,
 });
 
 const announcementFlow = ai.defineFlow(
@@ -52,7 +56,7 @@ const announcementFlow = ai.defineFlow(
   },
   async (input) => {
     const { output } = await prompt(input);
-    return output || `NOW AT BAT, NUMBER ${input.playerNumber}, ${input.playerName.toUpperCase()}!`;
+    return output?.script || `NOW AT BAT, NUMBER ${input.playerNumber}, ${input.playerName.toUpperCase()}!`;
   }
 );
 
