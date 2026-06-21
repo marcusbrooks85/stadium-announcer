@@ -314,27 +314,27 @@ export default function StadiumBoothDashboard() {
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Send game report to team staff</p>
+                  <p>Email game stats</p>
                 </TooltipContent>
               </Tooltip>
 
               {/* CENTERED SCORE TILES */}
               <div className="flex flex-1 justify-center items-center gap-3 md:gap-8">
-                <div className="flex flex-col items-center bg-background/50 px-2 md:px-4 py-1 rounded-xl border border-white/5 shadow-inner min-w-[65px] md:min-w-[100px]">
-                  <span className="text-[7px] md:text-[9px] font-black tracking-widest text-muted-foreground uppercase mb-0.5">Away</span>
+                <div className="flex flex-col items-center bg-secondary/10 px-2 md:px-4 py-1 rounded-xl border border-secondary/20 shadow-inner min-w-[65px] md:min-w-[100px]">
+                  <span className="text-[7px] md:text-[9px] font-black tracking-widest text-secondary/70 uppercase mb-0.5">Away</span>
                   <div className="flex items-center gap-1 md:gap-2">
-                    <Button variant="ghost" size="icon" className="h-4 w-4 md:h-6 md:w-6" onClick={() => setAwayScore(Math.max(0, awayScore - 1))}><Minus className="h-2 w-2 md:h-3 md:w-3" /></Button>
+                    <Button variant="ghost" size="icon" className="h-4 w-4 md:h-6 md:w-6 hover:bg-secondary/20" onClick={() => setAwayScore(Math.max(0, awayScore - 1))}><Minus className="h-2 w-2 md:h-3 md:w-3" /></Button>
                     <div className="w-5 md:w-8 text-center digit-font text-base md:text-2xl font-black text-secondary">{awayScore}</div>
-                    <Button variant="ghost" size="icon" className="h-4 w-4 md:h-6 md:w-6" onClick={() => setAwayScore(awayScore + 1)}><Plus className="h-2 w-2 md:h-3 md:w-3" /></Button>
+                    <Button variant="ghost" size="icon" className="h-4 w-4 md:h-6 md:w-6 hover:bg-secondary/20" onClick={() => setAwayScore(awayScore + 1)}><Plus className="h-2 w-2 md:h-3 md:w-3" /></Button>
                   </div>
                 </div>
 
-                <div className="flex flex-col items-center bg-background/50 px-2 md:px-4 py-1 rounded-xl border border-white/5 shadow-inner min-w-[65px] md:min-w-[100px]">
-                  <span className="text-[7px] md:text-[9px] font-black tracking-widest text-muted-foreground uppercase mb-0.5">Home</span>
+                <div className="flex flex-col items-center bg-primary/10 px-2 md:px-4 py-1 rounded-xl border border-primary/20 shadow-inner min-w-[65px] md:min-w-[100px]">
+                  <span className="text-[7px] md:text-[9px] font-black tracking-widest text-primary/70 uppercase mb-0.5">Home</span>
                   <div className="flex items-center gap-1 md:gap-2">
-                    <Button variant="ghost" size="icon" className="h-4 w-4 md:h-6 md:w-6" onClick={() => setHomeScore(Math.max(0, homeScore - 1))}><Minus className="h-2 w-2 md:h-3 md:w-3" /></Button>
+                    <Button variant="ghost" size="icon" className="h-4 w-4 md:h-6 md:w-6 hover:bg-primary/20" onClick={() => setHomeScore(Math.max(0, homeScore - 1))}><Minus className="h-2 w-2 md:h-3 md:w-3" /></Button>
                     <div className="w-5 md:w-8 text-center digit-font text-base md:text-2xl font-black text-primary">{homeScore}</div>
-                    <Button variant="ghost" size="icon" className="h-4 w-4 md:h-6 md:w-6" onClick={() => setHomeScore(homeScore + 1)}><Plus className="h-2 w-2 md:h-3 md:w-3" /></Button>
+                    <Button variant="ghost" size="icon" className="h-4 w-4 md:h-6 md:w-6 hover:bg-primary/20" onClick={() => setHomeScore(homeScore + 1)}><Plus className="h-2 w-2 md:h-3 md:w-3" /></Button>
                   </div>
                 </div>
               </div>
@@ -422,7 +422,7 @@ export default function StadiumBoothDashboard() {
                   <CardHeader className="pb-3 md:pb-4 border-b border-white/5 bg-white/5">
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-[10px] md:text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                        <Mic2 className="h-3 w-3 md:h-4 md:w-4" /> Player At Bat
+                        <Mic2 className="h-3 w-3 md:h-4 md:w-4" /> Player At Bat Walk On
                       </CardTitle>
                       {activePlayer && <Badge variant="secondary" className="font-black text-[8px] md:text-[9px]">{activePlayer.name.toUpperCase()}</Badge>}
                     </div>
