@@ -117,7 +117,7 @@ const INITIAL_ROSTER = [
     number: 10, 
     announcementAudioUrl: "/audio/Camila.mp3",
     songs: [
-      { name: "Not Like Us", videoId: "Xx1SrbxH1JU", startAt: 0 },
+      { name: "California Love", videoId: "LRt6TdSvHag", startAt: 0 },
       { name: "California Love", videoId: "LRt6TdSvHag", startAt: 0 },
       { name: "HUMBLE. - Kendrick", videoId: "tvTRZJ-4EyI", startAt: 0 }
     ],
@@ -175,6 +175,7 @@ export default function StadiumBoothDashboard() {
   const [selectedSongIndex, setSelectedSongIndex] = useState(0);
   const [isAnnouncing, setIsAnnouncing] = useState(false);
   const [activeAudioUrl, setActiveAudioUrl] = useState<string | null>(null);
+  const [activeTrackName, setActiveTrackName] = useState<string | null>(null);
   const [volume, setVolume] = useState(0.8);
   const [isWakeLocked, setIsWakeLocked] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -230,6 +231,7 @@ export default function StadiumBoothDashboard() {
 
   // Update Media Session and background silent loop
   const startBackgroundPersistence = (title: string, artist: string = "Stadium Announcer") => {
+    setActiveTrackName(title);
     if ('mediaSession' in navigator) {
       navigator.mediaSession.metadata = new MediaMetadata({
         title, artist, album: "Stadium Booth Live",
@@ -295,27 +297,28 @@ export default function StadiumBoothDashboard() {
       navigator.mediaSession.playbackState = 'none';
     }
     setActiveAudioUrl(null);
+    setActiveTrackName(null);
     setIsAnnouncing(false);
   };
 
   const handleFadeOut = () => {
     if (fadeIntervalRef.current) return;
     
-    const steps = 20;
-    const duration = 2000;
-    const stepInterval = duration / steps;
-    const volumeReduction = volume / steps;
+    const duration = 2500; // 2.5 seconds
+    const interval = 50;   // 50ms for smooth motion
+    const steps = duration / interval;
+    const volumeStep = volume / steps;
 
     fadeIntervalRef.current = setInterval(() => {
       setVolume((prev) => {
-        const next = prev - volumeReduction;
+        const next = prev - volumeStep;
         if (next <= 0.01) {
           stopEverything();
           return 0;
         }
         return next;
       });
-    }, stepInterval);
+    }, interval);
   };
 
   const playSoundboard = (videoId: string, songName?: string) => {
@@ -386,13 +389,15 @@ export default function StadiumBoothDashboard() {
       videoId = searchQuery.split("v=")[1].split("&")[0];
     } else if (searchQuery.includes("youtu.be/")) {
       videoId = searchQuery.split("youtu.be/")[1].split("?")[0];
+    } else if (searchQuery.length < 15 && !searchQuery.includes(" ")) {
+      videoId = searchQuery; // Likely a direct ID
     } else {
       // If it's just text, open a search tab for the user as a helper
       window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(searchQuery)}`, '_blank');
       return;
     }
 
-    playSoundboard(videoId, "Custom Track");
+    playSoundboard(videoId, "Custom Search Track");
   };
 
   const emailStats = () => {
@@ -459,7 +464,7 @@ export default function StadiumBoothDashboard() {
                       <ArrowDownWideNarrow className="mr-2 h-4 w-4" /> FADE OUT
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent><p>Smoothly fade out all audio over 2 seconds</p></TooltipContent>
+                  <TooltipContent><p>Smoothly fade out all audio over 2.5 seconds</p></TooltipContent>
                 </Tooltip>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -662,7 +667,7 @@ export default function StadiumBoothDashboard() {
                   <CardContent className="pt-4 md:pt-5 space-y-4">
                     <form onSubmit={handleSearch} className="flex gap-2">
                       <Input 
-                        placeholder="Search or paste URL..." 
+                        placeholder="Paste URL or Search..." 
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="h-10 text-xs bg-background/50 border-white/10"
@@ -671,8 +676,8 @@ export default function StadiumBoothDashboard() {
                         <Play className="h-4 w-4" />
                       </Button>
                     </form>
-                    <div className="text-[8px] md:text-[9px] text-muted-foreground font-bold px-1">
-                      ENTER YOUTUBE URL TO PLAY DIRECTLY OR SEARCH TERM TO BROWSE
+                    <div className="text-[8px] md:text-[9px] text-muted-foreground font-bold px-1 uppercase tracking-wider">
+                      Enter URL/ID to play in booth or term to search
                     </div>
                   </CardContent>
                 </Card>
@@ -699,7 +704,7 @@ export default function StadiumBoothDashboard() {
               </section>
 
               {/* TEAM PLAYER TRACKER TABLE */}
-              <section className="space-y-3 md:space-y-4 pt-6 md:pt-10 border-t border-white/10 pb-20">
+              <section className="space-y-3 md:space-y-4 pt-6 md:pt-10 border-t border-white/10 pb-24">
                 <div className="flex items-center gap-3">
                   <TableIcon className="h-4 w-4 md:h-5 md:w-5 text-secondary" />
                   <h2 className="text-sm md:text-base font-black uppercase tracking-widest text-secondary">Team Performance Tracker</h2>
@@ -735,19 +740,25 @@ export default function StadiumBoothDashboard() {
           </main>
         </div>
 
-        {/* HIDDEN YOUTUBE PLAYER */}
+        {/* COMPACT MINI-PLAYER (Visible when active) */}
         <div className={cn(
-          "fixed bottom-4 right-4 w-48 h-12 bg-card border border-primary rounded-xl overflow-hidden shadow-2xl z-[100] transition-all duration-500",
-          activeAudioUrl ? "translate-y-0 opacity-100" : "translate-y-32 opacity-0"
+          "fixed bottom-4 right-4 w-64 md:w-80 h-16 md:h-20 bg-card border border-primary/40 rounded-2xl overflow-hidden shadow-[0_12px_40px_rgba(0,0,0,0.5)] z-[100] transition-all duration-700 ease-in-out transform",
+          activeAudioUrl ? "translate-y-0 opacity-100 scale-100" : "translate-y-32 opacity-0 scale-95"
         )}>
-          <div className="absolute inset-0 flex items-center justify-center bg-background/95 backdrop-blur-md pointer-events-none z-10">
-            <div className="flex flex-col items-center gap-1">
-              <div className="flex gap-1 items-end h-3">
-                 <div className="w-0.5 bg-primary animate-[bounce_0.6s_infinite] h-2" />
-                 <div className="w-0.5 bg-primary animate-[bounce_0.8s_infinite] h-3" />
-                 <div className="w-0.5 bg-primary animate-[bounce_0.5s_infinite] h-1" />
+          <div className="absolute inset-0 flex items-center px-4 bg-background/95 backdrop-blur-xl border-t border-white/5">
+            <div className="flex items-center gap-4 w-full">
+              <div className="flex-none flex gap-1 items-end h-4 w-6">
+                 <div className="w-1 bg-primary animate-[bounce_0.6s_infinite] h-2 rounded-full" />
+                 <div className="w-1 bg-primary animate-[bounce_0.8s_infinite] h-4 rounded-full" />
+                 <div className="w-1 bg-primary animate-[bounce_0.5s_infinite] h-3 rounded-full" />
               </div>
-              <span className="text-[7px] font-black text-primary uppercase tracking-widest">Live Audio</span>
+              <div className="flex-1 overflow-hidden">
+                <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em] mb-0.5 animate-pulse">Live Stadium Audio</p>
+                <p className="text-[9px] font-bold text-white/70 truncate uppercase">{activeTrackName || "Monitoring Broadcast..."}</p>
+              </div>
+              <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-destructive/20 hover:text-destructive" onClick={stopEverything}>
+                <VolumeX className="h-4 w-4" />
+              </Button>
             </div>
           </div>
           {activeAudioUrl && (
