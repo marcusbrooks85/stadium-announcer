@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo } from "react";
@@ -299,9 +300,9 @@ export default function StadiumBoothDashboard() {
       <div className="flex flex-col h-screen bg-background text-foreground stadium-gradient overflow-hidden">
         {/* FROZEN COMMAND HEADER */}
         <header className="sticky top-0 z-50 flex flex-col gap-2 p-3 md:p-4 border-b border-border shadow-2xl bg-card/95 backdrop-blur-md">
+          {/* TOP ROW: EMAIL & SCORES & DESKTOP STOP */}
           <div className="flex items-center justify-between gap-2 max-w-7xl mx-auto w-full">
-            <div className="flex items-center gap-2 md:gap-8 flex-1">
-              {/* EMAIL BUTTON WITH TOOLTIP */}
+            <div className="flex-none">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button 
@@ -317,48 +318,50 @@ export default function StadiumBoothDashboard() {
                   <p>Email game stats</p>
                 </TooltipContent>
               </Tooltip>
+            </div>
 
-              {/* CENTERED SCORE TILES */}
-              <div className="flex flex-1 justify-center items-center gap-3 md:gap-8">
-                <div className="flex flex-col items-center bg-secondary/10 px-2 md:px-4 py-1 rounded-xl border border-secondary/20 shadow-inner min-w-[65px] md:min-w-[100px]">
-                  <span className="text-[7px] md:text-[9px] font-black tracking-widest text-secondary/70 uppercase mb-0.5">Away</span>
-                  <div className="flex items-center gap-1 md:gap-2">
-                    <Button variant="ghost" size="icon" className="h-4 w-4 md:h-6 md:w-6 hover:bg-secondary/20" onClick={() => setAwayScore(Math.max(0, awayScore - 1))}><Minus className="h-2 w-2 md:h-3 md:w-3" /></Button>
-                    <div className="w-5 md:w-8 text-center digit-font text-base md:text-2xl font-black text-secondary">{awayScore}</div>
-                    <Button variant="ghost" size="icon" className="h-4 w-4 md:h-6 md:w-6 hover:bg-secondary/20" onClick={() => setAwayScore(awayScore + 1)}><Plus className="h-2 w-2 md:h-3 md:w-3" /></Button>
-                  </div>
+            {/* CENTERED SCORE TILES */}
+            <div className="flex-1 flex justify-center items-center gap-3 md:gap-8">
+              <div className="flex flex-col items-center bg-secondary/10 px-2 md:px-4 py-1 rounded-xl border border-secondary/20 shadow-inner min-w-[65px] md:min-w-[100px]">
+                <span className="text-[7px] md:text-[9px] font-black tracking-widest text-secondary/70 uppercase mb-0.5">Away</span>
+                <div className="flex items-center gap-1 md:gap-2">
+                  <Button variant="ghost" size="icon" className="h-4 w-4 md:h-6 md:w-6 hover:bg-secondary/20" onClick={() => setAwayScore(Math.max(0, awayScore - 1))}><Minus className="h-2 w-2 md:h-3 md:w-3" /></Button>
+                  <div className="w-5 md:w-8 text-center digit-font text-base md:text-2xl font-black text-secondary">{awayScore}</div>
+                  <Button variant="ghost" size="icon" className="h-4 w-4 md:h-6 md:w-6 hover:bg-secondary/20" onClick={() => setAwayScore(awayScore + 1)}><Plus className="h-2 w-2 md:h-3 md:w-3" /></Button>
                 </div>
+              </div>
 
-                <div className="flex flex-col items-center bg-primary/10 px-2 md:px-4 py-1 rounded-xl border border-primary/20 shadow-inner min-w-[65px] md:min-w-[100px]">
-                  <span className="text-[7px] md:text-[9px] font-black tracking-widest text-primary/70 uppercase mb-0.5">Home</span>
-                  <div className="flex items-center gap-1 md:gap-2">
-                    <Button variant="ghost" size="icon" className="h-4 w-4 md:h-6 md:w-6 hover:bg-primary/20" onClick={() => setHomeScore(Math.max(0, homeScore - 1))}><Minus className="h-2 w-2 md:h-3 md:w-3" /></Button>
-                    <div className="w-5 md:w-8 text-center digit-font text-base md:text-2xl font-black text-primary">{homeScore}</div>
-                    <Button variant="ghost" size="icon" className="h-4 w-4 md:h-6 md:w-6 hover:bg-primary/20" onClick={() => setHomeScore(homeScore + 1)}><Plus className="h-2 w-2 md:h-3 md:w-3" /></Button>
-                  </div>
+              <div className="flex flex-col items-center bg-primary/10 px-2 md:px-4 py-1 rounded-xl border border-primary/20 shadow-inner min-w-[65px] md:min-w-[100px]">
+                <span className="text-[7px] md:text-[9px] font-black tracking-widest text-primary/70 uppercase mb-0.5">Home</span>
+                <div className="flex items-center gap-1 md:gap-2">
+                  <Button variant="ghost" size="icon" className="h-4 w-4 md:h-6 md:w-6 hover:bg-primary/20" onClick={() => setHomeScore(Math.max(0, homeScore - 1))}><Minus className="h-2 w-2 md:h-3 md:w-3" /></Button>
+                  <div className="w-5 md:w-8 text-center digit-font text-base md:text-2xl font-black text-primary">{homeScore}</div>
+                  <Button variant="ghost" size="icon" className="h-4 w-4 md:h-6 md:w-6 hover:bg-primary/20" onClick={() => setHomeScore(homeScore + 1)}><Plus className="h-2 w-2 md:h-3 md:w-3" /></Button>
                 </div>
               </div>
             </div>
 
-            {/* STOP BUTTON WITH TOOLTIP */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  variant="destructive" 
-                  size="sm"
-                  onClick={stopEverything}
-                  className="font-black px-2 md:px-6 h-8 md:h-10 border-2 border-white/10 text-[9px] md:text-xs shadow-lg"
-                >
-                  <VolumeX className="sm:mr-2 h-4 w-4 md:h-5 md:w-5" /> <span className="hidden sm:inline">STOP ALL AUDIO</span><span className="sm:hidden">STOP</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Immediately silence all audio outputs</p>
-              </TooltipContent>
-            </Tooltip>
+            {/* DESKTOP STOP BUTTON */}
+            <div className="hidden md:block">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant="destructive" 
+                    size="sm"
+                    onClick={stopEverything}
+                    className="font-black px-4 h-10 border-2 border-white/10 text-[10px] uppercase shadow-lg"
+                  >
+                    <VolumeX className="mr-2 h-4 w-4" /> STOP AUDIO
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Immediately silence all audio outputs</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
           </div>
 
-          {/* MASTER VOLUME */}
+          {/* BOTTOM ROW: VOLUME & MOBILE STOP */}
           <div className="max-w-7xl mx-auto w-full flex items-center gap-3 md:gap-6 bg-primary/5 p-2 rounded-lg border border-primary/10">
             <div className="flex items-center gap-2">
               {volume === 0 ? <VolumeX className="h-4 w-4 text-muted-foreground" /> : volume < 0.5 ? <Volume1 className="h-4 w-4 text-primary" /> : <Volume2 className="h-4 w-4 text-primary" />}
@@ -371,6 +374,26 @@ export default function StadiumBoothDashboard() {
               step={1}
               className="flex-1"
             />
+            
+            {/* MOBILE STOP BUTTON (INLINED) */}
+            <div className="md:hidden">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant="destructive" 
+                    size="icon"
+                    onClick={stopEverything}
+                    className="h-9 w-9 border border-white/10 shadow-lg"
+                  >
+                    <VolumeX className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Silence all audio</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+
             <Badge variant="outline" className="font-mono text-[10px] md:text-xs border-primary/30 text-primary w-10 text-center">
               {Math.round(volume * 100)}%
             </Badge>
