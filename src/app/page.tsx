@@ -118,20 +118,20 @@ const INITIAL_ROSTER = [
 ];
 
 const ORGAN_HITS = [
-  { name: "CHARGE!", videoId: "h9_2uB83U8Q" },
-  { name: "Take Me Out", videoId: "q4-gsdLSSQ0" },
-  { name: "JAWS", videoId: "A9QTSyLwd4w" },
-  { name: "Let's Go Team", videoId: "7_8A2zC6DqY" },
-  { name: "Bullfighter", videoId: "p_hZf1OQ1e8" },
+  { name: "CHARGE!", videoId: "melJslO0IJY" },
+  { name: "Take Me Out", videoId: "kzTfu6LwbD8" },
+  { name: "JAWS", videoId: "QamKhi1cxIs" },
+  { name: "Let's Go Team", videoId: "jcylen-X1no" },
+  { name: "Bullfighter", videoId: "1aQ3nk-W0GI" },
 ];
 
 const HYPE_SONGS = [
-  { name: "The Hey Song", videoId: "7xd44PW78ZE" },
-  { name: "The Ooooo Song", videoId: "z5LW07FTJbI" },
-  { name: "Start Me Up", videoId: "SGyO74uJDkQ" },
-  { name: "La Chona", videoId: "M97XvYn-2vE" },
-  { name: "Trophies", videoId: "p7_fD3l_o_U" },
-  { name: "Bring Em Out", videoId: "vuyEGVZBy3Y" },
+  { name: "The Hey Song", videoId: "EBohdltpVUY" },
+  { name: "Start Me Up", videoId: "IqCwFuHqb0o" },
+  { name: "La Chona", videoId: "eekVbkhY4kI" },
+  { name: "Trophies", videoId: "7JR10AThY8M" },
+  { name: "Bring Em Out", videoId: "vkSFh6HMUtQ" },
+  { name: "The Ooooo Song", videoId: "vn7iMXF5R_4" },
 ];
 
 export default function StadiumBoothDashboard() {
@@ -258,7 +258,8 @@ export default function StadiumBoothDashboard() {
       setIsAnnouncing(false);
       // Fallback: Just play the music if AI announcer fails
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
-      const embedUrl = `https://www.youtube.com/embed/${selectedSong.videoId}?autoplay=1&start=${selectedSong.startAt}&mute=0&rel=0&enablejsapi=1&origin=${origin}`;
+      const timestamp = Date.now();
+      const embedUrl = `https://www.youtube.com/embed/${selectedSong.videoId}?autoplay=1&start=${selectedSong.startAt}&mute=0&rel=0&enablejsapi=1&origin=${origin}&t=${timestamp}`;
       setActiveAudioUrl(embedUrl);
     }
   };
