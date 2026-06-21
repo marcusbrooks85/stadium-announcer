@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo } from "react";
@@ -38,8 +39,8 @@ import { cn } from "@/lib/utils";
 import { generateAnnouncerAudio } from "@/ai/flows/announcer-tts-flow";
 
 /**
- * Roster Data with hard-coded scripts to eliminate AI text generation calls.
- * Track 1 updated with specific provided titles, YouTube IDs, and start times.
+ * Roster Data with hard-coded scripts and static audio references.
+ * The 'announcementAudioUrl' points to local assets in the public folder.
  */
 const INITIAL_ROSTER = [
   { 
@@ -47,6 +48,7 @@ const INITIAL_ROSTER = [
     name: "Max Camargo", 
     number: 6, 
     announcementScript: "NOW BATTING, NUMBER 6, MAX CAMARGO!",
+    announcementAudioUrl: "/audio/announcements/player_6.wav",
     songs: [
       { name: "Miss You (Bonus Track)", videoId: "2S5Ku0mVkzI", startAt: 0 },
       { name: "Thunder - Imagine Dragons", videoId: "fKopy74weus", startAt: 0 },
@@ -59,6 +61,7 @@ const INITIAL_ROSTER = [
     name: "Diomedes Plata", 
     number: 4, 
     announcementScript: "NOW BATTING, NUMBER 4, DIOMEDES PLATA!",
+    announcementAudioUrl: "/audio/announcements/player_4.wav",
     songs: [
       { name: "WE LA (EAST LA Remix)", videoId: "l-eMsVOTCY4", startAt: 80 },
       { name: "Level Up - Ciara", videoId: "Dh-ULbQmmF8", startAt: 0 },
@@ -71,6 +74,7 @@ const INITIAL_ROSTER = [
     name: "Jimena Briones", 
     number: 12, 
     announcementScript: "NOW BATTING, NUMBER 12, JIMENA BRIONES!",
+    announcementAudioUrl: "/audio/announcements/player_12.wav",
     songs: [
       { name: "Watermelon Sugar", videoId: "KPM_BYl-EaQ", startAt: 0 },
       { name: "Flowers - Miley Cyrus", videoId: "G7KNmW9a75Y", startAt: 0 },
@@ -83,6 +87,7 @@ const INITIAL_ROSTER = [
     name: "Alexa Franco", 
     number: 7, 
     announcementScript: "NOW BATTING, NUMBER 7, ALEXA FRANCO!",
+    announcementAudioUrl: "/audio/announcements/player_7.wav",
     songs: [
       { name: "BATTER UP", videoId: "olDWm2veCrM", startAt: 58 },
       { name: "Shake It Off - T-Swift", videoId: "nfWlot6h_JM", startAt: 0 },
@@ -95,6 +100,7 @@ const INITIAL_ROSTER = [
     name: "Camila Brooks", 
     number: 10, 
     announcementScript: "NOW BATTING, NUMBER 10, CAMILA BROOKS!",
+    announcementAudioUrl: "/audio/announcements/player_10.wav",
     songs: [
       { name: "Not Like Us", videoId: "Xx1SrbxH1JU", startAt: 0 },
       { name: "California Love", videoId: "mwgZalAFNhM", startAt: 0 },
@@ -107,6 +113,7 @@ const INITIAL_ROSTER = [
     name: "Ezekiel Jacobo", 
     number: 8, 
     announcementScript: "NOW BATTING, NUMBER 8, EZEKIEL JACOBO!",
+    announcementAudioUrl: "/audio/announcements/player_8.wav",
     songs: [
       { name: "Under Control", videoId: "in8rYZQrwnw", startAt: 55 },
       { name: "Titanium - David Guetta", videoId: "JRfuAukYTKg", startAt: 0 },
@@ -119,6 +126,7 @@ const INITIAL_ROSTER = [
     name: "Aldrich Munoz", 
     number: 11, 
     announcementScript: "NOW BATTING, NUMBER 11, ALDRICH MUNOZ!",
+    announcementAudioUrl: "/audio/announcements/player_11.wav",
     songs: [
       { name: "MONTAGEM SUPERSONIC", videoId: "iI6Ypo8D-Pg", startAt: 0 },
       { name: "Sicko Mode - Travis Scott", videoId: "d-JBBNg8YKs", startAt: 0 },
@@ -155,10 +163,7 @@ export default function StadiumBoothDashboard() {
   const [isAnnouncing, setIsAnnouncing] = useState(false);
   const [isStreamingAudio, setIsStreamingAudio] = useState(false);
   const [activeAudioUrl, setActiveAudioUrl] = useState<string | null>(null);
-  const [volume, setVolume] = useState(0.8); // 0 to 1
-  
-  // Audio caching state to eliminate repeat requests
-  const [audioCache, setAudioCache] = useState<Record<string, string>>({});
+  const [volume, setVolume] = useState(0.8);
   
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -172,30 +177,10 @@ export default function StadiumBoothDashboard() {
     return activePlayer.songs[selectedSongIndex] || activePlayer.songs[0];
   }, [activePlayer, selectedSongIndex]);
 
-  // Load persistent audio cache on mount
-  useEffect(() => {
-    const savedCache = localStorage.getItem('stadium_audio_cache');
-    if (savedCache) {
-      try {
-        setAudioCache(JSON.parse(savedCache));
-      } catch (e) {
-        console.error("Failed to load audio cache", e);
-      }
-    }
-  }, []);
-
-  // Sync volume with existing audio and iframe
+  // Sync volume with existing audio
   useEffect(() => {
     if (audioRef.current) {
       audioRef.current.volume = volume;
-    }
-    // Attempt to update YouTube volume via postMessage if iframe exists
-    const iframe = document.querySelector('iframe[src*="youtube.com"]');
-    if (iframe && (iframe as HTMLIFrameElement).contentWindow) {
-      (iframe as HTMLIFrameElement).contentWindow?.postMessage(
-        JSON.stringify({ event: "command", func: "setVolume", args: [volume * 100] }),
-        "*"
-      );
     }
   }, [volume]);
 
@@ -219,7 +204,6 @@ export default function StadiumBoothDashboard() {
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.src = "";
-      audioRef.current = null;
     }
     setActiveAudioUrl(null);
     setIsAnnouncing(false);
@@ -228,7 +212,6 @@ export default function StadiumBoothDashboard() {
 
   const playSoundboard = (videoId: string) => {
     stopEverything();
-    // Use timeout to ensure the state transition is handled by React before remounting the iframe
     setTimeout(() => {
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
       const timestamp = Date.now();
@@ -242,42 +225,15 @@ export default function StadiumBoothDashboard() {
 
     stopEverything();
     
-    // Check if audio is already cached for this player
-    let announcementMedia = audioCache[activePlayer.id];
+    // PRIORITY 1: Check for hard-coded static audio file
+    let audioToPlay = activePlayer.announcementAudioUrl;
+    let isRemote = false;
 
-    if (!announcementMedia) {
-      setIsStreamingAudio(true);
-      try {
-        // Use the archived script directly from the roster data
-        const announcementText = activePlayer.announcementScript;
-
-        const { media } = await generateAnnouncerAudio({
-          text: announcementText,
-          voice: "Algenib"
-        });
-
-        announcementMedia = media;
-        
-        // Save to cache
-        const newCache = { ...audioCache, [activePlayer.id]: media };
-        setAudioCache(newCache);
-        localStorage.setItem('stadium_audio_cache', JSON.stringify(newCache));
-        
-        setIsStreamingAudio(false);
-      } catch (error) {
-        console.error("Sequence generation failed", error);
-        setIsStreamingAudio(false);
-        // Fallback to song only if generation fails
-        const origin = typeof window !== 'undefined' ? window.location.origin : '';
-        const timestamp = Date.now();
-        const embedUrl = `https://www.youtube.com/embed/${selectedSong.videoId}?autoplay=1&start=${selectedSong.startAt}&mute=0&rel=0&enablejsapi=1&origin=${origin}&t=${timestamp}`;
-        setActiveAudioUrl(embedUrl);
-        return;
-      }
-    }
-
+    // Check if the file actually exists by doing a head request (optional but safer)
+    // For this prototype, we'll try to play it and fallback only if it fails
+    
     setIsAnnouncing(true);
-    const audio = new Audio(announcementMedia);
+    const audio = new Audio(audioToPlay);
     audio.volume = volume;
     audioRef.current = audio;
 
@@ -289,7 +245,37 @@ export default function StadiumBoothDashboard() {
       setActiveAudioUrl(embedUrl);
     };
 
-    await audio.play();
+    audio.onerror = async () => {
+      // PRIORITY 2: Fallback to dynamic generation if hard-coded file is missing
+      console.warn("Static audio missing, falling back to generation...");
+      setIsAnnouncing(false);
+      setIsStreamingAudio(true);
+      try {
+        const { media } = await generateAnnouncerAudio({
+          text: activePlayer.announcementScript,
+          voice: "Algenib"
+        });
+        setIsStreamingAudio(false);
+        setIsAnnouncing(true);
+        const fallbackAudio = new Audio(media);
+        fallbackAudio.volume = volume;
+        audioRef.current = fallbackAudio;
+        fallbackAudio.onended = audio.onended;
+        await fallbackAudio.play();
+      } catch (err) {
+        console.error("Sequence failed entirely", err);
+        setIsStreamingAudio(false);
+        // Direct to song if all audio fails
+        audio.onended();
+      }
+    };
+
+    try {
+      await audio.play();
+    } catch (e) {
+      // Trigger fallback on catch (e.g. 404)
+      audio.onerror(null as any);
+    }
   };
 
   return (
@@ -345,7 +331,6 @@ export default function StadiumBoothDashboard() {
                     </div>
                     {activePlayerId === player.id && <ChevronRight className="h-5 w-5 animate-pulse" />}
                   </div>
-                  {activePlayerId === player.id && <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent pointer-events-none" />}
                 </button>
               ))}
             </div>
@@ -440,10 +425,10 @@ export default function StadiumBoothDashboard() {
                           </Button>
                         ))}
                       </div>
-                      <div className="flex items-center gap-2 mt-2 px-2 text-[10px] font-bold text-secondary animate-in fade-in slide-in-from-left-2">
+                      <div className="flex items-center gap-2 mt-2 px-2 text-[10px] font-bold text-secondary">
                         <Music2 className="h-3 w-3" />
                         <span className="truncate">{selectedSong?.name}</span>
-                        {audioCache[activePlayer.id] && <Badge className="ml-auto text-[8px] bg-green-500/20 text-green-400 border-green-500/50">CACHED</Badge>}
+                        <Badge className="ml-auto text-[8px] bg-blue-500/20 text-blue-400 border-blue-500/50">HARD-CODED</Badge>
                       </div>
                     </div>
                   )}
@@ -452,7 +437,7 @@ export default function StadiumBoothDashboard() {
                     "p-6 rounded-xl bg-black/40 border-2 border-white/5 text-xl font-headline font-bold min-h-[120px] flex items-center justify-center text-center leading-snug tracking-tight",
                     !activePlayer && "text-muted-foreground text-sm italic"
                   )}>
-                    {activePlayer ? activePlayer.announcementScript : "SELECT A PLAYER FROM THE ROSTER TO LOAD ARCHIVED ANNOUNCEMENT"}
+                    {activePlayer ? activePlayer.announcementScript : "SELECT A PLAYER TO LOAD STATIC ASSETS"}
                   </div>
 
                   <Button 
@@ -494,9 +479,6 @@ export default function StadiumBoothDashboard() {
                       >
                         <Plus className="h-4 w-4 mb-2 text-primary group-hover:scale-150 transition-transform relative z-10" />
                         <span className="text-xs font-black uppercase tracking-widest relative z-10">{stat.label}</span>
-                        <div className="absolute bottom-0 right-0 p-1 opacity-5">
-                           <Hash className="h-12 w-12" />
-                        </div>
                       </Button>
                       <div className="flex justify-between items-center bg-black/20 px-4 py-2 rounded-lg border border-white/5">
                         <span className="text-[10px] font-black text-muted-foreground uppercase">{stat.key}</span>
@@ -528,7 +510,7 @@ export default function StadiumBoothDashboard() {
                   <CardContent className="grid grid-cols-2 gap-3 pt-5">
                     {ORGAN_HITS.map((hit) => (
                       <Button 
-                        key={hit.videoId}
+                        key={hit.name}
                         variant="outline"
                         onClick={() => playSoundboard(hit.videoId)}
                         className="h-14 border-secondary/20 text-secondary hover:bg-secondary/20 hover:border-secondary transition-all font-black uppercase text-xs"
@@ -549,7 +531,7 @@ export default function StadiumBoothDashboard() {
                   <CardContent className="grid grid-cols-2 gap-3 pt-5">
                     {HYPE_SONGS.map((song) => (
                       <Button 
-                        key={song.videoId}
+                        key={song.name}
                         variant="outline"
                         onClick={() => playSoundboard(song.videoId)}
                         className="h-14 border-primary/20 text-primary hover:bg-primary/20 hover:border-primary transition-all font-black uppercase text-xs"
@@ -582,15 +564,14 @@ export default function StadiumBoothDashboard() {
           </div>
         </div>
         
-        {/* Conditional rendering fixes the Next.js hydration error with empty src attribute */}
-        {activeAudioUrl ? (
+        {activeAudioUrl && (
           <iframe 
             key={activeAudioUrl}
             src={activeAudioUrl} 
             className="w-1 h-1 absolute opacity-0 pointer-events-none" 
             allow="autoplay; encrypted-media" 
           />
-        ) : null}
+        )}
         
         <Button 
           variant="ghost" 
