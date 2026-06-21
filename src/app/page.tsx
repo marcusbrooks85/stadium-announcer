@@ -40,6 +40,7 @@ import { cn } from "@/lib/utils";
 /**
  * Hard-coded Roster Data.
  * announcementAudioUrl points to direct download links for Google Drive audio files.
+ * Format: https://docs.google.com/uc?export=download&id=FILE_ID
  */
 const INITIAL_ROSTER = [
   { 
@@ -96,9 +97,9 @@ const INITIAL_ROSTER = [
   },
   { 
     id: "5", 
-    name: "Camila Brooks", 
+    name: "Cami", 
     number: 10, 
-    announcementScript: "NOW BATTING, NUMBER 10, CAMILA BROOKS!",
+    announcementScript: "NOW BATTING, NUMBER 10, CAMI!",
     announcementAudioUrl: "https://docs.google.com/uc?export=download&id=1cg-6W3BgdGKuWegwgAQjgtN4XOjWLLml",
     songs: [
       { name: "Not Like Us", videoId: "Xx1SrbxH1JU", startAt: 0 },
@@ -109,9 +110,9 @@ const INITIAL_ROSTER = [
   },
   { 
     id: "6", 
-    name: "Ezekiel Jacobo", 
+    name: "Zeke", 
     number: 8, 
-    announcementScript: "NOW BATTING, NUMBER 8, EZEKIEL JACOBO!",
+    announcementScript: "NOW BATTING, NUMBER 8, ZEKE!",
     announcementAudioUrl: "https://docs.google.com/uc?export=download&id=1btNGsAShMRxNlsS7o0fl459FVf9Zcf70",
     songs: [
       { name: "Under Control", videoId: "in8rYZQrwnw", startAt: 55 },
@@ -221,15 +222,19 @@ export default function StadiumBoothDashboard() {
   const triggerSequence = async () => {
     if (!activePlayer || isAnnouncing || !selectedSong) return;
 
+    // 1. Clear any current audio or video
     stopEverything();
+    
+    // 2. Start the announcement sequence
     setIsAnnouncing(true);
 
-    // Hard-coded Google Drive audio link
     const audio = new Audio(activePlayer.announcementAudioUrl);
     audio.volume = volume;
+    audio.preload = "auto";
     audioRef.current = audio;
 
     audio.onended = () => {
+      // 3. When intro finishes, unlock UI and play the walk-up song
       setIsAnnouncing(false);
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
       const timestamp = Date.now();
@@ -240,7 +245,7 @@ export default function StadiumBoothDashboard() {
     audio.onerror = (e) => {
       console.error("Announcer audio failed to load:", e);
       setIsAnnouncing(false);
-      // Fallback: Skip straight to walk-up music
+      // Fallback: Skip straight to walk-up music if the intro fails
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
       const timestamp = Date.now();
       const embedUrl = `https://www.youtube.com/embed/${selectedSong.videoId}?autoplay=1&start=${selectedSong.startAt}&mute=0&rel=0&enablejsapi=1&origin=${origin}&t=${timestamp}`;
@@ -252,6 +257,11 @@ export default function StadiumBoothDashboard() {
     } catch (e) {
       console.error("Playback blocked or failed:", e);
       setIsAnnouncing(false);
+      // Fallback: play the song directly if voice is blocked
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      const timestamp = Date.now();
+      const embedUrl = `https://www.youtube.com/embed/${selectedSong.videoId}?autoplay=1&start=${selectedSong.startAt}&mute=0&rel=0&enablejsapi=1&origin=${origin}&t=${timestamp}`;
+      setActiveAudioUrl(embedUrl);
     }
   };
 
