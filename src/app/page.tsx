@@ -159,22 +159,15 @@ export default function StadiumBoothDashboard() {
     return activePlayer.songs[selectedSongIndex] || activePlayer.songs[0];
   }, [activePlayer, selectedSongIndex]);
 
-  // Reset song selection when player changes
+  // Reset song selection and generate script ONLY when player changes
   useEffect(() => {
     setSelectedSongIndex(0);
-  }, [activePlayerId]);
-
-  // Auto-generate script when player or stats change
-  useEffect(() => {
     if (activePlayer) {
-      const timer = setTimeout(() => {
-        generateHypeScript(activePlayer);
-      }, 300);
-      return () => clearTimeout(timer);
+      generateHypeScript(activePlayer);
     } else {
       setAiScript("");
     }
-  }, [activePlayerId, activePlayer?.stats.ab, activePlayer?.stats.h, activePlayer?.stats.r, activePlayer?.stats.rbi]);
+  }, [activePlayerId]);
 
   const generateHypeScript = async (player: typeof INITIAL_ROSTER[0]) => {
     setIsGeneratingScript(true);
@@ -220,7 +213,6 @@ export default function StadiumBoothDashboard() {
     setTimeout(() => {
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
       const timestamp = Date.now();
-      // Using embed format with specific stadium parameters
       const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0&rel=0&enablejsapi=1&origin=${origin}&t=${timestamp}`;
       setActiveAudioUrl(embedUrl);
     }, 100);
@@ -246,7 +238,6 @@ export default function StadiumBoothDashboard() {
 
       audio.onended = () => {
         setIsAnnouncing(false);
-        // Trigger walk-up music immediately after script ends
         const origin = typeof window !== 'undefined' ? window.location.origin : '';
         const timestamp = Date.now();
         const embedUrl = `https://www.youtube.com/embed/${selectedSong.videoId}?autoplay=1&start=${selectedSong.startAt}&mute=0&rel=0&enablejsapi=1&origin=${origin}&t=${timestamp}`;
@@ -258,7 +249,6 @@ export default function StadiumBoothDashboard() {
       console.error("Sequence failed", error);
       setIsStreamingAudio(false);
       setIsAnnouncing(false);
-      // Fallback: Just play the music if AI announcer fails
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
       const timestamp = Date.now();
       const embedUrl = `https://www.youtube.com/embed/${selectedSong.videoId}?autoplay=1&start=${selectedSong.startAt}&mute=0&rel=0&enablejsapi=1&origin=${origin}&t=${timestamp}`;
@@ -536,7 +526,6 @@ export default function StadiumBoothDashboard() {
           </div>
         </div>
         
-        {/* The key property forces a fresh iframe mount when the URL changes. Conditionally render to avoid empty src error. */}
         {activeAudioUrl && (
           <iframe 
             key={activeAudioUrl}
