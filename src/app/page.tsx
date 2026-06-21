@@ -39,8 +39,8 @@ import { cn } from "@/lib/utils";
 import { generateAnnouncerAudio } from "@/ai/flows/announcer-tts-flow";
 
 /**
- * Roster Data with hard-coded scripts and static audio references.
- * The 'announcementAudioUrl' points to local assets in the public folder.
+ * Hard-coded Roster Data.
+ * announcementAudioUrl points to local .mp3 files in /public/audio/announcements/
  */
 const INITIAL_ROSTER = [
   { 
@@ -48,7 +48,7 @@ const INITIAL_ROSTER = [
     name: "Max Camargo", 
     number: 6, 
     announcementScript: "NOW BATTING, NUMBER 6, MAX CAMARGO!",
-    announcementAudioUrl: "/audio/announcements/player_6.wav",
+    announcementAudioUrl: "/audio/announcements/Max.mp3",
     songs: [
       { name: "Miss You (Bonus Track)", videoId: "2S5Ku0mVkzI", startAt: 0 },
       { name: "Thunder - Imagine Dragons", videoId: "fKopy74weus", startAt: 0 },
@@ -61,7 +61,7 @@ const INITIAL_ROSTER = [
     name: "Diomedes Plata", 
     number: 4, 
     announcementScript: "NOW BATTING, NUMBER 4, DIOMEDES PLATA!",
-    announcementAudioUrl: "/audio/announcements/player_4.wav",
+    announcementAudioUrl: "/audio/announcements/Diomedes.mp3",
     songs: [
       { name: "WE LA (EAST LA Remix)", videoId: "l-eMsVOTCY4", startAt: 80 },
       { name: "Level Up - Ciara", videoId: "Dh-ULbQmmF8", startAt: 0 },
@@ -74,7 +74,7 @@ const INITIAL_ROSTER = [
     name: "Jimena Briones", 
     number: 12, 
     announcementScript: "NOW BATTING, NUMBER 12, JIMENA BRIONES!",
-    announcementAudioUrl: "/audio/announcements/player_12.wav",
+    announcementAudioUrl: "/audio/announcements/Jimena.mp3",
     songs: [
       { name: "Watermelon Sugar", videoId: "KPM_BYl-EaQ", startAt: 0 },
       { name: "Flowers - Miley Cyrus", videoId: "G7KNmW9a75Y", startAt: 0 },
@@ -87,7 +87,7 @@ const INITIAL_ROSTER = [
     name: "Alexa Franco", 
     number: 7, 
     announcementScript: "NOW BATTING, NUMBER 7, ALEXA FRANCO!",
-    announcementAudioUrl: "/audio/announcements/player_7.wav",
+    announcementAudioUrl: "/audio/announcements/Alexa.mp3",
     songs: [
       { name: "BATTER UP", videoId: "olDWm2veCrM", startAt: 58 },
       { name: "Shake It Off - T-Swift", videoId: "nfWlot6h_JM", startAt: 0 },
@@ -100,7 +100,7 @@ const INITIAL_ROSTER = [
     name: "Camila Brooks", 
     number: 10, 
     announcementScript: "NOW BATTING, NUMBER 10, CAMILA BROOKS!",
-    announcementAudioUrl: "/audio/announcements/player_10.wav",
+    announcementAudioUrl: "/audio/announcements/Camila.mp3",
     songs: [
       { name: "Not Like Us", videoId: "Xx1SrbxH1JU", startAt: 0 },
       { name: "California Love", videoId: "mwgZalAFNhM", startAt: 0 },
@@ -113,7 +113,7 @@ const INITIAL_ROSTER = [
     name: "Ezekiel Jacobo", 
     number: 8, 
     announcementScript: "NOW BATTING, NUMBER 8, EZEKIEL JACOBO!",
-    announcementAudioUrl: "/audio/announcements/player_8.wav",
+    announcementAudioUrl: "/audio/announcements/Ezekiel.mp3",
     songs: [
       { name: "Under Control", videoId: "in8rYZQrwnw", startAt: 55 },
       { name: "Titanium - David Guetta", videoId: "JRfuAukYTKg", startAt: 0 },
@@ -126,7 +126,7 @@ const INITIAL_ROSTER = [
     name: "Aldrich Munoz", 
     number: 11, 
     announcementScript: "NOW BATTING, NUMBER 11, ALDRICH MUNOZ!",
-    announcementAudioUrl: "/audio/announcements/player_11.wav",
+    announcementAudioUrl: "/audio/announcements/Aldrich.mp3",
     songs: [
       { name: "MONTAGEM SUPERSONIC", videoId: "iI6Ypo8D-Pg", startAt: 0 },
       { name: "Sicko Mode - Travis Scott", videoId: "d-JBBNg8YKs", startAt: 0 },
@@ -225,15 +225,9 @@ export default function StadiumBoothDashboard() {
 
     stopEverything();
     
-    // PRIORITY 1: Check for hard-coded static audio file
-    let audioToPlay = activePlayer.announcementAudioUrl;
-    let isRemote = false;
-
-    // Check if the file actually exists by doing a head request (optional but safer)
-    // For this prototype, we'll try to play it and fallback only if it fails
-    
+    // PRIORITY 1: Try to play the hard-coded MP3 file
     setIsAnnouncing(true);
-    const audio = new Audio(audioToPlay);
+    const audio = new Audio(activePlayer.announcementAudioUrl);
     audio.volume = volume;
     audioRef.current = audio;
 
@@ -246,8 +240,8 @@ export default function StadiumBoothDashboard() {
     };
 
     audio.onerror = async () => {
-      // PRIORITY 2: Fallback to dynamic generation if hard-coded file is missing
-      console.warn("Static audio missing, falling back to generation...");
+      // PRIORITY 2: Fallback to dynamic generation if the hard-coded file is missing/fails
+      console.warn(`Static audio missing at ${activePlayer.announcementAudioUrl}, falling back to AI generation...`);
       setIsAnnouncing(false);
       setIsStreamingAudio(true);
       try {
@@ -263,9 +257,9 @@ export default function StadiumBoothDashboard() {
         fallbackAudio.onended = audio.onended;
         await fallbackAudio.play();
       } catch (err) {
-        console.error("Sequence failed entirely", err);
+        console.error("Audio sequence failed entirely", err);
         setIsStreamingAudio(false);
-        // Direct to song if all audio fails
+        // Play song directly as final fallback
         audio.onended();
       }
     };
@@ -273,7 +267,7 @@ export default function StadiumBoothDashboard() {
     try {
       await audio.play();
     } catch (e) {
-      // Trigger fallback on catch (e.g. 404)
+      // Trigger fallback on catch (e.g. 404 Not Found)
       audio.onerror(null as any);
     }
   };
@@ -428,7 +422,7 @@ export default function StadiumBoothDashboard() {
                       <div className="flex items-center gap-2 mt-2 px-2 text-[10px] font-bold text-secondary">
                         <Music2 className="h-3 w-3" />
                         <span className="truncate">{selectedSong?.name}</span>
-                        <Badge className="ml-auto text-[8px] bg-blue-500/20 text-blue-400 border-blue-500/50">HARD-CODED</Badge>
+                        <Badge className="ml-auto text-[8px] bg-blue-500/20 text-blue-400 border-blue-500/50">STATIC SYNC</Badge>
                       </div>
                     </div>
                   )}
@@ -452,7 +446,7 @@ export default function StadiumBoothDashboard() {
                     ) : (
                       <Zap className="mr-3 h-6 w-6 fill-white group-hover:scale-125 transition-transform" />
                     )}
-                    {isStreamingAudio ? "PREPARING AUDIO..." : isAnnouncing ? "STADIUM ANNOUNCING..." : "START WALK-UP SEQUENCE"}
+                    {isStreamingAudio ? "SYNCING..." : isAnnouncing ? "STADIUM ANNOUNCING..." : "START WALK-UP SEQUENCE"}
                   </Button>
                 </CardContent>
               </Card>
@@ -564,6 +558,7 @@ export default function StadiumBoothDashboard() {
           </div>
         </div>
         
+        {/* The key property forces a fresh iframe mount when the URL changes */}
         {activeAudioUrl && (
           <iframe 
             key={activeAudioUrl}
