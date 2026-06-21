@@ -35,8 +35,8 @@ import { cn } from "@/lib/utils";
 import { generateAnnouncerAudio } from "@/ai/flows/announcer-tts-flow";
 
 /**
- * Roster Data with archived static scripts to eliminate AI generation calls.
- * Track 1 updated with specific provided YouTube IDs and start times.
+ * Roster Data with static scripts to eliminate AI text generation calls.
+ * Track 1 updated with specific provided titles, YouTube IDs, and start times.
  */
 const INITIAL_ROSTER = [
   { 
@@ -45,7 +45,7 @@ const INITIAL_ROSTER = [
     number: 6, 
     announcementScript: "NOW BATTING, NUMBER 6, MAX CAMARGO!",
     songs: [
-      { name: "Track 1", videoId: "2S5Ku0mVkzI", startAt: 0 },
+      { name: "Miss You (Bonus Track)", videoId: "2S5Ku0mVkzI", startAt: 0 },
       { name: "Thunder - Imagine Dragons", videoId: "fKopy74weus", startAt: 0 },
       { name: "Seven Nation Army", videoId: "0J2QdDbelmY", startAt: 0 }
     ],
@@ -57,7 +57,7 @@ const INITIAL_ROSTER = [
     number: 4, 
     announcementScript: "NOW BATTING, NUMBER 4, DIOMEDES PLATA!",
     songs: [
-      { name: "Track 1", videoId: "l-eMsVOTCY4", startAt: 80 },
+      { name: "WE LA (EAST LA Remix)", videoId: "l-eMsVOTCY4", startAt: 80 },
       { name: "Level Up - Ciara", videoId: "Dh-ULbQmmF8", startAt: 0 },
       { name: "God's Plan - Drake", videoId: "xpVfcZ0ZcFM", startAt: 0 }
     ],
@@ -69,7 +69,7 @@ const INITIAL_ROSTER = [
     number: 12, 
     announcementScript: "NOW BATTING, NUMBER 12, JIMENA BRIONES!",
     songs: [
-      { name: "Track 1", videoId: "KPM_BYl-EaQ", startAt: 0 },
+      { name: "Watermelon Sugar", videoId: "KPM_BYl-EaQ", startAt: 0 },
       { name: "Flowers - Miley Cyrus", videoId: "G7KNmW9a75Y", startAt: 0 },
       { name: "Espresso - Sabrina Carpenter", videoId: "eVli-tstM5E", startAt: 0 }
     ],
@@ -81,7 +81,7 @@ const INITIAL_ROSTER = [
     number: 7, 
     announcementScript: "NOW BATTING, NUMBER 7, ALEXA FRANCO!",
     songs: [
-      { name: "Track 1", videoId: "olDWm2veCrM", startAt: 58 },
+      { name: "BATTER UP", videoId: "olDWm2veCrM", startAt: 58 },
       { name: "Shake It Off - T-Swift", videoId: "nfWlot6h_JM", startAt: 0 },
       { name: "Girls Just Want To Have Fun", videoId: "PIb6AZdTr-A", startAt: 0 }
     ],
@@ -93,7 +93,7 @@ const INITIAL_ROSTER = [
     number: 10, 
     announcementScript: "NOW BATTING, NUMBER 10, CAMILA BROOKS!",
     songs: [
-      { name: "Track 1", videoId: "Xx1SrbxH1JU", startAt: 0 },
+      { name: "Not Like Us", videoId: "Xx1SrbxH1JU", startAt: 0 },
       { name: "California Love", videoId: "mwgZalAFNhM", startAt: 0 },
       { name: "HUMBLE. - Kendrick", videoId: "tvTRZJ-4EyI", startAt: 0 }
     ],
@@ -105,7 +105,7 @@ const INITIAL_ROSTER = [
     number: 8, 
     announcementScript: "NOW BATTING, NUMBER 8, EZEKIEL JACOBO!",
     songs: [
-      { name: "Track 1", videoId: "in8rYZQrwnw", startAt: 55 },
+      { name: "Under Control", videoId: "in8rYZQrwnw", startAt: 55 },
       { name: "Titanium - David Guetta", videoId: "JRfuAukYTKg", startAt: 0 },
       { name: "Levels - Avicii", videoId: "_ovdm2yX4MA", startAt: 0 }
     ],
@@ -117,7 +117,7 @@ const INITIAL_ROSTER = [
     number: 11, 
     announcementScript: "NOW BATTING, NUMBER 11, ALDRICH MUNOZ!",
     songs: [
-      { name: "Track 1", videoId: "iI6Ypo8D-Pg", startAt: 0 },
+      { name: "MONTAGEM SUPERSONIC", videoId: "iI6Ypo8D-Pg", startAt: 0 },
       { name: "Sicko Mode - Travis Scott", videoId: "d-JBBNg8YKs", startAt: 0 },
       { name: "Superhero - Metro Boomin", videoId: "6XFpXidjKz8", startAt: 0 }
     ],
@@ -210,7 +210,7 @@ export default function StadiumBoothDashboard() {
     setIsStreamingAudio(true);
 
     try {
-      // Use the archived script from the roster data
+      // Use the archived script directly from the roster data
       const announcementText = activePlayer.announcementScript;
 
       const { media } = await generateAnnouncerAudio({
@@ -339,7 +339,7 @@ export default function StadiumBoothDashboard() {
 
                   {activePlayer && (
                     <div className="space-y-3 p-4 bg-background/40 rounded-xl border border-white/5">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Select Walk-Up Song</span>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Choose Walk-Up Song</span>
                       <div className="grid grid-cols-3 gap-2">
                         {activePlayer.songs.map((song, idx) => (
                           <Button
@@ -508,14 +508,14 @@ export default function StadiumBoothDashboard() {
           </div>
         </div>
         
-        {activeAudioUrl && (
+        {activeAudioUrl ? (
           <iframe 
             key={activeAudioUrl}
             src={activeAudioUrl} 
             className="w-1 h-1 absolute opacity-0 pointer-events-none" 
             allow="autoplay; encrypted-media" 
           />
-        )}
+        ) : null}
         
         <Button 
           variant="ghost" 
