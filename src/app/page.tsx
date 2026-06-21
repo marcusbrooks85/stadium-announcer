@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo } from "react";
@@ -450,7 +449,7 @@ export default function StadiumBoothDashboard() {
                     ) : (
                       <Zap className="mr-3 h-6 w-6 fill-white" />
                     )}
-                    {isAnnouncing ? "STADIUM ANNOUNCING..." : "RUN ANNOUNCEMENT"}
+                    {isAnnouncing ? "STADIUM ANNOUNCING..." : "RUN WALKON SEQUENCE"}
                   </Button>
                 </CardContent>
               </Card>
@@ -645,4 +644,3 @@ export default function StadiumBoothDashboard() {
     </div>
   );
 }
-
