@@ -36,6 +36,7 @@ import { generateAnnouncerAudio } from "@/ai/flows/announcer-tts-flow";
 
 /**
  * Roster Data with archived static scripts to eliminate AI generation calls.
+ * Track 1 updated with specific provided YouTube IDs and start times.
  */
 const INITIAL_ROSTER = [
   { 
@@ -44,7 +45,7 @@ const INITIAL_ROSTER = [
     number: 6, 
     announcementScript: "NOW BATTING, NUMBER 6, MAX CAMARGO!",
     songs: [
-      { name: "Miss You - Oliver Tree", videoId: "2Vv-BfVoq4g", startAt: 0 },
+      { name: "Track 1", videoId: "2S5Ku0mVkzI", startAt: 0 },
       { name: "Thunder - Imagine Dragons", videoId: "fKopy74weus", startAt: 0 },
       { name: "Seven Nation Army", videoId: "0J2QdDbelmY", startAt: 0 }
     ],
@@ -56,7 +57,7 @@ const INITIAL_ROSTER = [
     number: 4, 
     announcementScript: "NOW BATTING, NUMBER 4, DIOMEDES PLATA!",
     songs: [
-      { name: "We LA - Will.I.AM", videoId: "I6vR9v-vTAY", startAt: 80 },
+      { name: "Track 1", videoId: "l-eMsVOTCY4", startAt: 80 },
       { name: "Level Up - Ciara", videoId: "Dh-ULbQmmF8", startAt: 0 },
       { name: "God's Plan - Drake", videoId: "xpVfcZ0ZcFM", startAt: 0 }
     ],
@@ -68,7 +69,7 @@ const INITIAL_ROSTER = [
     number: 12, 
     announcementScript: "NOW BATTING, NUMBER 12, JIMENA BRIONES!",
     songs: [
-      { name: "Watermelon Sugar", videoId: "L0X03zR0rQk", startAt: 0 },
+      { name: "Track 1", videoId: "KPM_BYl-EaQ", startAt: 0 },
       { name: "Flowers - Miley Cyrus", videoId: "G7KNmW9a75Y", startAt: 0 },
       { name: "Espresso - Sabrina Carpenter", videoId: "eVli-tstM5E", startAt: 0 }
     ],
@@ -80,7 +81,7 @@ const INITIAL_ROSTER = [
     number: 7, 
     announcementScript: "NOW BATTING, NUMBER 7, ALEXA FRANCO!",
     songs: [
-      { name: "Batter Up - Babymonster", videoId: "m_9H0qLzS7A", startAt: 58 },
+      { name: "Track 1", videoId: "olDWm2veCrM", startAt: 58 },
       { name: "Shake It Off - T-Swift", videoId: "nfWlot6h_JM", startAt: 0 },
       { name: "Girls Just Want To Have Fun", videoId: "PIb6AZdTr-A", startAt: 0 }
     ],
@@ -92,7 +93,7 @@ const INITIAL_ROSTER = [
     number: 10, 
     announcementScript: "NOW BATTING, NUMBER 10, CAMILA BROOKS!",
     songs: [
-      { name: "Not Like Us - Kendrick", videoId: "T6eK-mAk_7M", startAt: 0 },
+      { name: "Track 1", videoId: "Xx1SrbxH1JU", startAt: 0 },
       { name: "California Love", videoId: "mwgZalAFNhM", startAt: 0 },
       { name: "HUMBLE. - Kendrick", videoId: "tvTRZJ-4EyI", startAt: 0 }
     ],
@@ -104,7 +105,7 @@ const INITIAL_ROSTER = [
     number: 8, 
     announcementScript: "NOW BATTING, NUMBER 8, EZEKIEL JACOBO!",
     songs: [
-      { name: "Under Control - Calvin Harris", videoId: "T9K6Z1T2V8g", startAt: 55 },
+      { name: "Track 1", videoId: "in8rYZQrwnw", startAt: 55 },
       { name: "Titanium - David Guetta", videoId: "JRfuAukYTKg", startAt: 0 },
       { name: "Levels - Avicii", videoId: "_ovdm2yX4MA", startAt: 0 }
     ],
@@ -116,7 +117,7 @@ const INITIAL_ROSTER = [
     number: 11, 
     announcementScript: "NOW BATTING, NUMBER 11, ALDRICH MUNOZ!",
     songs: [
-      { name: "Montagem supersonic - VZSIK", videoId: "_qV_T9v_0U0", startAt: 0 },
+      { name: "Track 1", videoId: "iI6Ypo8D-Pg", startAt: 0 },
       { name: "Sicko Mode - Travis Scott", videoId: "d-JBBNg8YKs", startAt: 0 },
       { name: "Superhero - Metro Boomin", videoId: "6XFpXidjKz8", startAt: 0 }
     ],
