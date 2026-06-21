@@ -90,7 +90,7 @@ const INITIAL_ROSTER = [
     announcementScript: "NOW BATTING, NUMBER 7, ALEXA FRANCO!",
     announcementAudioUrl: "/audio/Alexa.mp3",
     songs: [
-      { name: "BATTER UP", videoId: "olDWm2veCrM", startAt: 58 },
+      { name: "BATTER UP", videoId: "olDWm2veCrM", startAt: 60 },
       { name: "Shake It Off - T-Swift", videoId: "nfWlot6h_JM", startAt: 0 },
       { name: "Girls Just Want To Have Fun", videoId: "PIb6AZdTr-A", startAt: 0 }
     ],
@@ -202,10 +202,10 @@ export default function StadiumBoothDashboard() {
 
   const stopEverything = () => {
     if (audioRef.current) {
-      audioRef.current.pause();
       // Important: Remove listeners to prevent state updates after kill
       audioRef.current.onended = null;
       audioRef.current.onerror = null;
+      audioRef.current.pause();
       audioRef.current.src = "";
       audioRef.current = null;
     }
@@ -233,7 +233,7 @@ export default function StadiumBoothDashboard() {
     audio.volume = volume;
     audioRef.current = audio;
     audio.play().catch(() => {
-      // Fail silently for user but technically handleable
+      // Fail silently for user
     });
   };
 
@@ -555,7 +555,7 @@ export default function StadiumBoothDashboard() {
                 <CheckCircle2 className="h-6 w-6 text-primary" />
                 <div className="flex flex-col">
                   <h2 className="text-xl font-black uppercase tracking-widest text-primary">Technical Asset Validation</h2>
-                  <p className="text-[10px] font-bold text-muted-foreground uppercase">Verify local /public/audio/*.mp3 file connections</p>
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase">Verify local /audio/*.mp3 file connections</p>
                 </div>
               </div>
               
