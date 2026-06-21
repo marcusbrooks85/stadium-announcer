@@ -26,7 +26,9 @@ import {
   CheckCircle2,
   Mail,
   Table as TableIcon,
-  ShieldCheck
+  ShieldCheck,
+  Search,
+  ArrowDownWideNarrow
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -54,6 +56,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 // 1-second silent WAV to keep the audio context alive in background
@@ -174,11 +177,13 @@ export default function StadiumBoothDashboard() {
   const [activeAudioUrl, setActiveAudioUrl] = useState<string | null>(null);
   const [volume, setVolume] = useState(0.8);
   const [isWakeLocked, setIsWakeLocked] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const silentLoopRef = useRef<HTMLAudioElement | null>(null);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const wakeLockRef = useRef<any>(null);
+  const fadeIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const sortedRoster = useMemo(() => 
     [...roster].sort((a, b) => a.number - b.number),
@@ -233,11 +238,10 @@ export default function StadiumBoothDashboard() {
       navigator.mediaSession.playbackState = 'playing';
     }
 
-    // Play a silent loop to keep the browser audio context alive for the iframe
     if (!silentLoopRef.current) {
       const silentAudio = new Audio(SILENT_AUDIO_URI);
       silentAudio.loop = true;
-      silentAudio.volume = 0.01; // Inaudible but active
+      silentAudio.volume = 0.01; 
       silentLoopRef.current = silentAudio;
     }
     silentLoopRef.current.play().catch(() => {});
@@ -255,6 +259,14 @@ export default function StadiumBoothDashboard() {
     setSelectedSongIndex(0);
   }, [activePlayerId]);
 
+  const restoreVolume = () => {
+    if (fadeIntervalRef.current) {
+      clearInterval(fadeIntervalRef.current);
+      fadeIntervalRef.current = null;
+    }
+    setVolume(0.8);
+  };
+
   const updateStat = (type: "ab" | "h" | "r" | "rbi", delta: number) => {
     if (!activePlayerId) return;
     setRoster((prev) =>
@@ -267,6 +279,10 @@ export default function StadiumBoothDashboard() {
   };
 
   const stopEverything = () => {
+    if (fadeIntervalRef.current) {
+      clearInterval(fadeIntervalRef.current);
+      fadeIntervalRef.current = null;
+    }
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.src = "";
@@ -282,7 +298,28 @@ export default function StadiumBoothDashboard() {
     setIsAnnouncing(false);
   };
 
+  const handleFadeOut = () => {
+    if (fadeIntervalRef.current) return;
+    
+    const steps = 20;
+    const duration = 2000;
+    const stepInterval = duration / steps;
+    const volumeReduction = volume / steps;
+
+    fadeIntervalRef.current = setInterval(() => {
+      setVolume((prev) => {
+        const next = prev - volumeReduction;
+        if (next <= 0.01) {
+          stopEverything();
+          return 0;
+        }
+        return next;
+      });
+    }, stepInterval);
+  };
+
   const playSoundboard = (videoId: string, songName?: string) => {
+    restoreVolume();
     stopEverything();
     startBackgroundPersistence(songName || "Crowd Pump-Up");
     setTimeout(() => {
@@ -293,22 +330,24 @@ export default function StadiumBoothDashboard() {
   };
 
   const playLocalAnnouncerOnly = (url: string, playerName: string) => {
+    restoreVolume();
     stopEverything();
     startBackgroundPersistence(`Now Batting: ${playerName}`);
     const audio = new Audio(url);
-    audio.volume = volume;
+    audio.volume = 0.8;
     audioRef.current = audio;
     audio.play().catch(() => {});
   };
 
   const triggerSequence = async () => {
     if (!activePlayer || isAnnouncing || !selectedSong) return;
+    restoreVolume();
     stopEverything();
     setIsAnnouncing(true);
     startBackgroundPersistence(`Announcing: ${activePlayer.name}`);
 
     const audio = new Audio(activePlayer.announcementAudioUrl);
-    audio.volume = volume;
+    audio.volume = 0.8;
     audioRef.current = audio;
 
     const playWalkUpMusic = () => {
@@ -338,6 +377,24 @@ export default function StadiumBoothDashboard() {
     }
   };
 
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchQuery) return;
+    
+    let videoId = searchQuery;
+    if (searchQuery.includes("v=")) {
+      videoId = searchQuery.split("v=")[1].split("&")[0];
+    } else if (searchQuery.includes("youtu.be/")) {
+      videoId = searchQuery.split("youtu.be/")[1].split("?")[0];
+    } else {
+      // If it's just text, open a search tab for the user as a helper
+      window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(searchQuery)}`, '_blank');
+      return;
+    }
+
+    playSoundboard(videoId, "Custom Track");
+  };
+
   const emailStats = () => {
     const scoreText = `GAME SCORE\nAway: ${awayScore} | Home: ${homeScore}\n\n`;
     const rosterStatsText = sortedRoster.map(p => 
@@ -352,7 +409,7 @@ export default function StadiumBoothDashboard() {
       <div className="flex flex-col h-screen bg-background text-foreground stadium-gradient overflow-hidden">
         {/* FROZEN COMMAND HEADER */}
         <header className="sticky top-0 z-50 flex flex-col gap-2 p-3 md:p-4 border-b border-border shadow-2xl bg-card/95 backdrop-blur-md">
-          <div className="flex items-center justify-between gap-2 max-w-7xl mx-auto w-full">
+          <div className="flex items-center justify-between gap-2 max-w-7xl mx-auto w-full relative">
             <div className="flex-none flex items-center gap-2">
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -374,8 +431,8 @@ export default function StadiumBoothDashboard() {
               )}
             </div>
 
-            <div className="flex-1 flex justify-center items-center gap-3 md:gap-8">
-              <div className="flex flex-col items-center bg-secondary/10 px-2 md:px-4 py-1 rounded-xl border border-secondary/20 shadow-inner min-w-[65px] md:min-w-[100px]">
+            <div className="flex-1 flex justify-center items-center gap-6 md:gap-12">
+              <div className="flex flex-col items-center bg-secondary/10 px-3 md:px-5 py-1 rounded-xl border border-secondary/20 shadow-inner min-w-[70px] md:min-w-[110px]">
                 <span className="text-[7px] md:text-[9px] font-black tracking-widest text-secondary/70 uppercase mb-0.5">Away</span>
                 <div className="flex items-center gap-1 md:gap-2">
                   <Button variant="ghost" size="icon" className="h-4 w-4 md:h-6 md:w-6 hover:bg-secondary/20" onClick={() => setAwayScore(Math.max(0, awayScore - 1))}><Minus className="h-2 w-2 md:h-3 md:w-3" /></Button>
@@ -384,7 +441,7 @@ export default function StadiumBoothDashboard() {
                 </div>
               </div>
 
-              <div className="flex flex-col items-center bg-primary/10 px-2 md:px-4 py-1 rounded-xl border border-primary/20 shadow-inner min-w-[65px] md:min-w-[100px]">
+              <div className="flex flex-col items-center bg-primary/10 px-3 md:px-5 py-1 rounded-xl border border-primary/20 shadow-inner min-w-[70px] md:min-w-[110px]">
                 <span className="text-[7px] md:text-[9px] font-black tracking-widest text-primary/70 uppercase mb-0.5">Home</span>
                 <div className="flex items-center gap-1 md:gap-2">
                   <Button variant="ghost" size="icon" className="h-4 w-4 md:h-6 md:w-6 hover:bg-primary/20" onClick={() => setHomeScore(Math.max(0, homeScore - 1))}><Minus className="h-2 w-2 md:h-3 md:w-3" /></Button>
@@ -395,31 +452,49 @@ export default function StadiumBoothDashboard() {
             </div>
 
             <div className="hidden md:block">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="destructive" size="sm" onClick={stopEverything} className="font-black px-4 h-10 border-2 border-white/10 text-[10px] uppercase shadow-lg">
-                    <VolumeX className="mr-2 h-4 w-4" /> STOP AUDIO
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent><p>Immediately silence all audio outputs</p></TooltipContent>
-              </Tooltip>
+              <div className="flex items-center gap-2">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="outline" size="sm" onClick={handleFadeOut} className="font-black px-4 h-10 border-2 border-primary/20 text-[10px] uppercase shadow-lg">
+                      <ArrowDownWideNarrow className="mr-2 h-4 w-4" /> FADE OUT
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent><p>Smoothly fade out all audio over 2 seconds</p></TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="destructive" size="sm" onClick={stopEverything} className="font-black px-4 h-10 border-2 border-white/10 text-[10px] uppercase shadow-lg">
+                      <VolumeX className="mr-2 h-4 w-4" /> STOP AUDIO
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent><p>Immediately silence all audio outputs</p></TooltipContent>
+                </Tooltip>
+              </div>
             </div>
           </div>
 
-          <div className="max-w-7xl mx-auto w-full flex items-center gap-3 md:gap-6 bg-primary/5 p-2 rounded-lg border border-primary/10">
+          <div className="max-w-7xl mx-auto w-full flex items-center gap-2 md:gap-6 bg-primary/5 p-2 rounded-lg border border-primary/10">
             <div className="flex items-center gap-2">
               {volume === 0 ? <VolumeX className="h-4 w-4 text-muted-foreground" /> : volume < 0.5 ? <Volume1 className="h-4 w-4 text-primary" /> : <Volume2 className="h-4 w-4 text-primary" />}
               <span className="hidden sm:inline text-[10px] font-black uppercase tracking-widest">Master Volume</span>
             </div>
             <Slider value={[volume * 100]} onValueChange={(vals) => setVolume(vals[0] / 100)} max={100} step={1} className="flex-1" />
-            <div className="md:hidden">
+            <div className="md:hidden flex items-center gap-1">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="outline" size="icon" onClick={handleFadeOut} className="h-9 w-9 border-primary/20 shadow-lg">
+                    <ArrowDownWideNarrow className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent><p>Fade Out</p></TooltipContent>
+              </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button variant="destructive" size="icon" onClick={stopEverything} className="h-9 w-9 border border-white/10 shadow-lg">
                     <VolumeX className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent><p>Silence all audio</p></TooltipContent>
+                <TooltipContent><p>Stop All</p></TooltipContent>
               </Tooltip>
             </div>
             <Badge variant="outline" className="font-mono text-[10px] md:text-xs border-primary/30 text-primary w-10 text-center">{Math.round(volume * 100)}%</Badge>
@@ -490,18 +565,18 @@ export default function StadiumBoothDashboard() {
 
                     {activePlayer && (
                       <div className="space-y-3 p-3 md:p-4 bg-background/40 rounded-xl border border-white/5">
-                        <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-muted-foreground">Walk-Up Track</span>
-                        <div className="grid grid-cols-3 gap-2">
+                        <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-muted-foreground">Walk-Up Song</span>
+                        <div className="grid grid-cols-3 gap-1.5 md:gap-2">
                           {activePlayer.songs.map((song, idx) => (
                             <Button
                               key={idx} variant={selectedSongIndex === idx ? "default" : "outline"} size="sm"
                               onClick={() => setSelectedSongIndex(idx)}
                               className={cn(
-                                "h-10 text-[8px] md:text-[9px] uppercase font-black px-1",
+                                "h-9 md:h-10 text-[8px] md:text-[9px] uppercase font-black px-1",
                                 selectedSongIndex === idx ? "bg-secondary text-secondary-foreground" : "border-white/10"
                               )}
                             >
-                              TRACK {idx + 1}
+                              T{idx + 1}
                             </Button>
                           ))}
                         </div>
@@ -511,7 +586,7 @@ export default function StadiumBoothDashboard() {
                       </div>
                     )}
                     
-                    <Button disabled={!activePlayer || isAnnouncing} onClick={triggerSequence} className="w-full h-16 md:h-20 text-base md:text-lg font-black bg-primary hover:bg-primary/90 shadow-[0_8px_16px_-4px_rgba(66,133,255,0.4)]">
+                    <Button disabled={!activePlayer || isAnnouncing} onClick={triggerSequence} className="w-full h-14 md:h-16 text-sm md:text-base font-black bg-primary hover:bg-primary/90 shadow-[0_8px_16px_-4px_rgba(66,133,255,0.4)]">
                       {isAnnouncing ? <Activity className="animate-pulse mr-2" /> : <Zap className="mr-2 fill-white" />}
                       {isAnnouncing ? "STADIUM ANNOUNCING..." : "RUN WALKON SEQUENCE"}
                     </Button>
@@ -550,7 +625,7 @@ export default function StadiumBoothDashboard() {
               </section>
 
               {/* SOUNDBOARD SECTION */}
-              <section className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
+              <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
                 <Card className="bg-card/80 border-white/10 shadow-xl">
                   <CardHeader className="py-3 md:py-4 border-b border-white/5">
                     <CardTitle className="text-[9px] md:text-[11px] font-black text-muted-foreground uppercase tracking-[0.3em] flex items-center gap-2">
@@ -576,6 +651,31 @@ export default function StadiumBoothDashboard() {
                     ))}
                   </CardContent>
                 </Card>
+
+                {/* YOUTUBE SEARCH SECTION */}
+                <Card className="bg-card/80 border-white/10 shadow-xl">
+                  <CardHeader className="py-3 md:py-4 border-b border-white/5">
+                    <CardTitle className="text-[9px] md:text-[11px] font-black text-muted-foreground uppercase tracking-[0.3em] flex items-center gap-2">
+                      <Search className="h-3 w-3 md:h-4 md:w-4 text-white" /> Stadium Search
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-4 md:pt-5 space-y-4">
+                    <form onSubmit={handleSearch} className="flex gap-2">
+                      <Input 
+                        placeholder="Search or paste URL..." 
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="h-10 text-xs bg-background/50 border-white/10"
+                      />
+                      <Button type="submit" size="icon" className="h-10 w-10 shrink-0">
+                        <Play className="h-4 w-4" />
+                      </Button>
+                    </form>
+                    <div className="text-[8px] md:text-[9px] text-muted-foreground font-bold px-1">
+                      ENTER YOUTUBE URL TO PLAY DIRECTLY OR SEARCH TERM TO BROWSE
+                    </div>
+                  </CardContent>
+                </Card>
               </section>
 
               {/* AT BAT PLAYER ANNOUNCEMENT PANEL */}
@@ -589,10 +689,10 @@ export default function StadiumBoothDashboard() {
                     <Button 
                       key={player.id} variant="outline"
                       onClick={() => playLocalAnnouncerOnly(player.announcementAudioUrl, player.name)}
-                      className="flex flex-col h-12 md:h-14 gap-0.5 border-white/10 hover:border-primary/50 bg-card/60 px-1"
+                      className="flex flex-col h-11 md:h-12 gap-0.5 border-white/10 hover:border-primary/50 bg-card/60 px-1"
                     >
-                      <span className="text-[7px] md:text-[9px] font-black leading-tight text-center">#{player.number} {player.name.split(' ')[0]}</span>
-                      <FileAudio className="h-2.5 w-2.5 md:h-3 md:w-3 text-primary/60" />
+                      <span className="text-[7px] md:text-[8px] font-black leading-tight text-center">#{player.number} {player.name.split(' ')[0]}</span>
+                      <FileAudio className="h-2 w-2 md:h-2.5 md:w-2.5 text-primary/60" />
                     </Button>
                   ))}
                 </div>
