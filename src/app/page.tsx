@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo } from "react";
@@ -20,6 +21,7 @@ import {
   CheckCircle2,
   Search,
   ArrowDownWideNarrow,
+  Calendar,
   CircleDot
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -287,15 +289,27 @@ export default function StadiumBoothDashboard() {
 
         {/* COMMAND HEADER */}
         <header className="sticky top-0 z-50 flex flex-col gap-2 p-3 md:p-4 border-b border-border shadow-2xl bg-card/95 backdrop-blur-md">
-          <div className="flex items-center justify-center gap-4 max-w-7xl mx-auto w-full relative h-12 md:h-16">
+          <div className="flex items-center justify-between max-w-7xl mx-auto w-full relative h-12 md:h-16">
+            <h1 className="font-headline font-black uppercase tracking-[0.2em] text-xs md:text-sm text-primary hidden md:block">
+              STADIUM ANNOUNCER
+            </h1>
+            
             {/* Centered Controls */}
-            <div className="flex items-center justify-center gap-4 md:gap-8 w-full">
+            <div className="flex items-center justify-center gap-4 md:gap-8 flex-1">
                <Button variant="outline" size="sm" onClick={handleFadeOut} className="h-10 md:h-12 border-primary/20 text-primary px-4 md:px-8 font-black text-[10px] md:text-xs uppercase shadow-lg hover:bg-primary/10">
                  <ArrowDownWideNarrow className="h-4 w-4 mr-2" /> <span>FADE</span>
                </Button>
                <Button variant="destructive" size="sm" onClick={stopEverything} className="h-10 md:h-12 px-4 md:px-8 font-black text-[10px] md:text-xs uppercase shadow-lg">
                  <VolumeX className="h-4 w-4 mr-2" /> <span>STOP ALL</span>
                </Button>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Link href="/schedule">
+                <Button variant="ghost" size="icon" className="h-10 w-10 text-muted-foreground hover:text-primary transition-colors">
+                  <Calendar className="h-5 w-5" />
+                </Button>
+              </Link>
             </div>
           </div>
 

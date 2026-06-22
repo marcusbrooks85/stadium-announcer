@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useMemo } from "react";
@@ -9,6 +10,7 @@ import {
   Table as TableIcon,
   Home,
   Mail,
+  Calendar,
   Users
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -88,6 +90,11 @@ export default function GameStatsPage() {
           </div>
 
           <div className="flex items-center gap-3">
+             <Link href="/schedule">
+               <Button variant="ghost" size="icon" className="h-10 w-10 text-muted-foreground hover:text-primary transition-colors">
+                 <Calendar className="h-5 w-5" />
+               </Button>
+             </Link>
              <Badge variant="outline" className="font-mono text-primary border-primary/30 py-1 px-3 text-[10px] md:text-xs">
                LIVE FEED
              </Badge>
