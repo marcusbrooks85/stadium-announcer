@@ -257,8 +257,7 @@ export default function StadiumBoothDashboard() {
           enablejsapi: 1,
           origin: typeof window !== 'undefined' ? window.location.origin : '',
           rel: 0,
-          modestbranding: 1,
-          widget_referrer: window.location.origin
+          modestbranding: 1
         },
         events: {
           onReady: (event: any) => {
@@ -349,12 +348,14 @@ export default function StadiumBoothDashboard() {
 
   const playYoutubeTrack = (videoId: string, songName: string, startAt: number = 0) => {
     restoreVolume();
-    stopEverything();
+    // Only stop music if we aren't currently "announcing" (to allow announcement overlay)
+    // but in most soundboard cases, we want to clear the deck.
+    if (!isAnnouncing) stopEverything();
+    
     setActiveTrackName(songName);
     
     if (ytPlayerRef.current && playerReady) {
       try {
-        // Critical: Force unmute and play call to bypass browser autoplay blocks
         ytPlayerRef.current.unMute();
         ytPlayerRef.current.setVolume(volume * 100);
         ytPlayerRef.current.loadVideoById({
@@ -372,39 +373,47 @@ export default function StadiumBoothDashboard() {
     restoreVolume();
     stopEverything();
     setActiveTrackName(`Announcing: ${playerName}`);
+    
     const audio = new Audio(url);
     audio.volume = volume;
     audioRef.current = audio;
+    
     audio.play().catch(e => {
       console.warn("Local Announcement missing/blocked", e);
+      // If intro fails, we should still allow the sequence to potentially continue
     });
     return audio;
   };
 
   const triggerWalkonSequence = async () => {
     if (!activePlayer || isAnnouncing || !selectedSong) return;
+    
+    stopEverything();
     setIsAnnouncing(true);
     
-    const audio = playLocalAnnouncement(activePlayer.announcementAudioUrl, activePlayer.name);
+    const announcementUrl = activePlayer.announcementAudioUrl;
+    const song = selectedSong;
+    
+    const audio = playLocalAnnouncement(announcementUrl, activePlayer.name);
     
     let handoffTriggered = false;
     const triggerMusic = () => {
       if (handoffTriggered) return;
       handoffTriggered = true;
       setIsAnnouncing(false);
-      playYoutubeTrack(selectedSong.videoId, selectedSong.name, selectedSong.startAt);
+      playYoutubeTrack(song.videoId, song.name, song.startAt);
     };
 
     audio.onended = triggerMusic;
     audio.onerror = () => {
-      // Small delay for natural feel if file missing
+      console.warn("Announcement file error, skipping to music");
       setTimeout(triggerMusic, 500);
     };
 
-    // Safety timeout in case audio context hangs
+    // Safety timeout in case audio context hangs or file is missing
     setTimeout(() => {
-      if (isAnnouncing) triggerMusic();
-    }, 6000);
+      if (!handoffTriggered && isAnnouncing) triggerMusic();
+    }, 6500);
   };
 
   const handleSearch = async (e: React.FormEvent) => {
@@ -509,7 +518,7 @@ export default function StadiumBoothDashboard() {
 
           <div className="max-w-7xl mx-auto w-full flex items-center gap-2 md:gap-6 bg-primary/5 p-2 rounded-lg border border-primary/10">
             <div className="flex items-center gap-2">
-              {volume === 0 ? <VolumeX className="h-4 w-4 text-muted-foreground" /> : volume < 0.5 ? <Volume1 className="h-4 w-4 text-primary" /> : <Volume2 className="h-4 w-4 text-primary" />}
+              {volume === 0 ? <VolumeX className="h-4 w-4 text-muted-foreground" /> : <Volume2 className="h-4 w-4 text-primary" />}
               <span className="hidden sm:inline text-[10px] font-black uppercase tracking-widest">Master Gain</span>
             </div>
             <Slider value={[volume * 100]} onValueChange={(vals) => setVolume(vals[0] / 100)} max={100} step={1} className="flex-1" />
