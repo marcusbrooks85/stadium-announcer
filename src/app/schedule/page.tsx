@@ -10,8 +10,7 @@ import {
   MapPin, 
   Clock, 
   Trophy,
-  MessageSquare,
-  Utensils
+  MessageSquare
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -39,6 +38,7 @@ const gameSchedule = [
 const SNACK_SCHEDULE: Record<string, string> = {
   "2026-06-27": "Jacob",
   "2026-06-30": "Camila",
+  "2026-07-07": "Jimena",
   "2026-07-11": "Zeke",
   "2026-07-14": "Alexa",
   "2026-07-25": "Dominic",
@@ -227,7 +227,6 @@ export default function GameSchedulePage() {
                           </p>
                         </div>
                         <div className="flex-none flex flex-col items-center">
-                           <Trophy className={cn("h-4 w-4", isNextUpcoming ? "text-primary animate-bounce" : "text-muted-foreground/30")} />
                            <span className="text-[8px] font-black text-muted-foreground uppercase">VS</span>
                         </div>
                         <div className="flex-1 text-center">
