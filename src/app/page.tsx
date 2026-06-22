@@ -247,7 +247,7 @@ export default function StadiumBoothDashboard() {
               toast({
                 variant: "destructive",
                 title: "Playback Restricted",
-                description: "This video cannot be embedded. Try a different version (like a Stadium Organ version).",
+                description: "This video cannot be embedded. Try a different version.",
               });
             }
           }
@@ -338,7 +338,7 @@ export default function StadiumBoothDashboard() {
     
     stopEverything();
     
-    // Warm up the YouTube context to bypass browser lockout later
+    // Warm up the YouTube context
     if (ytPlayerRef.current && playerReady) {
       ytPlayerRef.current.unMute();
       ytPlayerRef.current.setVolume(volume * 100);
@@ -347,12 +347,9 @@ export default function StadiumBoothDashboard() {
     setPlaybackPhase('announcing');
     setActiveTrackName(`Announcing: ${activePlayer.name}`);
     setCurrentAnnouncementUrl(activePlayer.announcementAudioUrl);
-
-    // Sequence transition is handled by handleAnnouncementEnded via <audio onEnded>
   };
 
   const handleAnnouncementEnded = () => {
-    console.log("📢 Announcement finished! Triggering walk-up track...");
     if (activePlayer && selectedSong) {
       setPlaybackPhase('walkup');
       playYoutubeTrack(selectedSong.videoId, selectedSong.name, selectedSong.startAt);
@@ -413,25 +410,23 @@ export default function StadiumBoothDashboard() {
   return (
     <TooltipProvider>
       <div className="flex flex-col h-screen bg-background text-foreground stadium-gradient overflow-hidden">
-        {/* Hidden Audio for Announcements - Only render when source exists to avoid 'empty src' console error */}
+        {/* Hidden Audio for Announcements */}
         {currentAnnouncementUrl && (
           <audio
             ref={announcementAudioRef}
             src={currentAnnouncementUrl}
             autoPlay
             onEnded={handleAnnouncementEnded}
-            onError={() => {
-              console.warn("Announcement file missing, skipping to music");
-              handleAnnouncementEnded();
-            }}
+            onError={() => handleAnnouncementEnded()}
             className="hidden"
           />
         )}
 
         {/* COMMAND HEADER */}
         <header className="sticky top-0 z-50 flex flex-col gap-2 p-3 md:p-4 border-b border-border shadow-2xl bg-card/95 backdrop-blur-md">
-          <div className="flex items-center justify-between gap-2 max-w-7xl mx-auto w-full relative">
-            <div className="flex-none flex items-center gap-2">
+          <div className="flex items-center justify-between gap-2 max-w-7xl mx-auto w-full relative h-12 md:h-16">
+            {/* Status & Export */}
+            <div className="flex-none flex items-center gap-2 z-10">
               <Button 
                 variant="outline" size="sm" 
                 className="border-primary/30 text-primary font-black uppercase tracking-widest text-[8px] md:text-[10px] h-8 md:h-10 px-2"
@@ -447,7 +442,8 @@ export default function StadiumBoothDashboard() {
               )}
             </div>
 
-            <div className="flex-1 flex justify-center items-center gap-6 md:gap-12">
+            {/* Centered Scores */}
+            <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-4 md:gap-12 z-0">
               <div className="flex flex-col items-center bg-secondary/10 px-3 md:px-5 py-1 rounded-xl border border-secondary/20 shadow-inner min-w-[70px] md:min-w-[110px]">
                 <span className="text-[7px] md:text-[9px] font-black tracking-widest text-secondary/70 uppercase mb-0.5">Away</span>
                 <div className="flex items-center gap-1 md:gap-2">
@@ -467,7 +463,8 @@ export default function StadiumBoothDashboard() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            {/* Desktop Controls (Hidden on mobile) */}
+            <div className="hidden sm:flex items-center gap-2 z-10">
               <Button variant="outline" size="sm" onClick={handleFadeOut} className="font-black px-4 h-10 border-2 border-primary/20 text-[10px] uppercase shadow-lg">
                 <ArrowDownWideNarrow className="mr-2 h-4 w-4" /> FADE OUT
               </Button>
@@ -477,13 +474,27 @@ export default function StadiumBoothDashboard() {
             </div>
           </div>
 
+          {/* Slider and Mobile Controls Row */}
           <div className="max-w-7xl mx-auto w-full flex items-center gap-2 md:gap-6 bg-primary/5 p-2 rounded-lg border border-primary/10">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 min-w-max">
               {volume === 0 ? <VolumeX className="h-4 w-4 text-muted-foreground" /> : <Volume2 className="h-4 w-4 text-primary" />}
-              <span className="hidden sm:inline text-[10px] font-black uppercase tracking-widest">Master Gain</span>
+              <span className="hidden sm:inline text-[10px] font-black uppercase tracking-widest">Master Slider</span>
+              <span className="sm:hidden text-[9px] font-black uppercase tracking-tighter">VOL</span>
             </div>
+            
             <Slider value={[volume * 100]} onValueChange={(vals) => setVolume(vals[0] / 100)} max={100} step={1} className="flex-1" />
+            
             <Badge variant="outline" className="font-mono text-[10px] md:text-xs border-primary/30 text-primary w-10 text-center">{Math.round(volume * 100)}%</Badge>
+
+            {/* Mobile Controls (Inline with Slider) */}
+            <div className="flex sm:hidden items-center gap-1.5 ml-2">
+               <Button variant="outline" size="icon" onClick={handleFadeOut} className="h-9 w-9 border-primary/20 text-primary">
+                 <ArrowDownWideNarrow className="h-4 w-4" />
+               </Button>
+               <Button variant="destructive" size="icon" onClick={stopEverything} className="h-9 w-9">
+                 <VolumeX className="h-4 w-4" />
+               </Button>
+            </div>
           </div>
         </header>
 
@@ -537,7 +548,10 @@ export default function StadiumBoothDashboard() {
                   <CardContent className="space-y-4 md:space-y-6 pt-4 md:pt-6">
                     <div className="space-y-2">
                       <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Active Batter</span>
-                      <Select value={activePlayerId || ""} onValueChange={(val) => setActivePlayerId(val)}>
+                      <Select value={activePlayerId || ""} onValueChange={(val) => {
+                        setActivePlayerId(val);
+                        setSelectedSongIndex(0);
+                      }}>
                         <SelectTrigger className="h-10 md:h-12 text-sm md:text-lg font-black bg-background/50 border-white/10">
                           <SelectValue placeholder="Select Batter..." />
                         </SelectTrigger>
@@ -562,7 +576,7 @@ export default function StadiumBoothDashboard() {
                                 selectedSongIndex === idx ? "bg-secondary text-secondary-foreground" : "border-white/10"
                               )}
                             >
-                              T{idx + 1}
+                              Track #{idx + 1}
                             </Button>
                           ))}
                         </div>
