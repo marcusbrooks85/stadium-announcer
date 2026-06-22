@@ -55,43 +55,16 @@ export default function GameStatsPage() {
     <TooltipProvider>
       <div className="flex flex-col min-h-screen bg-background text-foreground stadium-gradient overflow-y-auto">
         {/* HEADER */}
-        <header className="sticky top-0 z-50 flex items-center justify-between p-4 border-b border-border shadow-2xl bg-card/95 backdrop-blur-md h-auto md:h-32">
+        <header className="sticky top-0 z-50 flex items-center justify-between p-4 border-b border-border shadow-2xl bg-card/95 backdrop-blur-md">
           <div className="flex items-center gap-4">
              <Link href="/">
                <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-primary/20 bg-primary/5 text-primary transition-colors hover:bg-primary/10">
                  <ChevronLeft className="h-5 w-5" />
                </div>
              </Link>
-             <h1 className="font-headline font-black uppercase tracking-[0.2em] text-xs md:text-sm hidden lg:block">Stats Center</h1>
+             <h1 className="font-headline font-black uppercase tracking-[0.2em] text-xs md:text-sm">Stats Center</h1>
           </div>
           
-          {/* Centered Scores & Export Button */}
-          <div className="flex flex-col items-center justify-center gap-3 flex-1">
-              <div className="flex items-center justify-center gap-4 md:gap-8 w-full">
-                  <div className="flex flex-col items-center bg-secondary/10 px-3 md:px-6 py-1 rounded-xl border border-secondary/20 shadow-inner min-w-[80px] md:min-w-[120px]">
-                    <span className="text-[7px] md:text-[9px] font-black tracking-widest text-secondary/70 uppercase mb-0.5">Away</span>
-                    <div className="flex items-center gap-1 md:gap-3">
-                      <Button variant="ghost" size="icon" className="h-5 w-5 md:h-7 md:w-7 hover:bg-secondary/20" onClick={() => setAwayScore(Math.max(0, awayScore - 1))}><Minus className="h-3 w-3 md:h-4 md:w-4" /></Button>
-                      <div className="w-6 md:w-10 text-center digit-font text-lg md:text-3xl font-black text-secondary">{awayScore}</div>
-                      <Button variant="ghost" size="icon" className="h-5 w-5 md:h-7 md:w-7 hover:bg-secondary/20" onClick={() => setAwayScore(awayScore + 1)}><Plus className="h-3 w-3 md:h-4 md:w-4" /></Button>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col items-center bg-primary/10 px-3 md:px-6 py-1 rounded-xl border border-primary/20 shadow-inner min-w-[80px] md:min-w-[120px]">
-                    <span className="text-[7px] md:text-[9px] font-black tracking-widest text-primary/70 uppercase mb-0.5">Home</span>
-                    <div className="flex items-center gap-1 md:gap-3">
-                      <Button variant="ghost" size="icon" className="h-5 w-5 md:h-7 md:w-7 hover:bg-primary/20" onClick={() => setHomeScore(Math.max(0, homeScore - 1))}><Minus className="h-3 w-3 md:h-4 md:w-4" /></Button>
-                      <div className="w-6 md:w-10 text-center digit-font text-lg md:text-3xl font-black text-primary">{homeScore}</div>
-                      <Button variant="ghost" size="icon" className="h-5 w-5 md:h-7 md:w-7 hover:bg-primary/20" onClick={() => setHomeScore(homeScore + 1)}><Plus className="h-3 w-3 md:h-4 md:w-4" /></Button>
-                    </div>
-                  </div>
-              </div>
-              
-              <Button onClick={emailStats} size="sm" className="h-8 md:h-10 px-4 md:px-8 bg-primary hover:bg-primary/90 text-[9px] md:text-xs font-black uppercase tracking-widest gap-2">
-                <Mail className="h-3 w-3 md:h-4 md:w-4" /> Export Game Report
-              </Button>
-          </div>
-
           <div className="flex items-center gap-1 md:gap-3">
             <Link href="/">
               <Button variant="ghost" size="icon" className="h-9 w-9 text-primary hover:text-primary/80">
@@ -112,6 +85,33 @@ export default function GameStatsPage() {
         </header>
 
         <main className="flex-1 p-4 md:p-8 space-y-6 md:space-y-10 max-w-7xl mx-auto w-full pb-32">
+          {/* SCOREBOARD SECTION */}
+          <section className="flex flex-col items-center justify-center gap-6">
+            <div className="flex items-center justify-center gap-4 md:gap-8 w-full">
+                <div className="flex flex-col items-center bg-secondary/10 px-6 py-3 rounded-2xl border-2 border-secondary/20 shadow-inner min-w-[140px] md:min-w-[180px]">
+                  <span className="text-[10px] font-black tracking-widest text-secondary uppercase mb-2">Away Team</span>
+                  <div className="flex items-center gap-4">
+                    <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-secondary/20" onClick={() => setAwayScore(Math.max(0, awayScore - 1))}><Minus className="h-5 w-5" /></Button>
+                    <div className="w-12 text-center digit-font text-4xl font-black text-secondary">{awayScore}</div>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-secondary/20" onClick={() => setAwayScore(awayScore + 1)}><Plus className="h-5 w-5" /></Button>
+                  </div>
+                </div>
+
+                <div className="flex flex-col items-center bg-primary/10 px-6 py-3 rounded-2xl border-2 border-primary/20 shadow-inner min-w-[140px] md:min-w-[180px]">
+                  <span className="text-[10px] font-black tracking-widest text-primary uppercase mb-2">Home Team</span>
+                  <div className="flex items-center gap-4">
+                    <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-primary/20" onClick={() => setHomeScore(Math.max(0, homeScore - 1))}><Minus className="h-5 w-5" /></Button>
+                    <div className="w-12 text-center digit-font text-4xl font-black text-primary">{homeScore}</div>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-primary/20" onClick={() => setHomeScore(homeScore + 1)}><Plus className="h-5 w-5" /></Button>
+                  </div>
+                </div>
+            </div>
+            
+            <Button onClick={emailStats} size="lg" className="h-12 px-8 bg-primary hover:bg-primary/90 text-xs font-black uppercase tracking-widest gap-2 shadow-lg shadow-primary/20">
+              <Mail className="h-4 w-4" /> Export Game Report
+            </Button>
+          </section>
+
           <section className="flex flex-col items-center justify-center">
             {/* STAT TRACKER COMMAND */}
             <Card className="w-full md:max-w-2xl bg-card/80 border-2 border-white/5 overflow-hidden shadow-2xl">

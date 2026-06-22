@@ -323,7 +323,7 @@ export default function StadiumBoothDashboard() {
             </div>
           </div>
 
-          {/* Slider Row */}
+          {/* Master Slider Row */}
           <div className="max-w-7xl mx-auto w-full flex items-center gap-2 md:gap-6 bg-primary/5 p-2 rounded-lg border border-primary/10">
             <div className="flex items-center gap-2 min-w-max">
               {volume === 0 ? <VolumeX className="h-4 w-4 text-muted-foreground" /> : <Volume2 className="h-4 w-4 text-primary" />}
@@ -372,9 +372,9 @@ export default function StadiumBoothDashboard() {
           {/* DASHBOARD */}
           <main className="flex-1 flex flex-col p-4 md:p-8 overflow-y-auto space-y-4 md:space-y-8 bg-black/10">
             <div className="max-w-5xl mx-auto w-full space-y-4 md:space-y-8">
-              <section className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
-                {/* PLAYER CONTROL */}
-                <Card className="bg-card/80 border-2 border-white/5 overflow-hidden shadow-2xl">
+              {/* TOP SECTION: WALK-ON SEQUENCE */}
+              <section className="flex justify-center">
+                <Card className="w-full md:max-w-2xl bg-card/80 border-2 border-white/5 overflow-hidden shadow-2xl">
                   <CardHeader className="pb-3 md:pb-4 border-b border-white/5 bg-white/5">
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-[10px] md:text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
@@ -434,37 +434,10 @@ export default function StadiumBoothDashboard() {
                     </Button>
                   </CardContent>
                 </Card>
-
-                {/* SOUNDBOARDS (Quick Tap) */}
-                <Card className="bg-card/80 border-2 border-white/5 overflow-hidden shadow-2xl">
-                  <CardHeader className="pb-3 md:pb-4 border-b border-white/5 bg-white/5">
-                    <CardTitle className="text-[10px] md:text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                      <Music2 className="h-3 w-3 md:h-4 md:w-4" /> Batter Intro Quick-Tap
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="pt-4 md:pt-6">
-                    <div className="grid grid-cols-3 md:grid-cols-4 gap-1.5 md:gap-2">
-                      {sortedRoster.map((player) => (
-                        <Button 
-                          key={player.id} variant="outline"
-                          onClick={() => {
-                            stopEverything();
-                            setCurrentAnnouncementUrl(player.announcementAudioUrl);
-                            setActiveTrackName(`Announcing: ${player.name}`);
-                          }}
-                          className="flex flex-col h-11 md:h-12 gap-0.5 border-white/10 hover:border-primary/50 bg-card/60 px-1"
-                        >
-                          <span className="text-[7px] md:text-[8px] font-black leading-tight text-center">#{player.number} {player.name.split(' ')[0]}</span>
-                          <FileAudio className="h-2 w-2 md:h-2.5 md:w-2.5 text-primary/60" />
-                        </Button>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
               </section>
 
               {/* SOUNDBOARDS */}
-              <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8 pb-24">
+              <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
                 <Card className="bg-card/80 border-white/10 shadow-xl">
                   <CardHeader className="py-3 md:py-4 border-b border-white/5">
                     <CardTitle className="text-[9px] md:text-[11px] font-black text-muted-foreground uppercase tracking-[0.3em] flex items-center gap-2">
@@ -522,6 +495,35 @@ export default function StadiumBoothDashboard() {
                             <span className="text-[10px] font-bold text-white/80 truncate uppercase tracking-wider">{res.title}</span>
                           </div>
                         </button>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </section>
+
+              {/* BATTER INTRO QUICK-TAP (Relocated below crowd pump-up area logic) */}
+              <section className="flex justify-center pb-24">
+                <Card className="w-full md:max-w-2xl bg-card/80 border-2 border-white/5 overflow-hidden shadow-2xl">
+                  <CardHeader className="pb-3 md:pb-4 border-b border-white/5 bg-white/5">
+                    <CardTitle className="text-[10px] md:text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                      <Music2 className="h-3 w-3 md:h-4 md:w-4" /> Batter Intro Quick-Tap
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-4 md:pt-6">
+                    <div className="grid grid-cols-3 md:grid-cols-4 gap-1.5 md:gap-2">
+                      {sortedRoster.map((player) => (
+                        <Button 
+                          key={player.id} variant="outline"
+                          onClick={() => {
+                            stopEverything();
+                            setCurrentAnnouncementUrl(player.announcementAudioUrl);
+                            setActiveTrackName(`Announcing: ${player.name}`);
+                          }}
+                          className="flex flex-col h-11 md:h-12 gap-0.5 border-white/10 hover:border-primary/50 bg-card/60 px-1"
+                        >
+                          <span className="text-[7px] md:text-[8px] font-black leading-tight text-center">#{player.number} {player.name.split(' ')[0]}</span>
+                          <FileAudio className="h-2 w-2 md:h-2.5 md:w-2.5 text-primary/60" />
+                        </Button>
                       ))}
                     </div>
                   </CardContent>
