@@ -195,12 +195,15 @@ export default function StadiumBoothDashboard() {
   const playYoutubeTrack = (videoId: string, songName: string, startAt: number = 0) => {
     if (playbackPhase !== 'announcing') stopEverything();
     
+    // Snap Volume to 80% baseline
+    setVolume(0.8);
+    
     setActiveTrackName(songName);
     
     if (ytPlayerRef.current && playerReady) {
       try {
         ytPlayerRef.current.unMute();
-        ytPlayerRef.current.setVolume(volume * 100);
+        ytPlayerRef.current.setVolume(80); // Snap to 80% (0.8 * 100)
         ytPlayerRef.current.loadVideoById({
           videoId: videoId,
           startSeconds: startAt
@@ -215,9 +218,12 @@ export default function StadiumBoothDashboard() {
     
     stopEverything();
     
+    // Snap Volume to 80% baseline
+    setVolume(0.8);
+    
     if (ytPlayerRef.current && playerReady) {
       ytPlayerRef.current.unMute();
-      ytPlayerRef.current.setVolume(volume * 100);
+      ytPlayerRef.current.setVolume(80);
     }
 
     setPlaybackPhase('announcing');
@@ -514,6 +520,7 @@ export default function StadiumBoothDashboard() {
                           key={player.id} variant="outline"
                           onClick={() => {
                             stopEverything();
+                            setVolume(0.8); // Snap Volume to 80% baseline
                             setCurrentAnnouncementUrl(player.announcementAudioUrl);
                             setActiveTrackName(`Announcing: ${player.name}`);
                           }}
