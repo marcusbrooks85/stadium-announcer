@@ -206,6 +206,7 @@ export default function StadiumBoothDashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<{id: string, title: string}[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [playerReady, setPlayerReady] = useState(false);
   
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const ytPlayerRef = useRef<any>(null);
@@ -236,7 +237,8 @@ export default function StadiumBoothDashboard() {
           wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
           setIsWakeLocked(true);
         } catch (err) {
-          console.warn('Wake Lock failed');
+          // Non-fatal, just log it
+          console.warn("Wake lock failed", err);
         }
       }
     };
@@ -245,60 +247,61 @@ export default function StadiumBoothDashboard() {
 
   // YouTube API initialization
   useEffect(() => {
-    if ((window as any).YT && (window as any).YT.Player) {
-      initPlayer();
-      return;
-    }
-
-    const tag = document.createElement('script');
-    tag.src = "https://www.youtube.com/iframe_api";
-    const firstScriptTag = document.getElementsByTagName('script')[0];
-    firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
-
-    (window as any).onYouTubeIframeAPIReady = initPlayer;
-
-    function initPlayer() {
+    const onYouTubeIframeAPIReady = () => {
       ytPlayerRef.current = new (window as any).YT.Player('stadium-yt-player', {
-        height: '0',
-        width: '0',
+        height: '1',
+        width: '1',
         host: 'https://www.youtube.com',
         playerVars: {
           autoplay: 1,
           controls: 1,
           enablejsapi: 1,
-          origin: typeof window !== 'undefined' ? window.location.origin : '',
+          origin: window.location.origin,
           rel: 0,
-          modestbranding: 1
+          modestbranding: 1,
+          widget_referrer: window.location.origin
         },
         events: {
           onReady: (event: any) => {
+            setPlayerReady(true);
             event.target.unMute();
             event.target.setVolume(volume * 100);
           },
           onError: (event: any) => {
             const errorCode = event.data;
-            // Use warn instead of error to avoid Next.js development overlay crash
-            console.warn("YouTube Player Status (Non-Fatal):", errorCode);
+            console.warn("YT Playback Error Code:", errorCode);
             if (errorCode === 101 || errorCode === 150) {
               toast({
                 variant: "destructive",
                 title: "Playback Restricted",
-                description: "This video owner does not allow embedding. Try a 'Stadium Organ' or 'Lyric' version instead.",
+                description: "This video owner does not allow embedding. Use a different version.",
               });
             }
           }
         }
       });
+    };
+
+    if (!(window as any).YT) {
+      const tag = document.createElement('script');
+      tag.src = "https://www.youtube.com/iframe_api";
+      const firstScriptTag = document.getElementsByTagName('script')[0];
+      firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
+      (window as any).onYouTubeIframeAPIReady = onYouTubeIframeAPIReady;
+    } else if ((window as any).YT.Player) {
+      onYouTubeIframeAPIReady();
     }
-  }, [toast]);
+  }, [toast, volume]);
 
   // Update volume for both local and YT
   useEffect(() => {
     if (audioRef.current) audioRef.current.volume = volume;
-    if (ytPlayerRef.current && typeof ytPlayerRef.current.setVolume === 'function') {
-      ytPlayerRef.current.setVolume(volume * 100);
+    if (ytPlayerRef.current && playerReady) {
+      try {
+        ytPlayerRef.current.setVolume(volume * 100);
+      } catch (e) {}
     }
-  }, [volume]);
+  }, [volume, playerReady]);
 
   const stopEverything = () => {
     if (fadeIntervalRef.current) {
@@ -309,8 +312,10 @@ export default function StadiumBoothDashboard() {
       audioRef.current.pause();
       audioRef.current.src = "";
     }
-    if (ytPlayerRef.current && typeof ytPlayerRef.current.stopVideo === 'function') {
-      ytPlayerRef.current.stopVideo();
+    if (ytPlayerRef.current && playerReady) {
+      try {
+        ytPlayerRef.current.stopVideo();
+      } catch (e) {}
     }
     setActiveTrackName(null);
     setIsAnnouncing(false);
@@ -321,14 +326,12 @@ export default function StadiumBoothDashboard() {
       clearInterval(fadeIntervalRef.current);
       fadeIntervalRef.current = null;
     }
-    // We don't force a reset here anymore so it preserves current slider setting
-    // But we ensure it's at least audible if it was faded out
     if (volume < 0.1) setVolume(0.8);
   };
 
   const handleFadeOut = () => {
     if (fadeIntervalRef.current) return;
-    const duration = 2500;
+    const duration = 3000;
     const interval = 50;
     const steps = duration / interval;
     const volumeStep = volume / steps;
@@ -349,28 +352,31 @@ export default function StadiumBoothDashboard() {
     restoreVolume();
     stopEverything();
     setActiveTrackName(songName);
-    if (ytPlayerRef.current && typeof ytPlayerRef.current.loadVideoById === 'function') {
-      ytPlayerRef.current.unMute();
-      ytPlayerRef.current.loadVideoById({
-        videoId: videoId,
-        startSeconds: startAt
-      });
-      // Explicit play nudge for browsers
-      ytPlayerRef.current.playVideo();
-      ytPlayerRef.current.setVolume(volume * 100);
+    
+    if (ytPlayerRef.current && playerReady) {
+      try {
+        ytPlayerRef.current.unMute();
+        ytPlayerRef.current.setVolume(volume * 100);
+        ytPlayerRef.current.loadVideoById({
+          videoId: videoId,
+          startSeconds: startAt
+        });
+        ytPlayerRef.current.playVideo();
+      } catch (e) {
+        console.warn("YouTube Load Failed", e);
+      }
     }
   };
 
   const playLocalAnnouncement = (url: string, playerName: string) => {
     restoreVolume();
     stopEverything();
-    setActiveTrackName(`Now Batting: ${playerName}`);
+    setActiveTrackName(`Announcing: ${playerName}`);
     const audio = new Audio(url);
     audio.volume = volume;
     audioRef.current = audio;
     audio.play().catch(e => {
-      console.warn("Local play blocked or missing:", e);
-      // If local fails, we don't block the sequence, we just skip it
+      console.warn("Local Announcement missing/blocked", e);
     });
     return audio;
   };
@@ -378,24 +384,33 @@ export default function StadiumBoothDashboard() {
   const triggerWalkonSequence = async () => {
     if (!activePlayer || isAnnouncing || !selectedSong) return;
     setIsAnnouncing(true);
+    
     const audio = playLocalAnnouncement(activePlayer.announcementAudioUrl, activePlayer.name);
     
-    audio.onended = () => {
+    let handoffTriggered = false;
+    const triggerMusic = () => {
+      if (handoffTriggered) return;
+      handoffTriggered = true;
       setIsAnnouncing(false);
       playYoutubeTrack(selectedSong.videoId, selectedSong.name, selectedSong.startAt);
     };
 
+    audio.onended = triggerMusic;
     audio.onerror = () => {
-      setIsAnnouncing(false);
-      playYoutubeTrack(selectedSong.videoId, selectedSong.name, selectedSong.startAt);
+      // Small delay for natural feel if file missing
+      setTimeout(triggerMusic, 500);
     };
+
+    // Safety timeout in case audio context hangs
+    setTimeout(() => {
+      if (isAnnouncing) triggerMusic();
+    }, 6000);
   };
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchQuery) return;
     
-    // Extract ID if URL
     let videoId = searchQuery;
     if (searchQuery.includes("v=")) {
       videoId = searchQuery.split("v=")[1].split("&")[0];
@@ -403,14 +418,13 @@ export default function StadiumBoothDashboard() {
       videoId = searchQuery.split("youtu.be/")[1].split("?")[0];
     }
 
-    // If looks like an ID, play directly
     if (videoId.length === 11 && !videoId.includes(" ")) {
-      playYoutubeTrack(videoId, "Custom Track");
+      playYoutubeTrack(videoId, "Custom Loaded Track");
       return;
     }
 
     setIsSearching(true);
-    // AI Mock Search results that are verified embeddable
+    // Verified embeddable mock results
     setTimeout(() => {
       setSearchResults([
         { id: "T6eK-2OQtew", title: "Not Like Us - Instrumental" },
@@ -434,18 +448,18 @@ export default function StadiumBoothDashboard() {
   };
 
   const emailStats = () => {
-    const scoreText = `GAME SCORE\nAway: ${awayScore} | Home: ${homeScore}\n\n`;
+    const scoreText = `STADIUM REPORT\nAway: ${awayScore} | Home: ${homeScore}\n\n`;
     const rosterStatsText = sortedRoster.map(p => 
       `${p.name} (#${p.number}): AB: ${p.stats.ab}, H: ${p.stats.h}, R: ${p.stats.r}, RBI: ${p.stats.rbi}`
     ).join('\n');
-    const mailtoUrl = `mailto:?subject=Stadium Game Report&body=${encodeURIComponent(scoreText + rosterStatsText)}`;
+    const mailtoUrl = `mailto:?subject=Little League Game Report&body=${encodeURIComponent(scoreText + rosterStatsText)}`;
     window.location.href = mailtoUrl;
   };
 
   return (
     <TooltipProvider>
       <div className="flex flex-col h-screen bg-background text-foreground stadium-gradient overflow-hidden">
-        {/* FROZEN COMMAND HEADER */}
+        {/* COMMAND HEADER */}
         <header className="sticky top-0 z-50 flex flex-col gap-2 p-3 md:p-4 border-b border-border shadow-2xl bg-card/95 backdrop-blur-md">
           <div className="flex items-center justify-between gap-2 max-w-7xl mx-auto w-full relative">
             <div className="flex-none flex items-center gap-2">
@@ -454,12 +468,12 @@ export default function StadiumBoothDashboard() {
                 className="border-primary/30 text-primary font-black uppercase tracking-widest text-[8px] md:text-[10px] h-8 md:h-10 px-2"
                 onClick={emailStats}
               >
-                <Mail className="h-3 w-3 sm:mr-2" /> <span className="hidden sm:inline">Email Stats</span>
+                <Mail className="h-3 w-3 sm:mr-2" /> <span className="hidden sm:inline">Export Stats</span>
               </Button>
               {isWakeLocked && (
                 <div className="hidden lg:flex items-center gap-1.5 px-2 py-1 rounded-full bg-green-500/10 border border-green-500/20">
                   <ShieldCheck className="h-3 w-3 text-green-500" />
-                  <span className="text-[8px] font-black uppercase text-green-500 tracking-tighter">BOOTH ACTIVE</span>
+                  <span className="text-[8px] font-black uppercase text-green-500 tracking-tighter">BOOTH ONLINE</span>
                 </div>
               )}
             </div>
@@ -489,7 +503,7 @@ export default function StadiumBoothDashboard() {
                 <ArrowDownWideNarrow className="mr-2 h-4 w-4" /> FADE OUT
               </Button>
               <Button variant="destructive" size="sm" onClick={stopEverything} className="font-black px-4 h-10 border-2 border-white/10 text-[10px] uppercase shadow-lg">
-                <VolumeX className="mr-2 h-4 w-4" /> STOP AUDIO
+                <VolumeX className="mr-2 h-4 w-4" /> STOP ALL
               </Button>
             </div>
           </div>
@@ -497,7 +511,7 @@ export default function StadiumBoothDashboard() {
           <div className="max-w-7xl mx-auto w-full flex items-center gap-2 md:gap-6 bg-primary/5 p-2 rounded-lg border border-primary/10">
             <div className="flex items-center gap-2">
               {volume === 0 ? <VolumeX className="h-4 w-4 text-muted-foreground" /> : volume < 0.5 ? <Volume1 className="h-4 w-4 text-primary" /> : <Volume2 className="h-4 w-4 text-primary" />}
-              <span className="hidden sm:inline text-[10px] font-black uppercase tracking-widest">Master Volume</span>
+              <span className="hidden sm:inline text-[10px] font-black uppercase tracking-widest">Master Gain</span>
             </div>
             <Slider value={[volume * 100]} onValueChange={(vals) => setVolume(vals[0] / 100)} max={100} step={1} className="flex-1" />
             <Badge variant="outline" className="font-mono text-[10px] md:text-xs border-primary/30 text-primary w-10 text-center">{Math.round(volume * 100)}%</Badge>
@@ -505,7 +519,7 @@ export default function StadiumBoothDashboard() {
         </header>
 
         <div className="flex flex-1 overflow-hidden">
-          {/* TEAM ROSTER SIDEBAR */}
+          {/* SIDEBAR */}
           <aside className="w-80 bg-card/40 border-r border-border backdrop-blur-sm hidden lg:flex flex-col">
             <div className="p-5 border-b border-border flex items-center justify-between">
               <div className="flex items-center gap-3"><Users className="h-5 w-5 text-primary" /><h2 className="font-headline font-bold uppercase tracking-widest text-sm">Numerical Roster</h2></div>
@@ -537,26 +551,26 @@ export default function StadiumBoothDashboard() {
             </ScrollArea>
           </aside>
 
-          {/* MAIN DASHBOARD */}
+          {/* DASHBOARD */}
           <main className="flex-1 flex flex-col p-4 md:p-8 overflow-y-auto space-y-4 md:space-y-8 bg-black/10">
             <div className="max-w-5xl mx-auto w-full space-y-4 md:space-y-8">
               <section className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
-                {/* PLAYER AT BAT CARD */}
+                {/* PLAYER CONTROL */}
                 <Card className="bg-card/80 border-2 border-white/5 overflow-hidden shadow-2xl">
                   <CardHeader className="pb-3 md:pb-4 border-b border-white/5 bg-white/5">
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-[10px] md:text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                        <Mic2 className="h-3 w-3 md:h-4 md:w-4" /> Player At Bat Walk On
+                        <Mic2 className="h-3 w-3 md:h-4 md:w-4" /> Walk-On Sequence
                       </CardTitle>
                       {activePlayer && <Badge variant="secondary" className="font-black text-[8px] md:text-[9px]">{activePlayer.name.toUpperCase()}</Badge>}
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-4 md:space-y-6 pt-4 md:pt-6">
                     <div className="space-y-2">
-                      <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Select Batter</span>
+                      <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Active Batter</span>
                       <Select value={activePlayerId || ""} onValueChange={(val) => setActivePlayerId(val)}>
                         <SelectTrigger className="h-10 md:h-12 text-sm md:text-lg font-black bg-background/50 border-white/10">
-                          <SelectValue placeholder="Waiting for Batter..." />
+                          <SelectValue placeholder="Select Batter..." />
                         </SelectTrigger>
                         <SelectContent>
                           {sortedRoster.map((p) => (
@@ -568,7 +582,7 @@ export default function StadiumBoothDashboard() {
 
                     {activePlayer && (
                       <div className="space-y-3 p-3 md:p-4 bg-background/40 rounded-xl border border-white/5">
-                        <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-muted-foreground">Walk-Up Song</span>
+                        <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-muted-foreground">Setlist Selection</span>
                         <div className="grid grid-cols-3 gap-1.5 md:gap-2">
                           {activePlayer.songs.map((song, idx) => (
                             <Button
@@ -591,16 +605,16 @@ export default function StadiumBoothDashboard() {
                     
                     <Button disabled={!activePlayer || isAnnouncing} onClick={triggerWalkonSequence} className="w-full h-14 md:h-16 text-sm md:text-base font-black bg-primary hover:bg-primary/90 shadow-[0_8px_16px_-4px_rgba(66,133,255,0.4)]">
                       {isAnnouncing ? <Activity className="animate-pulse mr-2" /> : <Zap className="mr-2 fill-white" />}
-                      {isAnnouncing ? "STADIUM ANNOUNCING..." : "RUN WALKON SEQUENCE"}
+                      {isAnnouncing ? "STADIUM ANNOUNCING..." : "TRIGGER WALK-ON"}
                     </Button>
                   </CardContent>
                 </Card>
 
-                {/* GAME STATS TRACKER CARD */}
+                {/* GAME TRACKER */}
                 <Card className="bg-card/80 border-2 border-white/5 overflow-hidden shadow-2xl">
                   <CardHeader className="pb-3 md:pb-4 border-b border-white/5 bg-white/5">
                     <CardTitle className="text-[10px] md:text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                      <Target className="h-3 w-3 md:h-4 md:w-4" /> Game Tracker
+                      <Target className="h-3 w-3 md:h-4 md:w-4" /> Live Game Stats
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="grid grid-cols-2 gap-3 md:gap-4 pt-4 md:pt-6">
@@ -608,7 +622,7 @@ export default function StadiumBoothDashboard() {
                       { key: "ab", label: "At Bats", color: "white" },
                       { key: "h", label: "Total Hits", color: "primary" },
                       { key: "r", label: "Runs Scored", color: "secondary" },
-                      { key: "rbi", label: "Runs Batted In", color: "primary" }
+                      { key: "rbi", label: "RBI", color: "primary" }
                     ].map((stat) => (
                       <div key={stat.key} className="flex flex-col gap-1 md:gap-2 bg-background/50 p-2 md:p-3 rounded-xl border border-white/5">
                         <div className="flex items-center justify-between">
@@ -627,7 +641,7 @@ export default function StadiumBoothDashboard() {
                 </Card>
               </section>
 
-              {/* SOUNDBOARD SECTION */}
+              {/* SOUNDBOARDS */}
               <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
                 <Card className="bg-card/80 border-white/10 shadow-xl">
                   <CardHeader className="py-3 md:py-4 border-b border-white/5">
@@ -655,7 +669,7 @@ export default function StadiumBoothDashboard() {
                   </CardContent>
                 </Card>
 
-                {/* YOUTUBE SEARCH SECTION */}
+                {/* SEARCH */}
                 <Card className="bg-card/80 border-white/10 shadow-xl">
                   <CardHeader className="py-3 md:py-4 border-b border-white/5">
                     <CardTitle className="text-[9px] md:text-[11px] font-black text-muted-foreground uppercase tracking-[0.3em] flex items-center gap-2">
@@ -665,7 +679,7 @@ export default function StadiumBoothDashboard() {
                   <CardContent className="pt-4 md:pt-5 space-y-4">
                     <form onSubmit={handleSearch} className="flex gap-2">
                       <Input 
-                        placeholder="Paste URL or Search..." 
+                        placeholder="Link or Search..." 
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="h-10 text-xs bg-background/50 border-white/10"
@@ -688,16 +702,15 @@ export default function StadiumBoothDashboard() {
                         </button>
                       ))}
                     </div>
-                    <div id="stadium-yt-player" className="hidden"></div>
                   </CardContent>
                 </Card>
               </section>
 
-              {/* AT BAT PLAYER ANNOUNCEMENT PANEL */}
+              {/* QUICK ANNOUNCEMENTS */}
               <section className="space-y-3 md:space-y-4 pt-6 md:pt-10 border-t border-white/10">
                 <div className="flex items-center gap-3">
                   <CheckCircle2 className="h-4 w-4 md:h-5 md:w-5 text-primary" />
-                  <h2 className="text-sm md:text-base font-black uppercase tracking-widest text-primary">At Bat Player Announcement Only</h2>
+                  <h2 className="text-sm md:text-base font-black uppercase tracking-widest text-primary">Batter Intro Quick-Tap</h2>
                 </div>
                 <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-8 gap-1.5 md:gap-2">
                   {sortedRoster.map((player) => (
@@ -713,18 +726,18 @@ export default function StadiumBoothDashboard() {
                 </div>
               </section>
 
-              {/* TEAM PLAYER TRACKER TABLE */}
+              {/* TABLE */}
               <section className="space-y-3 md:space-y-4 pt-6 md:pt-10 border-t border-white/10 pb-24">
                 <div className="flex items-center gap-3">
                   <TableIcon className="h-4 w-4 md:h-5 md:w-5 text-secondary" />
-                  <h2 className="text-sm md:text-base font-black uppercase tracking-widest text-secondary">Team Performance Tracker</h2>
+                  <h2 className="text-sm md:text-base font-black uppercase tracking-widest text-secondary">Team Performance Summary</h2>
                 </div>
                 <Card className="bg-card/60 border-white/5 shadow-2xl overflow-hidden">
                   <Table>
                     <TableHeader className="bg-white/5">
                       <TableRow className="border-white/5 hover:bg-transparent">
                         <TableHead className="w-[40px] text-center font-black text-[8px] md:text-[10px]">#</TableHead>
-                        <TableHead className="font-black text-[8px] md:text-[10px]">PLAYER NAME</TableHead>
+                        <TableHead className="font-black text-[8px] md:text-[10px]">PLAYER</TableHead>
                         <TableHead className="text-center font-black text-[8px] md:text-[10px]">AB</TableHead>
                         <TableHead className="text-center font-black text-[8px] md:text-[10px]">HITS</TableHead>
                         <TableHead className="text-center font-black text-[8px] md:text-[10px]">RUNS</TableHead>
@@ -750,7 +763,7 @@ export default function StadiumBoothDashboard() {
           </main>
         </div>
 
-        {/* COMPACT MINI-PLAYER (Visible when active) */}
+        {/* STATUS BAR */}
         <div className={cn(
           "fixed bottom-4 right-4 w-64 md:w-80 h-16 md:h-20 bg-card border border-primary/40 rounded-2xl overflow-hidden shadow-[0_12px_40px_rgba(0,0,0,0.5)] z-[100] transition-all duration-700 ease-in-out transform",
           activeTrackName ? "translate-y-0 opacity-100 scale-100" : "translate-y-32 opacity-0 scale-95"
@@ -763,8 +776,8 @@ export default function StadiumBoothDashboard() {
                  <div className="w-1 bg-primary animate-[bounce_0.5s_infinite] h-3 rounded-full" />
               </div>
               <div className="flex-1 overflow-hidden">
-                <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em] mb-0.5 animate-pulse">Live Stadium Audio</p>
-                <p className="text-[9px] font-bold text-white/70 truncate uppercase">{activeTrackName || "Monitoring Broadcast..."}</p>
+                <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em] mb-0.5 animate-pulse">Live Feed Active</p>
+                <p className="text-[9px] font-bold text-white/70 truncate uppercase">{activeTrackName || "Standby..."}</p>
               </div>
               <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-destructive/20 hover:text-destructive" onClick={stopEverything}>
                 <VolumeX className="h-4 w-4" />
@@ -772,6 +785,9 @@ export default function StadiumBoothDashboard() {
             </div>
           </div>
         </div>
+
+        {/* HIDDEN AUDIO BRIDGE */}
+        <div id="stadium-yt-player" className="absolute opacity-0 pointer-events-none w-1 h-1 overflow-hidden top-0 left-0"></div>
       </div>
     </TooltipProvider>
   );
