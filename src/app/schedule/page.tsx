@@ -84,6 +84,7 @@ export default function GameSchedulePage() {
       const isWon = wins[gameKey] || false;
       const status = getGameStatus(game.date);
       
+      // Future games don't count toward W or L
       if (status !== "future") {
         if (isWon) {
           w++;
@@ -163,11 +164,11 @@ export default function GameSchedulePage() {
           </div>
           <div className="flex gap-4">
             <div className="bg-primary/10 border border-primary/20 px-6 py-3 rounded-2xl flex flex-col items-center min-w-[100px] shadow-lg shadow-primary/5">
-              <span className="text-[10px] font-black uppercase tracking-widest text-primary mb-1">Wins</span>
+              <span className="text-[10px] font-black uppercase tracking-widest text-primary mb-1">W</span>
               <span className="text-3xl font-black digit-font text-primary">{record.w}</span>
             </div>
             <div className="bg-destructive/10 border border-destructive/20 px-6 py-3 rounded-2xl flex flex-col items-center min-w-[100px] shadow-lg shadow-destructive/5">
-              <span className="text-[10px] font-black uppercase tracking-widest text-destructive mb-1">Losses</span>
+              <span className="text-[10px] font-black uppercase tracking-widest text-destructive mb-1">L</span>
               <span className="text-3xl font-black digit-font text-destructive">{record.l}</span>
             </div>
           </div>
@@ -195,86 +196,91 @@ export default function GameSchedulePage() {
                   className={cn(
                     "transition-all duration-300 relative overflow-hidden",
                     isHome ? "bg-blue-950/40 border-blue-800/60" : "bg-slate-800/50 border-slate-700/60",
-                    isPast && "line-through opacity-30 text-muted-foreground/50 grayscale shadow-none border-none",
                     isNextUpcoming && "scale-[1.02] shadow-[0_0_20px_rgba(59,130,246,0.4)] ring-2 ring-blue-500 border-t-white/30"
                   )}
                 >
-                  {/* TROPHY OVERLAY - EXEMPT FROM STRIKETHROUGH */}
+                  {/* TROPHY OVERLAY - ISOLATED FROM GRAYSCALE/STRIKETHROUGH */}
                   {isWon && (
-                    <div className="absolute top-2 right-2 z-10 isolation not-line-through opacity-100 inline-block pointer-events-none">
+                    <div className="absolute top-2 right-2 z-20 isolation pointer-events-none">
                       <div className="filter drop-shadow-[0_0_12px_rgba(234,179,8,0.9)] animate-trophy-breathe">
                         <span className="text-2xl md:text-3xl">🏆</span>
                       </div>
                     </div>
                   )}
 
-                  <CardContent className="p-4 md:p-6">
-                    <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
-                      {/* Date & Week */}
-                      <div className="md:col-span-3 flex flex-col">
-                        <div className="flex items-center gap-3">
-                          <div className="flex items-center gap-2 not-line-through opacity-100 isolation">
-                            <Checkbox 
-                              checked={isWon} 
-                              onCheckedChange={() => handleToggleWin(gameKey, isWon)}
-                              className="pointer-events-auto border-white/20 data-[state=checked]:bg-yellow-500 data-[state=checked]:border-yellow-500"
-                            />
-                            <Badge variant={isNextUpcoming ? "default" : "outline"} className="text-[10px] font-black tracking-widest uppercase">
-                              Week {game.week}
-                            </Badge>
+                  {/* WRAPPER FOR FADING/STRIKE-THROUGH ON PAST GAMES */}
+                  <div className={cn(
+                    "transition-all duration-300",
+                    isPast && "line-through opacity-30 grayscale"
+                  )}>
+                    <CardContent className="p-4 md:p-6">
+                      <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+                        {/* Date & Week */}
+                        <div className="md:col-span-3 flex flex-col">
+                          <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2 not-line-through opacity-100 isolation">
+                              <Checkbox 
+                                checked={isWon} 
+                                onCheckedChange={() => handleToggleWin(gameKey, isWon)}
+                                className="pointer-events-auto border-white/20 data-[state=checked]:bg-yellow-500 data-[state=checked]:border-yellow-500"
+                              />
+                              <Badge variant={isNextUpcoming ? "default" : "outline"} className="text-[10px] font-black tracking-widest uppercase">
+                                Week {game.week}
+                              </Badge>
+                            </div>
+                            {game.notes && (
+                              <Badge className="bg-secondary text-secondary-foreground text-[10px] font-black uppercase">
+                                {game.notes}
+                              </Badge>
+                            )}
                           </div>
-                          {game.notes && (
-                            <Badge className="bg-secondary text-secondary-foreground text-[10px] font-black uppercase">
-                              {game.notes}
-                            </Badge>
+                          <p className="mt-2 text-sm font-black uppercase tracking-wider text-white">
+                            {new Date(game.date + 'T00:00:00').toLocaleDateString('en-US', { 
+                              weekday: 'short', 
+                              month: 'long', 
+                              day: 'numeric' 
+                            })}
+                          </p>
+                        </div>
+
+                        {/* Time & Location */}
+                        <div className="md:col-span-3 flex flex-col space-y-1">
+                          <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground">
+                            <Clock className="h-3 w-3" /> {game.time}
+                          </div>
+                          <div className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground uppercase truncate">
+                            <MapPin className="h-3 w-3 shrink-0" /> {game.location}
+                          </div>
+                          
+                          {snackDuty && (
+                            <div className="bg-slate-800/90 text-slate-100 border border-slate-700 font-bold px-2 py-1 rounded-md inline-flex items-center gap-1.5 text-[10px] mt-2 self-start shadow-sm not-line-through opacity-100 isolation">
+                              <span>🍴</span>
+                              <span className="uppercase tracking-tighter">SNACK: {snackDuty}</span>
+                            </div>
                           )}
                         </div>
-                        <p className="mt-2 text-sm font-black uppercase tracking-wider text-white">
-                          {new Date(game.date + 'T00:00:00').toLocaleDateString('en-US', { 
-                            weekday: 'short', 
-                            month: 'long', 
-                            day: 'numeric' 
-                          })}
-                        </p>
-                      </div>
 
-                      {/* Time & Location */}
-                      <div className="md:col-span-3 flex flex-col space-y-1">
-                        <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground">
-                          <Clock className="h-3 w-3" /> {game.time}
-                        </div>
-                        <div className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground uppercase truncate">
-                          <MapPin className="h-3 w-3 shrink-0" /> {game.location}
-                        </div>
-                        
-                        {snackDuty && (
-                          <div className="bg-slate-800/90 text-slate-100 border border-slate-700 font-bold px-2 py-1 rounded-md inline-flex items-center gap-1.5 text-[10px] mt-2 self-start shadow-sm not-line-through opacity-100 isolation">
-                            <span>🍴</span>
-                            <span className="uppercase tracking-tighter">SNACK: {snackDuty}</span>
+                        {/* Matchup */}
+                        <div className="md:col-span-6 flex items-center justify-between gap-4 p-3 bg-black/30 rounded-xl border border-white/5">
+                          <div className="flex-1 text-center">
+                            <p className="text-[10px] font-black uppercase text-muted-foreground mb-1">Away</p>
+                            <p className={cn("text-xs md:text-sm font-bold truncate", game.away === "Coach Chewy" ? "text-primary" : "text-white")}>
+                              {game.away}
+                            </p>
                           </div>
-                        )}
-                      </div>
-
-                      {/* Matchup */}
-                      <div className="md:col-span-6 flex items-center justify-between gap-4 p-3 bg-black/30 rounded-xl border border-white/5">
-                        <div className="flex-1 text-center">
-                          <p className="text-[10px] font-black uppercase text-muted-foreground mb-1">Away</p>
-                          <p className={cn("text-xs md:text-sm font-bold truncate", game.away === "Coach Chewy" ? "text-primary" : "text-white")}>
-                            {game.away}
-                          </p>
-                        </div>
-                        <div className="flex-none flex flex-col items-center">
-                           <span className="text-[8px] font-black text-muted-foreground uppercase">VS</span>
-                        </div>
-                        <div className="flex-1 text-center">
-                          <p className="text-[10px] font-black uppercase text-muted-foreground mb-1">Home</p>
-                          <p className={cn("text-xs md:text-sm font-bold truncate", game.home === "Coach Chewy" ? "text-primary" : "text-white")}>
-                            {game.home}
-                          </p>
+                          <div className="flex-none flex flex-col items-center">
+                             <span className="text-[8px] font-black text-muted-foreground uppercase">VS</span>
+                          </div>
+                          <div className="flex-1 text-center">
+                            <p className="text-[10px] font-black uppercase text-muted-foreground mb-1">Home</p>
+                            <p className={cn("text-xs md:text-sm font-bold truncate", game.home === "Coach Chewy" ? "text-primary" : "text-white")}>
+                              {game.home}
+                            </p>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </CardContent>
+                    </CardContent>
+                  </div>
                 </Card>
               );
             })}
