@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo } from "react";
@@ -18,13 +17,12 @@ import {
   VolumeX,
   ChevronRight,
   FileAudio,
-  CheckCircle2,
   Search,
   ArrowDownWideNarrow,
   Calendar,
   BarChart3,
   MessageSquare,
-  CircleDot
+  Home
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -308,17 +306,17 @@ export default function StadiumBoothDashboard() {
 
             <div className="flex items-center gap-1 md:gap-3">
               <Link href="/stats">
-                <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-primary">
+                <Button variant="ghost" size="icon" className="h-9 w-9 text-primary hover:text-primary/80">
                   <BarChart3 className="h-4 w-4" />
                 </Button>
               </Link>
               <Link href="/schedule">
-                <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-primary">
+                <Button variant="ghost" size="icon" className="h-9 w-9 text-primary hover:text-primary/80">
                   <Calendar className="h-4 w-4" />
                 </Button>
               </Link>
               <a href="https://groupme.com/join_group/115533519/bxlMSOlb" target="_blank" rel="noopener noreferrer">
-                <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-primary">
+                <Button variant="ghost" size="icon" className="h-9 w-9 text-primary hover:text-primary/80">
                   <MessageSquare className="h-4 w-4" />
                 </Button>
               </a>
@@ -556,13 +554,13 @@ export default function StadiumBoothDashboard() {
         <footer className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] md:hidden z-50">
           <div className="flex items-center justify-center gap-3 bg-card/90 backdrop-blur-xl border border-white/10 p-2 rounded-2xl shadow-2xl">
             <Link href="/stats" className="flex-1">
-              <div className="flex items-center justify-center gap-2 h-11 border border-white/5 rounded-xl bg-white/5 text-muted-foreground">
+              <div className="flex items-center justify-center gap-2 h-11 border border-white/5 rounded-xl bg-white/5 text-secondary">
                 <BarChart3 className="h-4 w-4" />
                 <span className="text-[10px] font-black uppercase tracking-widest">Stats</span>
               </div>
             </Link>
             <Link href="/schedule" className="flex-1">
-              <div className="flex items-center justify-center gap-2 h-11 border border-white/5 rounded-xl bg-white/5 text-muted-foreground">
+              <div className="flex items-center justify-center gap-2 h-11 border border-white/5 rounded-xl bg-white/5 text-secondary">
                 <Calendar className="h-4 w-4" />
                 <span className="text-[10px] font-black uppercase tracking-widest">Schedule</span>
               </div>
