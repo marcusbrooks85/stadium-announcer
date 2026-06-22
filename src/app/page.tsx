@@ -82,9 +82,7 @@ const INITIAL_ROSTER: Player[] = [
     name: "Diomedes Plata", 
     number: 4, 
     announcementAudioUrl: "/audio/Diomedes.mp3",
-    songs: [
-      { name: "We LA", videoId: "l-eMsVOTCY4", startAt: 80 }
-    ],
+    songs: [{ name: "We LA", videoId: "l-eMsVOTCY4", startAt: 80 }],
     stats: { ab: 0, h: 0, r: 0, rbi: 0 } 
   },
   { 
@@ -92,9 +90,7 @@ const INITIAL_ROSTER: Player[] = [
     name: "Max Camargo", 
     number: 6, 
     announcementAudioUrl: "/audio/Max.mp3",
-    songs: [
-      { name: "Miss You", videoId: "2S5Ku0mVkzI", startAt: 0 }
-    ],
+    songs: [{ name: "Miss You", videoId: "2S5Ku0mVkzI", startAt: 0 }],
     stats: { ab: 0, h: 0, r: 0, rbi: 0 } 
   },
   { 
@@ -102,9 +98,7 @@ const INITIAL_ROSTER: Player[] = [
     name: "Alexa Franco", 
     number: 7, 
     announcementAudioUrl: "/audio/Alexa.mp3",
-    songs: [
-      { name: "Batter Up", videoId: "AleC4OpNjkY", startAt: 58 }
-    ],
+    songs: [{ name: "Batter Up", videoId: "AleC4OpNjkY", startAt: 58 }],
     stats: { ab: 0, h: 0, r: 0, rbi: 0 } 
   },
   { 
@@ -112,9 +106,7 @@ const INITIAL_ROSTER: Player[] = [
     name: "Zeke", 
     number: 8, 
     announcementAudioUrl: "/audio/Zeke.mp3",
-    songs: [
-      { name: "Under Control", videoId: "cRYDSdXcT5o", startAt: 0 }
-    ],
+    songs: [{ name: "Under Control", videoId: "cRYDSdXcT5o", startAt: 0 }],
     stats: { ab: 0, h: 0, r: 0, rbi: 0 } 
   },
   { 
@@ -122,9 +114,7 @@ const INITIAL_ROSTER: Player[] = [
     name: "Camila Brooks", 
     number: 10, 
     announcementAudioUrl: "/audio/Camila.mp3",
-    songs: [
-      { name: "Not Like Us", videoId: "T6eK-2OQtew", startAt: 0 }
-    ],
+    songs: [{ name: "Not Like Us", videoId: "T6eK-2OQtew", startAt: 0 }],
     stats: { ab: 0, h: 0, r: 0, rbi: 0 } 
   },
   { 
@@ -144,9 +134,7 @@ const INITIAL_ROSTER: Player[] = [
     name: "Aldrich Munoz", 
     number: 11, 
     announcementAudioUrl: "/audio/Aldrich.mp3",
-    songs: [
-      { name: "Montagem Supersonic", videoId: "lM4v4sq8ypo", startAt: 0 }
-    ],
+    songs: [{ name: "Montagem Supersonic", videoId: "lM4v4sq8ypo", startAt: 0 }],
     stats: { ab: 0, h: 0, r: 0, rbi: 0 } 
   },
   { 
@@ -154,9 +142,7 @@ const INITIAL_ROSTER: Player[] = [
     name: "Jimena Briones", 
     number: 12, 
     announcementAudioUrl: "/audio/Jimena.mp3",
-    songs: [
-      { name: "Watermelon Sugar", videoId: "KPM_BYl-EaQ", startAt: 0 }
-    ],
+    songs: [{ name: "Watermelon Sugar", videoId: "KPM_BYl-EaQ", startAt: 0 }],
     stats: { ab: 0, h: 0, r: 0, rbi: 0 } 
   },
 ].sort((a, b) => a.number - b.number);
@@ -185,7 +171,7 @@ export default function StadiumBoothDashboard() {
   const [roster, setRoster] = useState(INITIAL_ROSTER);
   const [activePlayerId, setActivePlayerId] = useState<string | null>(null);
   const [selectedSongIndex, setSelectedSongIndex] = useState(0);
-  const [isAnnouncing, setIsAnnouncing] = useState(false);
+  const [playbackPhase, setPlaybackPhase] = useState<'idle' | 'announcing' | 'walkup'>('idle');
   const [activeTrackName, setActiveTrackName] = useState<string | null>(null);
   const [volume, setVolume] = useState(0.8);
   const [isWakeLocked, setIsWakeLocked] = useState(false);
@@ -193,8 +179,9 @@ export default function StadiumBoothDashboard() {
   const [searchResults, setSearchResults] = useState<{id: string, title: string}[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [playerReady, setPlayerReady] = useState(false);
+  const [currentAnnouncementUrl, setCurrentAnnouncementUrl] = useState("");
   
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const announcementAudioRef = useRef<HTMLAudioElement | null>(null);
   const ytPlayerRef = useRef<any>(null);
   const wakeLockRef = useRef<any>(null);
   const fadeIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -240,11 +227,12 @@ export default function StadiumBoothDashboard() {
         host: 'https://www.youtube.com',
         playerVars: {
           autoplay: 1,
-          controls: 1,
+          controls: 0,
           enablejsapi: 1,
           origin: typeof window !== 'undefined' ? window.location.origin : '',
           rel: 0,
-          modestbranding: 1
+          modestbranding: 1,
+          iv_load_policy: 3
         },
         events: {
           onReady: (event: any) => {
@@ -259,7 +247,7 @@ export default function StadiumBoothDashboard() {
               toast({
                 variant: "destructive",
                 title: "Playback Restricted",
-                description: "This video owner does not allow embedding. Use a different version (like a Stadium Organ version).",
+                description: "This video cannot be embedded. Try a different version (like a Stadium Organ version).",
               });
             }
           }
@@ -278,9 +266,9 @@ export default function StadiumBoothDashboard() {
     }
   }, [toast, volume]);
 
-  // Update volume for both local and YT
+  // Sync Master Volume
   useEffect(() => {
-    if (audioRef.current) audioRef.current.volume = volume;
+    if (announcementAudioRef.current) announcementAudioRef.current.volume = volume;
     if (ytPlayerRef.current && playerReady) {
       try {
         ytPlayerRef.current.setVolume(volume * 100);
@@ -293,9 +281,9 @@ export default function StadiumBoothDashboard() {
       clearInterval(fadeIntervalRef.current);
       fadeIntervalRef.current = null;
     }
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.src = "";
+    if (announcementAudioRef.current) {
+      announcementAudioRef.current.pause();
+      announcementAudioRef.current.src = "";
     }
     if (ytPlayerRef.current && playerReady) {
       try {
@@ -303,15 +291,8 @@ export default function StadiumBoothDashboard() {
       } catch (e) {}
     }
     setActiveTrackName(null);
-    setIsAnnouncing(false);
-  };
-
-  const restoreVolume = () => {
-    if (fadeIntervalRef.current) {
-      clearInterval(fadeIntervalRef.current);
-      fadeIntervalRef.current = null;
-    }
-    if (volume < 0.1) setVolume(0.8);
+    setPlaybackPhase('idle');
+    setCurrentAnnouncementUrl("");
   };
 
   const handleFadeOut = () => {
@@ -334,8 +315,7 @@ export default function StadiumBoothDashboard() {
   };
 
   const playYoutubeTrack = (videoId: string, songName: string, startAt: number = 0) => {
-    restoreVolume();
-    if (!isAnnouncing) stopEverything();
+    if (playbackPhase !== 'announcing') stopEverything();
     
     setActiveTrackName(songName);
     
@@ -354,59 +334,56 @@ export default function StadiumBoothDashboard() {
     }
   };
 
-  const playLocalAnnouncement = (url: string, playerName: string) => {
-    restoreVolume();
-    stopEverything();
-    setActiveTrackName(`Announcing: ${playerName}`);
-    
-    const audio = new Audio(url);
-    audio.volume = volume;
-    audioRef.current = audio;
-    
-    audio.play().catch(e => {
-      console.warn("Local Announcement missing/blocked", e);
-    });
-    return audio;
-  };
-
-  const triggerWalkonSequence = async () => {
-    if (!activePlayer || isAnnouncing || !selectedSong) return;
+  const triggerWalkonSequence = () => {
+    if (!activePlayer || playbackPhase === 'announcing' || !selectedSong) return;
     
     stopEverything();
-    setIsAnnouncing(true);
-
-    // Warm up YouTube (unlock audio context)
+    
+    // Warm up the YouTube context to bypass browser lockout later
     if (ytPlayerRef.current && playerReady) {
       ytPlayerRef.current.unMute();
       ytPlayerRef.current.setVolume(volume * 100);
     }
-    
-    const announcementUrl = activePlayer.announcementAudioUrl;
-    const song = selectedSong;
-    
-    const audio = playLocalAnnouncement(announcementUrl, activePlayer.name);
-    
-    let handoffTriggered = false;
-    const triggerMusic = () => {
-      if (handoffTriggered) return;
-      handoffTriggered = true;
-      setIsAnnouncing(false);
-      playYoutubeTrack(song.videoId, song.name, song.startAt);
-    };
 
-    audio.onended = triggerMusic;
-    audio.onerror = () => {
-      console.warn("Announcement file error, skipping to music");
-      setTimeout(triggerMusic, 500);
-    };
+    setPlaybackPhase('announcing');
+    setActiveTrackName(`Announcing: ${activePlayer.name}`);
+    setCurrentAnnouncementUrl(activePlayer.announcementAudioUrl);
 
-    // Safety timeout in case audio context hangs or file is missing
-    setTimeout(() => {
-      if (!handoffTriggered && isAnnouncing) triggerMusic();
-    }, 6500);
+    // We rely on handleAnnouncementEnded triggered by the <audio> element's onEnded
   };
 
-  const handleSearch = async (e: React.FormEvent) => {
+  const handleAnnouncementEnded = () => {
+    console.log("📢 Announcement finished! Triggering walk-up track...");
+    if (activePlayer && selectedSong) {
+      setPlaybackPhase('walkup');
+      playYoutubeTrack(selectedSong.videoId, selectedSong.name, selectedSong.startAt);
+    } else {
+      setPlaybackPhase('idle');
+      setActiveTrackName(null);
+    }
+  };
+
+  const updateStat = (type: keyof Player['stats'], delta: number) => {
+    if (!activePlayerId) return;
+    setRoster((prev) =>
+      prev.map((p) =>
+        p.id === activePlayerId
+          ? { ...p, stats: { ...p.stats, [type]: Math.max(0, p.stats[type] + delta) } }
+          : p
+      )
+    );
+  };
+
+  const emailStats = () => {
+    const scoreText = `STADIUM REPORT\nAway: ${awayScore} | Home: ${homeScore}\n\n`;
+    const rosterStatsText = sortedRoster.map(p => 
+      `${p.name} (#${p.number}): AB: ${p.stats.ab}, H: ${p.stats.h}, R: ${p.stats.r}, RBI: ${p.stats.rbi}`
+    ).join('\n');
+    const mailtoUrl = `mailto:?subject=Little League Game Report&body=${encodeURIComponent(scoreText + rosterStatsText)}`;
+    window.location.href = mailtoUrl;
+  };
+
+  const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchQuery) return;
     
@@ -434,29 +411,22 @@ export default function StadiumBoothDashboard() {
     }, 800);
   };
 
-  const updateStat = (type: keyof Player['stats'], delta: number) => {
-    if (!activePlayerId) return;
-    setRoster((prev) =>
-      prev.map((p) =>
-        p.id === activePlayerId
-          ? { ...p, stats: { ...p.stats, [type]: Math.max(0, p.stats[type] + delta) } }
-          : p
-      )
-    );
-  };
-
-  const emailStats = () => {
-    const scoreText = `STADIUM REPORT\nAway: ${awayScore} | Home: ${homeScore}\n\n`;
-    const rosterStatsText = sortedRoster.map(p => 
-      `${p.name} (#${p.number}): AB: ${p.stats.ab}, H: ${p.stats.h}, R: ${p.stats.r}, RBI: ${p.stats.rbi}`
-    ).join('\n');
-    const mailtoUrl = `mailto:?subject=Little League Game Report&body=${encodeURIComponent(scoreText + rosterStatsText)}`;
-    window.location.href = mailtoUrl;
-  };
-
   return (
     <TooltipProvider>
       <div className="flex flex-col h-screen bg-background text-foreground stadium-gradient overflow-hidden">
+        {/* Hidden Audio for Announcements */}
+        <audio
+          ref={announcementAudioRef}
+          src={currentAnnouncementUrl}
+          autoPlay
+          onEnded={handleAnnouncementEnded}
+          onError={() => {
+            console.warn("Announcement file missing, skipping to music");
+            handleAnnouncementEnded();
+          }}
+          className="hidden"
+        />
+
         {/* COMMAND HEADER */}
         <header className="sticky top-0 z-50 flex flex-col gap-2 p-3 md:p-4 border-b border-border shadow-2xl bg-card/95 backdrop-blur-md">
           <div className="flex items-center justify-between gap-2 max-w-7xl mx-auto w-full relative">
@@ -601,9 +571,13 @@ export default function StadiumBoothDashboard() {
                       </div>
                     )}
                     
-                    <Button disabled={!activePlayer || isAnnouncing} onClick={triggerWalkonSequence} className="w-full h-14 md:h-16 text-sm md:text-base font-black bg-primary hover:bg-primary/90 shadow-[0_8px_16px_-4px_rgba(66,133,255,0.4)]">
-                      {isAnnouncing ? <Activity className="animate-pulse mr-2" /> : <Zap className="mr-2 fill-white" />}
-                      {isAnnouncing ? "STADIUM ANNOUNCING..." : "TRIGGER WALK-ON"}
+                    <Button 
+                      disabled={!activePlayer || playbackPhase === 'announcing'} 
+                      onClick={triggerWalkonSequence} 
+                      className="w-full h-14 md:h-16 text-sm md:text-base font-black bg-primary hover:bg-primary/90 shadow-[0_8px_16px_-4px_rgba(66,133,255,0.4)]"
+                    >
+                      {playbackPhase === 'announcing' ? <Activity className="animate-pulse mr-2" /> : <Zap className="mr-2 fill-white" />}
+                      {playbackPhase === 'announcing' ? "STADIUM ANNOUNCING..." : "TRIGGER WALK-ON"}
                     </Button>
                   </CardContent>
                 </Card>
@@ -714,7 +688,11 @@ export default function StadiumBoothDashboard() {
                   {sortedRoster.map((player) => (
                     <Button 
                       key={player.id} variant="outline"
-                      onClick={() => playLocalAnnouncement(player.announcementAudioUrl, player.name)}
+                      onClick={() => {
+                        stopEverything();
+                        setCurrentAnnouncementUrl(player.announcementAudioUrl);
+                        setActiveTrackName(`Announcing: ${player.name}`);
+                      }}
                       className="flex flex-col h-11 md:h-12 gap-0.5 border-white/10 hover:border-primary/50 bg-card/60 px-1"
                     >
                       <span className="text-[7px] md:text-[8px] font-black leading-tight text-center">#{player.number} {player.name.split(' ')[0]}</span>
@@ -774,7 +752,9 @@ export default function StadiumBoothDashboard() {
                  <div className="w-1 bg-primary animate-[bounce_0.5s_infinite] h-3 rounded-full" />
               </div>
               <div className="flex-1 overflow-hidden">
-                <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em] mb-0.5 animate-pulse">Live Feed Active</p>
+                <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em] mb-0.5 animate-pulse">
+                  {playbackPhase === 'announcing' ? "Announcement Phase" : playbackPhase === 'walkup' ? "Walk-Up Phase" : "Live Feed Active"}
+                </p>
                 <p className="text-[9px] font-bold text-white/70 truncate uppercase">{activeTrackName || "Standby..."}</p>
               </div>
               <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-destructive/20 hover:text-destructive" onClick={stopEverything}>
@@ -784,8 +764,8 @@ export default function StadiumBoothDashboard() {
           </div>
         </div>
 
-        {/* HIDDEN AUDIO BRIDGE - 1x1 to keep active context */}
-        <div id="stadium-yt-player" className="absolute opacity-0 pointer-events-none w-1 h-1 overflow-hidden top-0 left-0"></div>
+        {/* HIDDEN AUDIO BRIDGE */}
+        <div id="stadium-yt-player" className="fixed -bottom-10 -right-10 opacity-0 pointer-events-none w-1 h-1 overflow-hidden"></div>
       </div>
     </TooltipProvider>
   );
