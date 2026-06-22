@@ -179,7 +179,7 @@ export default function StadiumBoothDashboard() {
   const [searchResults, setSearchResults] = useState<{id: string, title: string}[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [playerReady, setPlayerReady] = useState(false);
-  const [currentAnnouncementUrl, setCurrentAnnouncementUrl] = useState("");
+  const [currentAnnouncementUrl, setCurrentAnnouncementUrl] = useState<string | null>(null);
   
   const announcementAudioRef = useRef<HTMLAudioElement | null>(null);
   const ytPlayerRef = useRef<any>(null);
@@ -283,8 +283,8 @@ export default function StadiumBoothDashboard() {
     }
     if (announcementAudioRef.current) {
       announcementAudioRef.current.pause();
-      announcementAudioRef.current.src = "";
     }
+    setCurrentAnnouncementUrl(null);
     if (ytPlayerRef.current && playerReady) {
       try {
         ytPlayerRef.current.stopVideo();
@@ -292,7 +292,6 @@ export default function StadiumBoothDashboard() {
     }
     setActiveTrackName(null);
     setPlaybackPhase('idle');
-    setCurrentAnnouncementUrl("");
   };
 
   const handleFadeOut = () => {
@@ -349,7 +348,7 @@ export default function StadiumBoothDashboard() {
     setActiveTrackName(`Announcing: ${activePlayer.name}`);
     setCurrentAnnouncementUrl(activePlayer.announcementAudioUrl);
 
-    // We rely on handleAnnouncementEnded triggered by the <audio> element's onEnded
+    // Sequence transition is handled by handleAnnouncementEnded via <audio onEnded>
   };
 
   const handleAnnouncementEnded = () => {
@@ -415,17 +414,19 @@ export default function StadiumBoothDashboard() {
     <TooltipProvider>
       <div className="flex flex-col h-screen bg-background text-foreground stadium-gradient overflow-hidden">
         {/* Hidden Audio for Announcements */}
-        <audio
-          ref={announcementAudioRef}
-          src={currentAnnouncementUrl}
-          autoPlay
-          onEnded={handleAnnouncementEnded}
-          onError={() => {
-            console.warn("Announcement file missing, skipping to music");
-            handleAnnouncementEnded();
-          }}
-          className="hidden"
-        />
+        {currentAnnouncementUrl && (
+          <audio
+            ref={announcementAudioRef}
+            src={currentAnnouncementUrl}
+            autoPlay
+            onEnded={handleAnnouncementEnded}
+            onError={() => {
+              console.warn("Announcement file missing, skipping to music");
+              handleAnnouncementEnded();
+            }}
+            className="hidden"
+          />
+        )}
 
         {/* COMMAND HEADER */}
         <header className="sticky top-0 z-50 flex flex-col gap-2 p-3 md:p-4 border-b border-border shadow-2xl bg-card/95 backdrop-blur-md">
