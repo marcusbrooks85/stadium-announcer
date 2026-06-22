@@ -76,6 +76,25 @@ export default function GameSchedulePage() {
     return "future";
   };
 
+  const record = useMemo(() => {
+    let w = 0;
+    let l = 0;
+    gameSchedule.forEach((game, index) => {
+      const gameKey = `game_${game.week}_${game.date}_${index}`;
+      const isWon = wins[gameKey] || false;
+      const status = getGameStatus(game.date);
+      
+      if (status !== "future") {
+        if (isWon) {
+          w++;
+        } else if (status === "past") {
+          l++;
+        }
+      }
+    });
+    return { w, l };
+  }, [wins, todayPST]);
+
   const nextUpcomingGameIndex = useMemo(() => {
     return gameSchedule.findIndex(game => {
       const status = getGameStatus(game.date);
@@ -136,6 +155,24 @@ export default function GameSchedulePage() {
       </header>
 
       <main className="flex-1 p-4 md:p-8 max-w-5xl mx-auto w-full space-y-6 pb-24">
+        {/* SEASON RECORD SECTION */}
+        <section className="flex flex-col items-center md:items-start space-y-4">
+          <div className="flex items-center gap-3">
+            <Trophy className="h-5 w-5 text-yellow-500" />
+            <h2 className="text-base font-black uppercase tracking-widest text-primary">Season Record</h2>
+          </div>
+          <div className="flex gap-4">
+            <div className="bg-primary/10 border border-primary/20 px-6 py-3 rounded-2xl flex flex-col items-center min-w-[100px] shadow-lg shadow-primary/5">
+              <span className="text-[10px] font-black uppercase tracking-widest text-primary mb-1">Wins</span>
+              <span className="text-3xl font-black digit-font text-primary">{record.w}</span>
+            </div>
+            <div className="bg-destructive/10 border border-destructive/20 px-6 py-3 rounded-2xl flex flex-col items-center min-w-[100px] shadow-lg shadow-destructive/5">
+              <span className="text-[10px] font-black uppercase tracking-widest text-destructive mb-1">Losses</span>
+              <span className="text-3xl font-black digit-font text-destructive">{record.l}</span>
+            </div>
+          </div>
+        </section>
+
         <section className="space-y-4">
           <div className="flex items-center gap-3">
             <CalendarIcon className="h-5 w-5 text-primary" />
@@ -158,13 +195,13 @@ export default function GameSchedulePage() {
                   className={cn(
                     "transition-all duration-300 relative overflow-hidden",
                     isHome ? "bg-blue-950/40 border-blue-800/60" : "bg-slate-800/50 border-slate-700/60",
-                    isPast && !isWon && "line-through opacity-30 text-muted-foreground/50 pointer-events-none grayscale shadow-none border-none",
+                    isPast && "line-through opacity-30 text-muted-foreground/50 grayscale shadow-none border-none",
                     isNextUpcoming && "scale-[1.02] shadow-[0_0_20px_rgba(59,130,246,0.4)] ring-2 ring-blue-500 border-t-white/30"
                   )}
                 >
-                  {/* TROPHY OVERLAY */}
+                  {/* TROPHY OVERLAY - EXEMPT FROM STRIKETHROUGH */}
                   {isWon && (
-                    <div className="absolute top-2 right-2 z-10 isolation not-line-through opacity-100 inline-block">
+                    <div className="absolute top-2 right-2 z-10 isolation not-line-through opacity-100 inline-block pointer-events-none">
                       <div className="filter drop-shadow-[0_0_12px_rgba(234,179,8,0.9)] animate-trophy-breathe">
                         <span className="text-2xl md:text-3xl">🏆</span>
                       </div>
@@ -176,7 +213,7 @@ export default function GameSchedulePage() {
                       {/* Date & Week */}
                       <div className="md:col-span-3 flex flex-col">
                         <div className="flex items-center gap-3">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 not-line-through opacity-100 isolation">
                             <Checkbox 
                               checked={isWon} 
                               onCheckedChange={() => handleToggleWin(gameKey, isWon)}
@@ -211,7 +248,7 @@ export default function GameSchedulePage() {
                         </div>
                         
                         {snackDuty && (
-                          <div className="bg-slate-800/90 text-slate-100 border border-slate-700 font-bold px-2 py-1 rounded-md inline-flex items-center gap-1.5 text-[10px] mt-2 self-start shadow-sm">
+                          <div className="bg-slate-800/90 text-slate-100 border border-slate-700 font-bold px-2 py-1 rounded-md inline-flex items-center gap-1.5 text-[10px] mt-2 self-start shadow-sm not-line-through opacity-100 isolation">
                             <span>🍴</span>
                             <span className="uppercase tracking-tighter">SNACK: {snackDuty}</span>
                           </div>
