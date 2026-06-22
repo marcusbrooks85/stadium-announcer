@@ -52,6 +52,16 @@ const SNACK_SCHEDULE: Record<string, string> = {
 export default function GameSchedulePage() {
   const db = useFirestore();
   const [wins, setWins] = useState<Record<string, boolean>>({});
+  const [todayPST, setTodayPST] = useState<Date | null>(null);
+
+  // Avoid hydration mismatch by setting today's date on mount
+  useEffect(() => {
+    const now = new Date();
+    const pstDateStr = now.toLocaleDateString("en-US", { timeZone: "America/Los_Angeles" });
+    const d = new Date(pstDateStr);
+    d.setHours(0, 0, 0, 0);
+    setTodayPST(d);
+  }, []);
 
   // Real-time listener for game wins
   useEffect(() => {
@@ -79,15 +89,8 @@ export default function GameSchedulePage() {
     return () => unsubscribe();
   }, [db]);
 
-  const todayPST = useMemo(() => {
-    const now = new Date();
-    const pstDateStr = now.toLocaleDateString("en-US", { timeZone: "America/Los_Angeles" });
-    const d = new Date(pstDateStr);
-    d.setHours(0, 0, 0, 0);
-    return d;
-  }, []);
-
   const getGameStatus = (dateStr: string) => {
+    if (!todayPST) return "future";
     const [y, m, d] = dateStr.split("-").map(Number);
     const gameDate = new Date(y, m - 1, d);
     gameDate.setHours(0, 0, 0, 0);
@@ -98,6 +101,7 @@ export default function GameSchedulePage() {
   };
 
   const record = useMemo(() => {
+    if (!todayPST) return { w: 0, l: 0 };
     let w = 0;
     let l = 0;
     gameSchedule.forEach((game, index) => {
@@ -117,6 +121,7 @@ export default function GameSchedulePage() {
   }, [wins, todayPST]);
 
   const nextUpcomingGameIndex = useMemo(() => {
+    if (!todayPST) return -1;
     return gameSchedule.findIndex(game => {
       const status = getGameStatus(game.date);
       return status === "today" || status === "future";
@@ -141,8 +146,7 @@ export default function GameSchedulePage() {
     const docRef = doc(db, "game_wins", gameKey);
     
     if (!currentStatus) {
-      // Mark as win
-      setDoc(docRef, { won: true, updatedAt: new Date() })
+      setDoc(docRef, { won: true, updatedAt: new Date().toISOString() })
         .catch(async (error) => {
           const permissionError = new FirestorePermissionError({
             path: docRef.path,
@@ -152,7 +156,6 @@ export default function GameSchedulePage() {
           errorEmitter.emit('permission-error', permissionError);
         });
     } else {
-      // Remove win
       deleteDoc(docRef)
         .catch(async (error) => {
           const permissionError = new FirestorePermissionError({
