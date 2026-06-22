@@ -39,7 +39,7 @@ const INITIAL_ROSTER: Player[] = [
     name: "Alexa Franco", 
     number: 7, 
     announcementAudioUrl: "/audio/Alexa.mp3",
-    songs: [{ name: "Batter Up", videoId: "olDWm2veCrM", startAt: 58 }],
+    songs: [{ name: "Batter Up", videoId: "olDWm2veCrM", startAt: 61 }],
     stats: { ab: 0, h: 0, r: 0, rbi: 0 } 
   },
   { 
