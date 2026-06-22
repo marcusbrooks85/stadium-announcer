@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useMemo, useEffect, useState } from "react";
 import Link from "next/link";
 import { 
   Calendar as CalendarIcon, 
@@ -10,12 +10,16 @@ import {
   MapPin, 
   Clock, 
   Trophy,
-  MessageSquare 
+  MessageSquare,
+  CheckCircle2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
+import { useFirestore } from "@/firebase";
+import { doc, setDoc, onSnapshot, collection } from "firebase/firestore";
 
 const gameSchedule = [
   { week: 1, date: "2026-06-20", time: "2:00 PM", home: "Coach Alexis", away: "Coach Chewy", location: "Jim Thorpe - Cordary Field" },
@@ -35,8 +39,24 @@ const gameSchedule = [
 ];
 
 export default function GameSchedulePage() {
+  const db = useFirestore();
+  const [winsMap, setWinsMap] = useState<Record<string, boolean>>({});
+
+  // Real-time listener for game wins
+  useEffect(() => {
+    if (!db) return;
+    const winsRef = collection(db, "gameWins");
+    const unsubscribe = onSnapshot(winsRef, (snapshot) => {
+      const wins: Record<string, boolean> = {};
+      snapshot.forEach((doc) => {
+        wins[doc.id] = doc.data().isWon;
+      });
+      setWinsMap(wins);
+    });
+    return () => unsubscribe();
+  }, [db]);
+
   const todayPST = useMemo(() => {
-    // Strictly PST midnight comparison
     const now = new Date();
     const pstDateStr = now.toLocaleDateString("en-US", { timeZone: "America/Los_Angeles" });
     const d = new Date(pstDateStr);
@@ -60,6 +80,25 @@ export default function GameSchedulePage() {
       return status === "today" || status === "future";
     });
   }, [todayPST]);
+
+  const handleToggleWin = async (week: number, date: string, currentStatus: boolean) => {
+    const password = window.prompt("Enter Admin Password to update game status:");
+    
+    if (password !== "Chewy2026") {
+      alert("Incorrect Password");
+      return;
+    }
+
+    if (currentStatus) {
+      const confirmRemove = window.confirm("Are you sure you want to remove the championship trophy from this game?");
+      if (!confirmRemove) return;
+    }
+
+    const docId = `game_${week}_${date}`;
+    const gameRef = doc(db!, "gameWins", docId);
+    
+    await setDoc(gameRef, { isWon: !currentStatus }, { merge: true });
+  };
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground stadium-gradient">
@@ -109,25 +148,43 @@ export default function GameSchedulePage() {
               const isToday = status === "today";
               const isNextUpcoming = index === nextUpcomingGameIndex;
               const isHome = game.home === "Coach Chewy" || game.notes === "Playoffs" || game.notes === "Finals";
+              const gameId = `game_${game.week}_${game.date}`;
+              const isWon = winsMap[gameId] || false;
 
               return (
                 <Card 
                   key={`${game.date}-${index}`} 
                   className={cn(
-                    "transition-all duration-300 overflow-hidden",
+                    "transition-all duration-300 relative",
                     isHome ? "bg-blue-950/40 border-blue-800/60" : "bg-slate-800/50 border-slate-700/60",
                     isPast && "line-through opacity-30 text-muted-foreground/50 pointer-events-none grayscale shadow-none border-none",
                     isNextUpcoming && "scale-[1.02] shadow-[0_0_20px_rgba(59,130,246,0.4)] ring-2 ring-blue-500 border-t-white/30"
                   )}
                 >
+                  {/* TROPHY OVERLAY */}
+                  {isWon && (
+                    <div className="absolute -top-2 -right-2 z-10 not-line-through opacity-100 inline-block isolation animate-[pulse_3s_ease-in-out_infinite]">
+                      <div className="text-3xl md:text-4xl filter drop-shadow-[0_0_12px_rgba(234,179,8,0.9)] scale-110">
+                        🏆
+                      </div>
+                    </div>
+                  )}
+
                   <CardContent className="p-4 md:p-6">
                     <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
                       {/* Date & Week */}
                       <div className="md:col-span-3 flex flex-col">
-                        <div className="flex items-center gap-2">
-                          <Badge variant={isNextUpcoming ? "default" : "outline"} className="text-[10px] font-black tracking-widest uppercase">
-                            Week {game.week}
-                          </Badge>
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-1.5 pointer-events-auto">
+                            <Checkbox 
+                              checked={isWon} 
+                              onCheckedChange={() => handleToggleWin(game.week, game.date, isWon)}
+                              className="h-4 w-4 border-white/20 data-[state=checked]:bg-yellow-500 data-[state=checked]:border-yellow-500"
+                            />
+                            <Badge variant={isNextUpcoming ? "default" : "outline"} className="text-[10px] font-black tracking-widest uppercase">
+                              Week {game.week}
+                            </Badge>
+                          </div>
                           {game.notes && (
                             <Badge className="bg-secondary text-secondary-foreground text-[10px] font-black uppercase">
                               {game.notes}
