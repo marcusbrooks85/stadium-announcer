@@ -98,12 +98,12 @@ const INITIAL_ROSTER: Player[] = [
     name: "Alexa Franco", 
     number: 7, 
     announcementAudioUrl: "/audio/Alexa.mp3",
-    songs: [{ name: "Batter Up", videoId: "AleC4OpNjkY", startAt: 58 }],
+    songs: [{ name: "Batter Up", videoId: "olDWm2veCrM", startAt: 58 }],
     stats: { ab: 0, h: 0, r: 0, rbi: 0 } 
   },
   { 
     id: "8", 
-    name: "Zeke", 
+    name: "Zeke Jacobo", 
     number: 8, 
     announcementAudioUrl: "/audio/Zeke.mp3",
     songs: [{ name: "Under Control", videoId: "cRYDSdXcT5o", startAt: 0 }],
@@ -403,7 +403,7 @@ export default function StadiumBoothDashboard() {
       setSearchResults([
         { id: "T6eK-2OQtew", title: "Not Like Us - Instrumental" },
         { id: "4zAThXFOy2c", title: "Tennessee Whiskey - Audio Only" },
-        { id: "QamKhi1cxIs", title: "Take Me Out to the Ballgame" },
+        { id: "olDWm2veCrM", title: "Batter Up - Lyric Version" },
         { id: "melJslO0IJY", title: "Stadium Organ Charge" }
       ]);
       setIsSearching(false);
@@ -413,7 +413,7 @@ export default function StadiumBoothDashboard() {
   return (
     <TooltipProvider>
       <div className="flex flex-col h-screen bg-background text-foreground stadium-gradient overflow-hidden">
-        {/* Hidden Audio for Announcements */}
+        {/* Hidden Audio for Announcements - Only render when source exists to avoid 'empty src' console error */}
         {currentAnnouncementUrl && (
           <audio
             ref={announcementAudioRef}
