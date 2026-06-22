@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useMemo, useState, useEffect } from "react";
@@ -17,6 +18,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
+import { useFirestore } from "@/firebase";
+import { doc, setDoc, onSnapshot, collection, deleteDoc } from "firebase/firestore";
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 const gameSchedule = [
   { week: 1, date: "2026-06-20", time: "2:00 PM", home: "Coach Alexis", away: "Coach Chewy", location: "Jim Thorpe - Cordary Field" },
@@ -45,18 +50,34 @@ const SNACK_SCHEDULE: Record<string, string> = {
 };
 
 export default function GameSchedulePage() {
+  const db = useFirestore();
   const [wins, setWins] = useState<Record<string, boolean>>({});
 
+  // Real-time listener for game wins
   useEffect(() => {
-    const savedWins = localStorage.getItem("chewy_game_wins");
-    if (savedWins) {
-      try {
-        setWins(JSON.parse(savedWins));
-      } catch (e) {
-        console.error("Failed to parse saved wins");
+    if (!db) return;
+
+    const winsRef = collection(db, "game_wins");
+    const unsubscribe = onSnapshot(
+      winsRef,
+      (snapshot) => {
+        const winsData: Record<string, boolean> = {};
+        snapshot.forEach((doc) => {
+          winsData[doc.id] = doc.data().won || false;
+        });
+        setWins(winsData);
+      },
+      async (error) => {
+        const permissionError = new FirestorePermissionError({
+          path: winsRef.path,
+          operation: 'list',
+        });
+        errorEmitter.emit('permission-error', permissionError);
       }
-    }
-  }, []);
+    );
+
+    return () => unsubscribe();
+  }, [db]);
 
   const todayPST = useMemo(() => {
     const now = new Date();
@@ -84,7 +105,6 @@ export default function GameSchedulePage() {
       const isWon = wins[gameKey] || false;
       const status = getGameStatus(game.date);
       
-      // Future games don't count toward W or L
       if (status !== "future") {
         if (isWon) {
           w++;
@@ -103,7 +123,7 @@ export default function GameSchedulePage() {
     });
   }, [todayPST]);
 
-  const handleToggleWin = (gameKey: string, currentStatus: boolean) => {
+  const handleToggleWin = async (gameKey: string, currentStatus: boolean) => {
     const password = window.prompt("Enter Admin Password to update game status:");
     
     if (password !== "Chewy2026") {
@@ -116,14 +136,36 @@ export default function GameSchedulePage() {
       if (!confirmRemove) return;
     }
 
-    const newWins = { ...wins, [gameKey]: !currentStatus };
-    setWins(newWins);
-    localStorage.setItem("chewy_game_wins", JSON.stringify(newWins));
+    if (!db) return;
+
+    const docRef = doc(db, "game_wins", gameKey);
+    
+    if (!currentStatus) {
+      // Mark as win
+      setDoc(docRef, { won: true, updatedAt: new Date() })
+        .catch(async (error) => {
+          const permissionError = new FirestorePermissionError({
+            path: docRef.path,
+            operation: 'create',
+            requestResourceData: { won: true },
+          });
+          errorEmitter.emit('permission-error', permissionError);
+        });
+    } else {
+      // Remove win
+      deleteDoc(docRef)
+        .catch(async (error) => {
+          const permissionError = new FirestorePermissionError({
+            path: docRef.path,
+            operation: 'delete',
+          });
+          errorEmitter.emit('permission-error', permissionError);
+        });
+    }
   };
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground stadium-gradient">
-      {/* HEADER */}
       <header className="sticky top-0 z-50 flex items-center justify-between p-4 border-b border-border shadow-2xl bg-card/95 backdrop-blur-md">
         <div className="flex items-center gap-4">
           <Link href="/">
@@ -156,7 +198,6 @@ export default function GameSchedulePage() {
       </header>
 
       <main className="flex-1 p-4 md:p-8 max-w-5xl mx-auto w-full space-y-6 pb-24">
-        {/* SEASON RECORD SECTION */}
         <section className="flex flex-col items-center md:items-start space-y-4">
           <div className="flex items-center gap-3">
             <Trophy className="h-5 w-5 text-yellow-500" />
@@ -199,7 +240,6 @@ export default function GameSchedulePage() {
                     isNextUpcoming && "scale-[1.02] shadow-[0_0_20px_rgba(59,130,246,0.4)] ring-2 ring-blue-500 border-t-white/30"
                   )}
                 >
-                  {/* TROPHY OVERLAY - ISOLATED FROM GRAYSCALE/STRIKETHROUGH */}
                   {isWon && (
                     <div className="absolute top-2 right-2 z-20 isolation pointer-events-none">
                       <div className="filter drop-shadow-[0_0_12px_rgba(234,179,8,0.9)] animate-trophy-breathe">
@@ -208,14 +248,12 @@ export default function GameSchedulePage() {
                     </div>
                   )}
 
-                  {/* WRAPPER FOR FADING/STRIKE-THROUGH ON PAST GAMES */}
                   <div className={cn(
                     "transition-all duration-300",
                     isPast && "line-through opacity-30 grayscale"
                   )}>
                     <CardContent className="p-4 md:p-6">
                       <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
-                        {/* Date & Week */}
                         <div className="md:col-span-3 flex flex-col">
                           <div className="flex items-center gap-3">
                             <div className="flex items-center gap-2 not-line-through opacity-100 isolation">
@@ -243,7 +281,6 @@ export default function GameSchedulePage() {
                           </p>
                         </div>
 
-                        {/* Time & Location */}
                         <div className="md:col-span-3 flex flex-col space-y-1">
                           <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground">
                             <Clock className="h-3 w-3" /> {game.time}
@@ -260,7 +297,6 @@ export default function GameSchedulePage() {
                           )}
                         </div>
 
-                        {/* Matchup */}
                         <div className="md:col-span-6 flex items-center justify-between gap-4 p-3 bg-black/30 rounded-xl border border-white/5">
                           <div className="flex-1 text-center">
                             <p className="text-[10px] font-black uppercase text-muted-foreground mb-1">Away</p>
@@ -288,7 +324,6 @@ export default function GameSchedulePage() {
         </section>
       </main>
 
-      {/* MOBILE FOOTER NAVIGATION - PILL STYLE */}
       <footer className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] md:hidden z-50">
         <div className="flex items-center justify-center gap-3 bg-card/90 backdrop-blur-xl border border-white/10 p-2 rounded-2xl shadow-2xl">
           <Link href="/" className="flex-1">

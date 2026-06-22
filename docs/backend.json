@@ -1,0 +1,33 @@
+
+{
+  "entities": {
+    "GameWin": {
+      "title": "Game Win",
+      "description": "Represents the win status of a specific baseball game.",
+      "type": "object",
+      "properties": {
+        "won": {
+          "type": "boolean",
+          "description": "Whether the game was won or not."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The timestamp of when the status was last updated."
+        }
+      },
+      "required": ["won"]
+    }
+  },
+  "auth": {
+    "providers": []
+  },
+  "firestore": {
+    "/game_wins/{gameId}": {
+      "schema": {
+        "$ref": "#/backend/entities/GameWin"
+      },
+      "description": "Collection storing win statuses for specific games identified by a unique key."
+    }
+  }
+}
