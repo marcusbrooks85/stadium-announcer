@@ -237,7 +237,6 @@ export default function StadiumBoothDashboard() {
           wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
           setIsWakeLocked(true);
         } catch (err) {
-          // Non-fatal, just log it
           console.warn("Wake lock failed", err);
         }
       }
@@ -256,7 +255,7 @@ export default function StadiumBoothDashboard() {
           autoplay: 1,
           controls: 1,
           enablejsapi: 1,
-          origin: window.location.origin,
+          origin: typeof window !== 'undefined' ? window.location.origin : '',
           rel: 0,
           modestbranding: 1,
           widget_referrer: window.location.origin
@@ -269,12 +268,12 @@ export default function StadiumBoothDashboard() {
           },
           onError: (event: any) => {
             const errorCode = event.data;
-            console.warn("YT Playback Error Code:", errorCode);
+            console.warn("YouTube Player Error Code:", errorCode);
             if (errorCode === 101 || errorCode === 150) {
               toast({
                 variant: "destructive",
                 title: "Playback Restricted",
-                description: "This video owner does not allow embedding. Use a different version.",
+                description: "This video owner does not allow embedding. Use a different version (like a Stadium Organ version).",
               });
             }
           }
@@ -355,6 +354,7 @@ export default function StadiumBoothDashboard() {
     
     if (ytPlayerRef.current && playerReady) {
       try {
+        // Critical: Force unmute and play call to bypass browser autoplay blocks
         ytPlayerRef.current.unMute();
         ytPlayerRef.current.setVolume(volume * 100);
         ytPlayerRef.current.loadVideoById({
@@ -424,7 +424,6 @@ export default function StadiumBoothDashboard() {
     }
 
     setIsSearching(true);
-    // Verified embeddable mock results
     setTimeout(() => {
       setSearchResults([
         { id: "T6eK-2OQtew", title: "Not Like Us - Instrumental" },
@@ -786,7 +785,7 @@ export default function StadiumBoothDashboard() {
           </div>
         </div>
 
-        {/* HIDDEN AUDIO BRIDGE */}
+        {/* HIDDEN AUDIO BRIDGE - 1x1 to keep active context */}
         <div id="stadium-yt-player" className="absolute opacity-0 pointer-events-none w-1 h-1 overflow-hidden top-0 left-0"></div>
       </div>
     </TooltipProvider>
