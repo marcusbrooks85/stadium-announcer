@@ -2,8 +2,8 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo } from "react";
+import Link from "next/link";
 import { 
-  Trophy, 
   Users, 
   Mic2, 
   Play, 
@@ -16,19 +16,12 @@ import {
   Music2,
   Zap,
   VolumeX,
-  Target,
   ChevronRight,
-  AlertCircle,
-  Hash,
-  Volume1,
-  Volume,
   FileAudio,
   CheckCircle2,
-  Mail,
-  Table as TableIcon,
-  ShieldCheck,
   Search,
-  ArrowDownWideNarrow
+  ArrowDownWideNarrow,
+  CircleDot
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -43,14 +36,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -59,93 +44,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-
-// Types
-interface Song {
-  name: string;
-  videoId: string;
-  startAt: number;
-}
-
-interface Player {
-  id: string;
-  name: string;
-  number: number;
-  announcementAudioUrl: string;
-  songs: Song[];
-  stats: { ab: number; h: number; r: number; rbi: number };
-}
-
-const INITIAL_ROSTER: Player[] = [
-  { 
-    id: "4", 
-    name: "Diomedes Plata", 
-    number: 4, 
-    announcementAudioUrl: "/audio/Diomedes.mp3",
-    songs: [{ name: "We LA", videoId: "l-eMsVOTCY4", startAt: 80 }],
-    stats: { ab: 0, h: 0, r: 0, rbi: 0 } 
-  },
-  { 
-    id: "6", 
-    name: "Max Camargo", 
-    number: 6, 
-    announcementAudioUrl: "/audio/Max.mp3",
-    songs: [{ name: "Miss You", videoId: "2S5Ku0mVkzI", startAt: 0 }],
-    stats: { ab: 0, h: 0, r: 0, rbi: 0 } 
-  },
-  { 
-    id: "7", 
-    name: "Alexa Franco", 
-    number: 7, 
-    announcementAudioUrl: "/audio/Alexa.mp3",
-    songs: [{ name: "Batter Up", videoId: "olDWm2veCrM", startAt: 58 }],
-    stats: { ab: 0, h: 0, r: 0, rbi: 0 } 
-  },
-  { 
-    id: "8", 
-    name: "Zeke Jacobo", 
-    number: 8, 
-    announcementAudioUrl: "/audio/Zeke.mp3",
-    songs: [{ name: "Under Control", videoId: "cRYDSdXcT5o", startAt: 0 }],
-    stats: { ab: 0, h: 0, r: 0, rbi: 0 } 
-  },
-  { 
-    id: "10", 
-    name: "Camila Brooks", 
-    number: 10, 
-    announcementAudioUrl: "/audio/Camila.mp3",
-    songs: [{ name: "Not Like Us", videoId: "T6eK-2OQtew", startAt: 0 }],
-    stats: { ab: 0, h: 0, r: 0, rbi: 0 } 
-  },
-  { 
-    id: "11-j", 
-    name: "Jacob Vieyra", 
-    number: 11, 
-    announcementAudioUrl: "/audio/Jacob.mp3",
-    songs: [
-      { name: "Tennessee Whiskey", videoId: "4zAThXFOy2c", startAt: 0 },
-      { name: "Blow the Whistle", videoId: "W_dJPUWdB_A", startAt: 0 },
-      { name: "Uprising", videoId: "Sk2Qd13GA7g", startAt: 107 }
-    ],
-    stats: { ab: 0, h: 0, r: 0, rbi: 0 } 
-  },
-  { 
-    id: "11-a", 
-    name: "Aldrich Munoz", 
-    number: 11, 
-    announcementAudioUrl: "/audio/Aldrich.mp3",
-    songs: [{ name: "Montagem Supersonic", videoId: "lM4v4sq8ypo", startAt: 0 }],
-    stats: { ab: 0, h: 0, r: 0, rbi: 0 } 
-  },
-  { 
-    id: "12", 
-    name: "Jimena Briones", 
-    number: 12, 
-    announcementAudioUrl: "/audio/Jimena.mp3",
-    songs: [{ name: "Watermelon Sugar", videoId: "KPM_BYl-EaQ", startAt: 0 }],
-    stats: { ab: 0, h: 0, r: 0, rbi: 0 } 
-  },
-].sort((a, b) => a.number - b.number);
+import { useGame } from "./context/game-context";
 
 const ORGAN_HITS = [
   { name: "BULLFIGHTER", videoId: "melJslO0IJY" },
@@ -166,15 +65,13 @@ const HYPE_SONGS = [
 ];
 
 export default function StadiumBoothDashboard() {
-  const [homeScore, setHomeScore] = useState(0);
-  const [awayScore, setAwayScore] = useState(0);
-  const [roster, setRoster] = useState(INITIAL_ROSTER);
+  const { homeScore, setHomeScore, awayScore, setAwayScore, roster } = useGame();
+  
   const [activePlayerId, setActivePlayerId] = useState<string | null>(null);
   const [selectedSongIndex, setSelectedSongIndex] = useState(0);
   const [playbackPhase, setPlaybackPhase] = useState<'idle' | 'announcing' | 'walkup'>('idle');
   const [activeTrackName, setActiveTrackName] = useState<string | null>(null);
   const [volume, setVolume] = useState(0.8);
-  const [isWakeLocked, setIsWakeLocked] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<{id: string, title: string}[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -183,7 +80,6 @@ export default function StadiumBoothDashboard() {
   
   const announcementAudioRef = useRef<HTMLAudioElement | null>(null);
   const ytPlayerRef = useRef<any>(null);
-  const wakeLockRef = useRef<any>(null);
   const fadeIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
 
@@ -201,21 +97,6 @@ export default function StadiumBoothDashboard() {
     if (!activePlayer) return null;
     return activePlayer.songs[selectedSongIndex] || activePlayer.songs[0];
   }, [activePlayer, selectedSongIndex]);
-
-  // Handle Screen Wake Lock
-  useEffect(() => {
-    const requestWakeLock = async () => {
-      if ('wakeLock' in navigator) {
-        try {
-          wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
-          setIsWakeLocked(true);
-        } catch (err) {
-          console.warn("Wake lock failed", err);
-        }
-      }
-    };
-    requestWakeLock();
-  }, []);
 
   // YouTube API initialization
   useEffect(() => {
@@ -242,7 +123,6 @@ export default function StadiumBoothDashboard() {
           },
           onError: (event: any) => {
             const errorCode = event.data;
-            console.warn("YouTube Player Error Code:", errorCode);
             if (errorCode === 101 || errorCode === 150) {
               toast({
                 variant: "destructive",
@@ -327,9 +207,7 @@ export default function StadiumBoothDashboard() {
           startSeconds: startAt
         });
         ytPlayerRef.current.playVideo();
-      } catch (e) {
-        console.warn("YouTube Load Failed", e);
-      }
+      } catch (e) {}
     }
   };
 
@@ -338,7 +216,6 @@ export default function StadiumBoothDashboard() {
     
     stopEverything();
     
-    // Warm up the YouTube context
     if (ytPlayerRef.current && playerReady) {
       ytPlayerRef.current.unMute();
       ytPlayerRef.current.setVolume(volume * 100);
@@ -357,26 +234,6 @@ export default function StadiumBoothDashboard() {
       setPlaybackPhase('idle');
       setActiveTrackName(null);
     }
-  };
-
-  const updateStat = (type: keyof Player['stats'], delta: number) => {
-    if (!activePlayerId) return;
-    setRoster((prev) =>
-      prev.map((p) =>
-        p.id === activePlayerId
-          ? { ...p, stats: { ...p.stats, [type]: Math.max(0, p.stats[type] + delta) } }
-          : p
-      )
-    );
-  };
-
-  const emailStats = () => {
-    const scoreText = `STADIUM REPORT\nAway: ${awayScore} | Home: ${homeScore}\n\n`;
-    const rosterStatsText = sortedRoster.map(p => 
-      `${p.name} (#${p.number}): AB: ${p.stats.ab}, H: ${p.stats.h}, R: ${p.stats.r}, RBI: ${p.stats.rbi}`
-    ).join('\n');
-    const mailtoUrl = `mailto:?subject=Little League Game Report&body=${encodeURIComponent(scoreText + rosterStatsText)}`;
-    window.location.href = mailtoUrl;
   };
 
   const handleSearch = (e: React.FormEvent) => {
@@ -407,10 +264,17 @@ export default function StadiumBoothDashboard() {
     }, 800);
   };
 
+  const BaseballIcon = (props: React.SVGProps<SVGSVGElement>) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <circle cx="12" cy="12" r="10" />
+      <path d="M8.5 2.5a10 10 0 0 1 0 19" />
+      <path d="M15.5 2.5a10 10 0 0 0 0 19" />
+    </svg>
+  );
+
   return (
     <TooltipProvider>
       <div className="flex flex-col h-screen bg-background text-foreground stadium-gradient overflow-hidden">
-        {/* Hidden Audio for Announcements */}
         {currentAnnouncementUrl && (
           <audio
             ref={announcementAudioRef}
@@ -424,26 +288,9 @@ export default function StadiumBoothDashboard() {
 
         {/* COMMAND HEADER */}
         <header className="sticky top-0 z-50 flex flex-col gap-2 p-3 md:p-4 border-b border-border shadow-2xl bg-card/95 backdrop-blur-md">
-          <div className="flex items-center justify-between gap-2 max-w-7xl mx-auto w-full relative h-12 md:h-16">
-            {/* Status & Export */}
-            <div className="flex-none flex items-center gap-2 z-10">
-              <Button 
-                variant="outline" size="sm" 
-                className="border-primary/30 text-primary font-black uppercase tracking-widest text-[8px] md:text-[10px] h-8 md:h-10 px-2"
-                onClick={emailStats}
-              >
-                <Mail className="h-3 w-3 sm:mr-2" /> <span className="hidden sm:inline">Export Stats</span>
-              </Button>
-              {isWakeLocked && (
-                <div className="hidden lg:flex items-center gap-1.5 px-2 py-1 rounded-full bg-green-500/10 border border-green-500/20">
-                  <ShieldCheck className="h-3 w-3 text-green-500" />
-                  <span className="text-[8px] font-black uppercase text-green-500 tracking-tighter">BOOTH ONLINE</span>
-                </div>
-              )}
-            </div>
-
+          <div className="flex items-center justify-center gap-2 max-w-7xl mx-auto w-full relative h-12 md:h-16">
             {/* Centered Scores */}
-            <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-4 md:gap-12 z-0">
+            <div className="flex items-center justify-center gap-4 md:gap-12 w-full">
               <div className="flex flex-col items-center bg-secondary/10 px-3 md:px-5 py-1 rounded-xl border border-secondary/20 shadow-inner min-w-[70px] md:min-w-[110px]">
                 <span className="text-[7px] md:text-[9px] font-black tracking-widest text-secondary/70 uppercase mb-0.5">Away</span>
                 <div className="flex items-center gap-1 md:gap-2">
@@ -462,37 +309,25 @@ export default function StadiumBoothDashboard() {
                 </div>
               </div>
             </div>
-
-            {/* Desktop Controls (Hidden on mobile) */}
-            <div className="hidden sm:flex items-center gap-2 z-10">
-              <Button variant="outline" size="sm" onClick={handleFadeOut} className="font-black px-4 h-10 border-2 border-primary/20 text-[10px] uppercase shadow-lg">
-                <ArrowDownWideNarrow className="mr-2 h-4 w-4" /> FADE OUT
-              </Button>
-              <Button variant="destructive" size="sm" onClick={stopEverything} className="font-black px-4 h-10 border-2 border-white/10 text-[10px] uppercase shadow-lg">
-                <VolumeX className="mr-2 h-4 w-4" /> STOP ALL
-              </Button>
-            </div>
           </div>
 
           {/* Slider and Mobile Controls Row */}
           <div className="max-w-7xl mx-auto w-full flex items-center gap-2 md:gap-6 bg-primary/5 p-2 rounded-lg border border-primary/10">
             <div className="flex items-center gap-2 min-w-max">
               {volume === 0 ? <VolumeX className="h-4 w-4 text-muted-foreground" /> : <Volume2 className="h-4 w-4 text-primary" />}
-              <span className="hidden sm:inline text-[10px] font-black uppercase tracking-widest">Master Slider</span>
-              <span className="sm:hidden text-[9px] font-black uppercase tracking-tighter">VOL</span>
+              <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest">Master Slider</span>
             </div>
             
             <Slider value={[volume * 100]} onValueChange={(vals) => setVolume(vals[0] / 100)} max={100} step={1} className="flex-1" />
             
             <Badge variant="outline" className="font-mono text-[10px] md:text-xs border-primary/30 text-primary w-10 text-center">{Math.round(volume * 100)}%</Badge>
 
-            {/* Mobile Controls (Inline with Slider) */}
-            <div className="flex sm:hidden items-center gap-1.5 ml-2">
-               <Button variant="outline" size="icon" onClick={handleFadeOut} className="h-9 w-9 border-primary/20 text-primary">
-                 <ArrowDownWideNarrow className="h-4 w-4" />
+            <div className="flex items-center gap-1.5 ml-2 shrink-0">
+               <Button variant="outline" size="sm" onClick={handleFadeOut} className="h-9 border-primary/20 text-primary px-2 md:px-4 font-black text-[8px] md:text-[10px] uppercase">
+                 <ArrowDownWideNarrow className="h-3 w-3 md:mr-2" /> <span className="hidden sm:inline">FADE</span>
                </Button>
-               <Button variant="destructive" size="icon" onClick={stopEverything} className="h-9 w-9">
-                 <VolumeX className="h-4 w-4" />
+               <Button variant="destructive" size="sm" onClick={stopEverything} className="h-9 px-2 md:px-4 font-black text-[8px] md:text-[10px] uppercase">
+                 <VolumeX className="h-3 w-3 md:mr-2" /> <span className="hidden sm:inline">STOP ALL</span>
                </Button>
             </div>
           </div>
@@ -597,39 +432,36 @@ export default function StadiumBoothDashboard() {
                   </CardContent>
                 </Card>
 
-                {/* GAME TRACKER */}
+                {/* SOUNDBOARDS (Quick Tap) */}
                 <Card className="bg-card/80 border-2 border-white/5 overflow-hidden shadow-2xl">
                   <CardHeader className="pb-3 md:pb-4 border-b border-white/5 bg-white/5">
                     <CardTitle className="text-[10px] md:text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                      <Target className="h-3 w-3 md:h-4 md:w-4" /> Live Game Stats
+                      <Music2 className="h-3 w-3 md:h-4 md:w-4" /> Batter Intro Quick-Tap
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="grid grid-cols-2 gap-3 md:gap-4 pt-4 md:pt-6">
-                    {[
-                      { key: "ab", label: "At Bats", color: "white" },
-                      { key: "h", label: "Total Hits", color: "primary" },
-                      { key: "r", label: "Runs Scored", color: "secondary" },
-                      { key: "rbi", label: "RBI", color: "primary" }
-                    ].map((stat) => (
-                      <div key={stat.key} className="flex flex-col gap-1 md:gap-2 bg-background/50 p-2 md:p-3 rounded-xl border border-white/5">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[8px] md:text-[10px] font-black uppercase tracking-widest text-muted-foreground">{stat.label}</span>
-                          <span className={cn("text-xl md:text-2xl font-black digit-font", stat.color === 'primary' ? 'text-primary' : stat.color === 'secondary' ? 'text-secondary' : 'text-white')}>
-                            {activePlayer ? (activePlayer.stats as any)[stat.key] : 0}
-                          </span>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button disabled={!activePlayer} variant="outline" size="sm" onClick={() => updateStat(stat.key as any, -1)} className="flex-1 h-8 md:h-9 border-white/5 hover:text-destructive"><Minus className="h-3 w-3" /></Button>
-                          <Button disabled={!activePlayer} variant="outline" size="sm" onClick={() => updateStat(stat.key as any, 1)} className="flex-1 h-8 md:h-9 border-white/5 hover:text-primary"><Plus className="h-3 w-3" /></Button>
-                        </div>
-                      </div>
-                    ))}
+                  <CardContent className="pt-4 md:pt-6">
+                    <div className="grid grid-cols-3 md:grid-cols-4 gap-1.5 md:gap-2">
+                      {sortedRoster.map((player) => (
+                        <Button 
+                          key={player.id} variant="outline"
+                          onClick={() => {
+                            stopEverything();
+                            setCurrentAnnouncementUrl(player.announcementAudioUrl);
+                            setActiveTrackName(`Announcing: ${player.name}`);
+                          }}
+                          className="flex flex-col h-11 md:h-12 gap-0.5 border-white/10 hover:border-primary/50 bg-card/60 px-1"
+                        >
+                          <span className="text-[7px] md:text-[8px] font-black leading-tight text-center">#{player.number} {player.name.split(' ')[0]}</span>
+                          <FileAudio className="h-2 w-2 md:h-2.5 md:w-2.5 text-primary/60" />
+                        </Button>
+                      ))}
+                    </div>
                   </CardContent>
                 </Card>
               </section>
 
               {/* SOUNDBOARDS */}
-              <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
+              <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8 pb-24">
                 <Card className="bg-card/80 border-white/10 shadow-xl">
                   <CardHeader className="py-3 md:py-4 border-b border-white/5">
                     <CardTitle className="text-[9px] md:text-[11px] font-black text-muted-foreground uppercase tracking-[0.3em] flex items-center gap-2">
@@ -692,71 +524,32 @@ export default function StadiumBoothDashboard() {
                   </CardContent>
                 </Card>
               </section>
-
-              {/* QUICK ANNOUNCEMENTS */}
-              <section className="space-y-3 md:space-y-4 pt-6 md:pt-10 border-t border-white/10">
-                <div className="flex items-center gap-3">
-                  <CheckCircle2 className="h-4 w-4 md:h-5 md:w-5 text-primary" />
-                  <h2 className="text-sm md:text-base font-black uppercase tracking-widest text-primary">Batter Intro Quick-Tap</h2>
-                </div>
-                <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-8 gap-1.5 md:gap-2">
-                  {sortedRoster.map((player) => (
-                    <Button 
-                      key={player.id} variant="outline"
-                      onClick={() => {
-                        stopEverything();
-                        setCurrentAnnouncementUrl(player.announcementAudioUrl);
-                        setActiveTrackName(`Announcing: ${player.name}`);
-                      }}
-                      className="flex flex-col h-11 md:h-12 gap-0.5 border-white/10 hover:border-primary/50 bg-card/60 px-1"
-                    >
-                      <span className="text-[7px] md:text-[8px] font-black leading-tight text-center">#{player.number} {player.name.split(' ')[0]}</span>
-                      <FileAudio className="h-2 w-2 md:h-2.5 md:w-2.5 text-primary/60" />
-                    </Button>
-                  ))}
-                </div>
-              </section>
-
-              {/* TABLE */}
-              <section className="space-y-3 md:space-y-4 pt-6 md:pt-10 border-t border-white/10 pb-24">
-                <div className="flex items-center gap-3">
-                  <TableIcon className="h-4 w-4 md:h-5 md:w-5 text-secondary" />
-                  <h2 className="text-sm md:text-base font-black uppercase tracking-widest text-secondary">Team Performance Summary</h2>
-                </div>
-                <Card className="bg-card/60 border-white/5 shadow-2xl overflow-hidden">
-                  <Table>
-                    <TableHeader className="bg-white/5">
-                      <TableRow className="border-white/5 hover:bg-transparent">
-                        <TableHead className="w-[40px] text-center font-black text-[8px] md:text-[10px]">#</TableHead>
-                        <TableHead className="font-black text-[8px] md:text-[10px]">PLAYER</TableHead>
-                        <TableHead className="text-center font-black text-[8px] md:text-[10px]">AB</TableHead>
-                        <TableHead className="text-center font-black text-[8px] md:text-[10px]">HITS</TableHead>
-                        <TableHead className="text-center font-black text-[8px] md:text-[10px]">RUNS</TableHead>
-                        <TableHead className="text-center font-black text-[8px] md:text-[10px]">RBI</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {sortedRoster.map((player) => (
-                        <TableRow key={player.id} className="border-white/5 hover:bg-white/5 transition-colors">
-                          <TableCell className="text-center digit-font font-bold text-muted-foreground text-[10px] md:text-sm">{player.number}</TableCell>
-                          <TableCell className="font-bold text-[10px] md:text-sm">{player.name}</TableCell>
-                          <TableCell className="text-center digit-font text-white text-[10px] md:text-sm">{player.stats.ab}</TableCell>
-                          <TableCell className="text-center digit-font text-primary text-[10px] md:text-sm">{player.stats.h}</TableCell>
-                          <TableCell className="text-center digit-font text-secondary text-[10px] md:text-sm">{player.stats.r}</TableCell>
-                          <TableCell className="text-center digit-font text-primary text-[10px] md:text-sm">{player.stats.rbi}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </Card>
-              </section>
             </div>
           </main>
         </div>
 
+        {/* FLOATING GAME STATS ICON */}
+        <div className="fixed bottom-6 right-6 z-[110]">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Link href="/stats">
+                <Button 
+                  size="icon" 
+                  className="h-14 w-14 rounded-full bg-green-500 hover:bg-green-600 shadow-lg shadow-green-500/30 animate-pulse"
+                >
+                  <BaseballIcon className="h-8 w-8 text-white" />
+                </Button>
+              </Link>
+            </TooltipTrigger>
+            <TooltipContent side="left" className="font-black uppercase tracking-widest text-[10px]">
+              Game Stats
+            </TooltipContent>
+          </Tooltip>
+        </div>
+
         {/* STATUS BAR */}
         <div className={cn(
-          "fixed bottom-4 right-4 w-64 md:w-80 h-16 md:h-20 bg-card border border-primary/40 rounded-2xl overflow-hidden shadow-[0_12px_40px_rgba(0,0,0,0.5)] z-[100] transition-all duration-700 ease-in-out transform",
+          "fixed bottom-4 left-4 w-64 md:w-80 h-16 md:h-20 bg-card border border-primary/40 rounded-2xl overflow-hidden shadow-[0_12px_40px_rgba(0,0,0,0.5)] z-[100] transition-all duration-700 ease-in-out transform",
           activeTrackName ? "translate-y-0 opacity-100 scale-100" : "translate-y-32 opacity-0 scale-95"
         )}>
           <div className="absolute inset-0 flex items-center px-4 bg-background/95 backdrop-blur-xl border-t border-white/5">
