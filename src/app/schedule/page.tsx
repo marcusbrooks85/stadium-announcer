@@ -1,7 +1,6 @@
-
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
 import { 
   Calendar as CalendarIcon, 
@@ -16,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 
 const gameSchedule = [
@@ -36,8 +36,20 @@ const gameSchedule = [
 ];
 
 export default function GameSchedulePage() {
+  const [wins, setWins] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    const savedWins = localStorage.getItem("chewy_game_wins");
+    if (savedWins) {
+      try {
+        setWins(JSON.parse(savedWins));
+      } catch (e) {
+        console.error("Failed to parse saved wins");
+      }
+    }
+  }, []);
+
   const todayPST = useMemo(() => {
-    // Force PST comparison by interpreting "now" in Los Angeles timezone
     const now = new Date();
     const pstDateStr = now.toLocaleDateString("en-US", { timeZone: "America/Los_Angeles" });
     const d = new Date(pstDateStr);
@@ -61,6 +73,24 @@ export default function GameSchedulePage() {
       return status === "today" || status === "future";
     });
   }, [todayPST]);
+
+  const handleToggleWin = (gameKey: string, currentStatus: boolean) => {
+    const password = window.prompt("Enter Admin Password to update game status:");
+    
+    if (password !== "Chewy2026") {
+      if (password !== null) alert("Incorrect Password");
+      return;
+    }
+
+    if (currentStatus) {
+      const confirmRemove = window.confirm("Are you sure you want to remove the championship trophy from this game?");
+      if (!confirmRemove) return;
+    }
+
+    const newWins = { ...wins, [gameKey]: !currentStatus };
+    setWins(newWins);
+    localStorage.setItem("chewy_game_wins", JSON.stringify(newWins));
+  };
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground stadium-gradient">
@@ -105,6 +135,8 @@ export default function GameSchedulePage() {
 
           <div className="grid gap-4">
             {gameSchedule.map((game, index) => {
+              const gameKey = `game_${game.week}_${game.date}_${index}`;
+              const isWon = wins[gameKey] || false;
               const status = getGameStatus(game.date);
               const isPast = status === "past";
               const isNextUpcoming = index === nextUpcomingGameIndex;
@@ -112,22 +144,38 @@ export default function GameSchedulePage() {
 
               return (
                 <Card 
-                  key={`${game.date}-${index}`} 
+                  key={gameKey} 
                   className={cn(
-                    "transition-all duration-300",
+                    "transition-all duration-300 relative overflow-hidden",
                     isHome ? "bg-blue-950/40 border-blue-800/60" : "bg-slate-800/50 border-slate-700/60",
-                    isPast && "line-through opacity-30 text-muted-foreground/50 pointer-events-none grayscale shadow-none border-none",
+                    isPast && !isWon && "line-through opacity-30 text-muted-foreground/50 pointer-events-none grayscale shadow-none border-none",
                     isNextUpcoming && "scale-[1.02] shadow-[0_0_20px_rgba(59,130,246,0.4)] ring-2 ring-blue-500 border-t-white/30"
                   )}
                 >
+                  {/* TROPHY OVERLAY */}
+                  {isWon && (
+                    <div className="absolute top-2 right-2 z-10 isolation not-line-through opacity-100 inline-block">
+                      <div className="filter drop-shadow-[0_0_12px_rgba(234,179,8,0.9)] animate-trophy-breathe">
+                        <span className="text-2xl md:text-3xl">🏆</span>
+                      </div>
+                    </div>
+                  )}
+
                   <CardContent className="p-4 md:p-6">
                     <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
                       {/* Date & Week */}
                       <div className="md:col-span-3 flex flex-col">
                         <div className="flex items-center gap-3">
-                          <Badge variant={isNextUpcoming ? "default" : "outline"} className="text-[10px] font-black tracking-widest uppercase">
-                            Week {game.week}
-                          </Badge>
+                          <div className="flex items-center gap-2">
+                            <Checkbox 
+                              checked={isWon} 
+                              onCheckedChange={() => handleToggleWin(gameKey, isWon)}
+                              className="pointer-events-auto border-white/20 data-[state=checked]:bg-yellow-500 data-[state=checked]:border-yellow-500"
+                            />
+                            <Badge variant={isNextUpcoming ? "default" : "outline"} className="text-[10px] font-black tracking-widest uppercase">
+                              Week {game.week}
+                            </Badge>
+                          </div>
                           {game.notes && (
                             <Badge className="bg-secondary text-secondary-foreground text-[10px] font-black uppercase">
                               {game.notes}
