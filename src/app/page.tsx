@@ -6,8 +6,6 @@ import {
   Users, 
   Mic2, 
   Play, 
-  Plus, 
-  Minus, 
   Activity, 
   Music,
   Volume2,
@@ -552,17 +550,17 @@ export default function StadiumBoothDashboard() {
           </Tooltip>
         </div>
 
-        {/* MOBILE FOOTER NAVIGATION */}
+        {/* MOBILE FOOTER NAVIGATION - PILL STYLE */}
         <footer className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] md:hidden z-50">
           <div className="flex items-center justify-center gap-3 bg-card/90 backdrop-blur-xl border border-white/10 p-2 rounded-2xl shadow-2xl">
             <Link href="/stats" className="flex-1">
-              <div className="flex items-center justify-center gap-2 h-11 border border-white/5 rounded-xl bg-white/5 text-secondary">
+              <div className="flex items-center justify-center gap-2 h-11 border border-white/10 rounded-xl bg-white/5 text-secondary hover:bg-white/10 transition-all">
                 <BarChart3 className="h-4 w-4" />
                 <span className="text-[10px] font-black uppercase tracking-widest">Stats</span>
               </div>
             </Link>
             <Link href="/schedule" className="flex-1">
-              <div className="flex items-center justify-center gap-2 h-11 border border-white/5 rounded-xl bg-white/5 text-secondary">
+              <div className="flex items-center justify-center gap-2 h-11 border border-white/10 rounded-xl bg-white/5 text-secondary hover:bg-white/10 transition-all">
                 <Calendar className="h-4 w-4" />
                 <span className="text-[10px] font-black uppercase tracking-widest">Schedule</span>
               </div>

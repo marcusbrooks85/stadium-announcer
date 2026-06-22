@@ -36,15 +36,15 @@ const gameSchedule = [
 
 export default function GameSchedulePage() {
   const todayPST = useMemo(() => {
+    // Strictly PST midnight comparison
     const now = new Date();
-    // Get current date in PST
     const pstDateStr = now.toLocaleDateString("en-US", { timeZone: "America/Los_Angeles" });
     const d = new Date(pstDateStr);
     d.setHours(0, 0, 0, 0);
     return d;
   }, []);
 
-  const getStatus = (dateStr: string) => {
+  const getGameStatus = (dateStr: string) => {
     const [y, m, d] = dateStr.split("-").map(Number);
     const gameDate = new Date(y, m - 1, d);
     gameDate.setHours(0, 0, 0, 0);
@@ -53,6 +53,13 @@ export default function GameSchedulePage() {
     if (gameDate.getTime() === todayPST.getTime()) return "today";
     return "future";
   };
+
+  const nextUpcomingGameIndex = useMemo(() => {
+    return gameSchedule.findIndex(game => {
+      const status = getGameStatus(game.date);
+      return status === "today" || status === "future";
+    });
+  }, [todayPST]);
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground stadium-gradient">
@@ -97,28 +104,28 @@ export default function GameSchedulePage() {
 
           <div className="grid gap-4">
             {gameSchedule.map((game, index) => {
-              const status = getStatus(game.date);
+              const status = getGameStatus(game.date);
               const isPast = status === "past";
               const isToday = status === "today";
+              const isNextUpcoming = index === nextUpcomingGameIndex;
+              const isHome = game.home === "Coach Chewy" || game.notes === "Playoffs" || game.notes === "Finals";
 
               return (
                 <Card 
                   key={`${game.date}-${index}`} 
                   className={cn(
-                    "bg-card/80 border-white/5 transition-all duration-300",
-                    isPast && "opacity-40 grayscale-[0.5] shadow-none",
-                    isToday && "border-primary shadow-[0_0_20px_rgba(66,133,255,0.2)] bg-primary/5"
+                    "transition-all duration-300 overflow-hidden",
+                    isHome ? "bg-blue-950/40 border-blue-800/60" : "bg-slate-800/50 border-slate-700/60",
+                    isPast && "line-through opacity-30 text-muted-foreground/50 pointer-events-none grayscale shadow-none border-none",
+                    isNextUpcoming && "scale-[1.02] shadow-[0_0_20px_rgba(59,130,246,0.4)] ring-2 ring-blue-500 border-t-white/30"
                   )}
                 >
                   <CardContent className="p-4 md:p-6">
-                    <div className={cn(
-                      "grid grid-cols-1 md:grid-cols-12 gap-4 items-center",
-                      isPast && "line-through decoration-muted-foreground/50"
-                    )}>
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
                       {/* Date & Week */}
                       <div className="md:col-span-3 flex flex-col">
                         <div className="flex items-center gap-2">
-                          <Badge variant={isToday ? "default" : "outline"} className="text-[10px] font-black tracking-widest uppercase">
+                          <Badge variant={isNextUpcoming ? "default" : "outline"} className="text-[10px] font-black tracking-widest uppercase">
                             Week {game.week}
                           </Badge>
                           {game.notes && (
@@ -147,18 +154,22 @@ export default function GameSchedulePage() {
                       </div>
 
                       {/* Matchup */}
-                      <div className="md:col-span-6 flex items-center justify-between gap-4 p-3 bg-black/20 rounded-xl border border-white/5">
+                      <div className="md:col-span-6 flex items-center justify-between gap-4 p-3 bg-black/30 rounded-xl border border-white/5">
                         <div className="flex-1 text-center">
                           <p className="text-[10px] font-black uppercase text-muted-foreground mb-1">Away</p>
-                          <p className="text-xs md:text-sm font-bold text-white truncate">{game.away}</p>
+                          <p className={cn("text-xs md:text-sm font-bold truncate", game.away === "Coach Chewy" ? "text-primary" : "text-white")}>
+                            {game.away}
+                          </p>
                         </div>
                         <div className="flex-none flex flex-col items-center">
-                           <Trophy className={cn("h-4 w-4", isToday ? "text-primary animate-bounce" : "text-muted-foreground/30")} />
+                           <Trophy className={cn("h-4 w-4", isNextUpcoming ? "text-primary animate-bounce" : "text-muted-foreground/30")} />
                            <span className="text-[8px] font-black text-muted-foreground uppercase">VS</span>
                         </div>
                         <div className="flex-1 text-center">
                           <p className="text-[10px] font-black uppercase text-muted-foreground mb-1">Home</p>
-                          <p className="text-xs md:text-sm font-bold text-white truncate">{game.home}</p>
+                          <p className={cn("text-xs md:text-sm font-bold truncate", game.home === "Coach Chewy" ? "text-primary" : "text-white")}>
+                            {game.home}
+                          </p>
                         </div>
                       </div>
                     </div>
@@ -170,17 +181,17 @@ export default function GameSchedulePage() {
         </section>
       </main>
 
-      {/* MOBILE FOOTER NAVIGATION */}
+      {/* MOBILE FOOTER NAVIGATION - PILL STYLE */}
       <footer className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] md:hidden z-50">
         <div className="flex items-center justify-center gap-3 bg-card/90 backdrop-blur-xl border border-white/10 p-2 rounded-2xl shadow-2xl">
           <Link href="/" className="flex-1">
-            <div className="flex items-center justify-center gap-2 h-11 border border-white/5 rounded-xl bg-white/5 text-secondary">
+            <div className="flex items-center justify-center gap-2 h-11 border border-white/10 rounded-xl bg-white/5 text-secondary hover:bg-white/10 transition-all">
               <Home className="h-4 w-4" />
               <span className="text-[10px] font-black uppercase tracking-widest">Booth</span>
             </div>
           </Link>
           <Link href="/stats" className="flex-1">
-            <div className="flex items-center justify-center gap-2 h-11 border border-white/5 rounded-xl bg-white/5 text-secondary">
+            <div className="flex items-center justify-center gap-2 h-11 border border-white/10 rounded-xl bg-white/5 text-secondary hover:bg-white/10 transition-all">
               <BarChart3 className="h-4 w-4" />
               <span className="text-[10px] font-black uppercase tracking-widest">Stats</span>
             </div>
