@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo } from "react";
@@ -65,7 +64,7 @@ const HYPE_SONGS = [
 ];
 
 export default function StadiumBoothDashboard() {
-  const { homeScore, setHomeScore, awayScore, setAwayScore, roster } = useGame();
+  const { roster } = useGame();
   
   const [activePlayerId, setActivePlayerId] = useState<string | null>(null);
   const [selectedSongIndex, setSelectedSongIndex] = useState(0);
@@ -288,30 +287,19 @@ export default function StadiumBoothDashboard() {
 
         {/* COMMAND HEADER */}
         <header className="sticky top-0 z-50 flex flex-col gap-2 p-3 md:p-4 border-b border-border shadow-2xl bg-card/95 backdrop-blur-md">
-          <div className="flex items-center justify-center gap-2 max-w-7xl mx-auto w-full relative h-12 md:h-16">
-            {/* Centered Scores */}
-            <div className="flex items-center justify-center gap-4 md:gap-12 w-full">
-              <div className="flex flex-col items-center bg-secondary/10 px-3 md:px-5 py-1 rounded-xl border border-secondary/20 shadow-inner min-w-[70px] md:min-w-[110px]">
-                <span className="text-[7px] md:text-[9px] font-black tracking-widest text-secondary/70 uppercase mb-0.5">Away</span>
-                <div className="flex items-center gap-1 md:gap-2">
-                  <Button variant="ghost" size="icon" className="h-4 w-4 md:h-6 md:w-6 hover:bg-secondary/20" onClick={() => setAwayScore(Math.max(0, awayScore - 1))}><Minus className="h-2 w-2 md:h-3 md:w-3" /></Button>
-                  <div className="w-5 md:w-8 text-center digit-font text-base md:text-2xl font-black text-secondary">{awayScore}</div>
-                  <Button variant="ghost" size="icon" className="h-4 w-4 md:h-6 md:w-6 hover:bg-secondary/20" onClick={() => setAwayScore(awayScore + 1)}><Plus className="h-2 w-2 md:h-3 md:w-3" /></Button>
-                </div>
-              </div>
-
-              <div className="flex flex-col items-center bg-primary/10 px-3 md:px-5 py-1 rounded-xl border border-primary/20 shadow-inner min-w-[70px] md:min-w-[110px]">
-                <span className="text-[7px] md:text-[9px] font-black tracking-widest text-primary/70 uppercase mb-0.5">Home</span>
-                <div className="flex items-center gap-1 md:gap-2">
-                  <Button variant="ghost" size="icon" className="h-4 w-4 md:h-6 md:w-6 hover:bg-primary/20" onClick={() => setHomeScore(Math.max(0, homeScore - 1))}><Minus className="h-2 w-2 md:h-3 md:w-3" /></Button>
-                  <div className="w-5 md:w-8 text-center digit-font text-base md:text-2xl font-black text-primary">{homeScore}</div>
-                  <Button variant="ghost" size="icon" className="h-4 w-4 md:h-6 md:w-6 hover:bg-primary/20" onClick={() => setHomeScore(homeScore + 1)}><Plus className="h-2 w-2 md:h-3 md:w-3" /></Button>
-                </div>
-              </div>
+          <div className="flex items-center justify-center gap-4 max-w-7xl mx-auto w-full relative h-12 md:h-16">
+            {/* Centered Controls */}
+            <div className="flex items-center justify-center gap-4 md:gap-8 w-full">
+               <Button variant="outline" size="sm" onClick={handleFadeOut} className="h-10 md:h-12 border-primary/20 text-primary px-4 md:px-8 font-black text-[10px] md:text-xs uppercase shadow-lg hover:bg-primary/10">
+                 <ArrowDownWideNarrow className="h-4 w-4 mr-2" /> <span>FADE</span>
+               </Button>
+               <Button variant="destructive" size="sm" onClick={stopEverything} className="h-10 md:h-12 px-4 md:px-8 font-black text-[10px] md:text-xs uppercase shadow-lg">
+                 <VolumeX className="h-4 w-4 mr-2" /> <span>STOP ALL</span>
+               </Button>
             </div>
           </div>
 
-          {/* Slider and Mobile Controls Row */}
+          {/* Slider Row */}
           <div className="max-w-7xl mx-auto w-full flex items-center gap-2 md:gap-6 bg-primary/5 p-2 rounded-lg border border-primary/10">
             <div className="flex items-center gap-2 min-w-max">
               {volume === 0 ? <VolumeX className="h-4 w-4 text-muted-foreground" /> : <Volume2 className="h-4 w-4 text-primary" />}
@@ -321,15 +309,6 @@ export default function StadiumBoothDashboard() {
             <Slider value={[volume * 100]} onValueChange={(vals) => setVolume(vals[0] / 100)} max={100} step={1} className="flex-1" />
             
             <Badge variant="outline" className="font-mono text-[10px] md:text-xs border-primary/30 text-primary w-10 text-center">{Math.round(volume * 100)}%</Badge>
-
-            <div className="flex items-center gap-1.5 ml-2 shrink-0">
-               <Button variant="outline" size="sm" onClick={handleFadeOut} className="h-9 border-primary/20 text-primary px-2 md:px-4 font-black text-[8px] md:text-[10px] uppercase">
-                 <ArrowDownWideNarrow className="h-3 w-3 md:mr-2" /> <span className="hidden sm:inline">FADE</span>
-               </Button>
-               <Button variant="destructive" size="sm" onClick={stopEverything} className="h-9 px-2 md:px-4 font-black text-[8px] md:text-[10px] uppercase">
-                 <VolumeX className="h-3 w-3 md:mr-2" /> <span className="hidden sm:inline">STOP ALL</span>
-               </Button>
-            </div>
           </div>
         </header>
 

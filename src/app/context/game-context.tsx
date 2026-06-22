@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { createContext, useContext, useState, ReactNode } from "react";
@@ -117,11 +116,20 @@ export function GameProvider({ children }: { children: ReactNode }) {
   };
 
   const emailStats = () => {
+    const today = new Date();
+    const dateStr = today.toLocaleDateString('en-US', { 
+      month: '2-digit', 
+      day: '2-digit', 
+      year: '2-digit' 
+    });
+    const subject = `Minors Game Report: ${dateStr}`;
+    
     const scoreText = `STADIUM REPORT\nAway: ${awayScore} | Home: ${homeScore}\n\n`;
     const rosterStatsText = [...roster].sort((a, b) => a.number - b.number).map(p => 
       `${p.name} (#${p.number}): AB: ${p.stats.ab}, H: ${p.stats.h}, R: ${p.stats.r}, RBI: ${p.stats.rbi}`
     ).join('\n');
-    const mailtoUrl = `mailto:?subject=Little League Game Report&body=${encodeURIComponent(scoreText + rosterStatsText)}`;
+    
+    const mailtoUrl = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(scoreText + rosterStatsText)}`;
     window.location.href = mailtoUrl;
   };
 
