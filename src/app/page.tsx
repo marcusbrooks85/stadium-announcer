@@ -57,6 +57,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
 // Types
@@ -137,7 +138,7 @@ const INITIAL_ROSTER: Player[] = [
     stats: { ab: 0, h: 0, r: 0, rbi: 0 } 
   },
   { 
-    id: "8", 
+    id: "9", 
     name: "Jacob Vieyra", 
     number: 11, 
     announcementAudioUrl: "/audio/Jacob.mp3",
@@ -210,6 +211,7 @@ export default function StadiumBoothDashboard() {
   const ytPlayerRef = useRef<any>(null);
   const wakeLockRef = useRef<any>(null);
   const fadeIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const { toast } = useToast();
 
   const sortedRoster = useMemo(() => 
     [...roster].sort((a, b) => a.number - b.number),
@@ -267,12 +269,20 @@ export default function StadiumBoothDashboard() {
             event.target.setVolume(volume * 100);
           },
           onError: (event: any) => {
-            console.error("YouTube Player Error:", event.data);
+            const errorCode = event.data;
+            console.error("YouTube Player Error:", errorCode);
+            if (errorCode === 101 || errorCode === 150) {
+              toast({
+                variant: "destructive",
+                title: "Playback Restricted",
+                description: "This video owner does not allow embedding. Try a Stadium Organ or Audio-only version.",
+              });
+            }
           }
         }
       });
     };
-  }, []);
+  }, [toast]);
 
   // Update volume for both local and YT
   useEffect(() => {
@@ -336,6 +346,7 @@ export default function StadiumBoothDashboard() {
         startSeconds: startAt
       });
       ytPlayerRef.current.playVideo();
+      ytPlayerRef.current.setVolume(volume * 100);
     }
   };
 
@@ -346,7 +357,13 @@ export default function StadiumBoothDashboard() {
     const audio = new Audio(url);
     audio.volume = volume;
     audioRef.current = audio;
-    audio.play().catch(e => console.error("Local play error:", e));
+    audio.play().catch(e => {
+      console.error("Local play error:", e);
+      toast({
+        title: "Audio Error",
+        description: `Could not play intro for ${playerName}. Check your volume or source.`,
+      });
+    });
     return audio;
   };
 
@@ -750,4 +767,3 @@ export default function StadiumBoothDashboard() {
     </TooltipProvider>
   );
 }
-
