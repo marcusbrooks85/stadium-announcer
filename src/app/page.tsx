@@ -59,10 +59,23 @@ import {
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
-// 1-second silent WAV to keep the audio context alive in background
-const SILENT_AUDIO_URI = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA== ";
+// Types
+interface Song {
+  name: string;
+  videoId: string;
+  startAt: number;
+}
 
-const INITIAL_ROSTER = [
+interface Player {
+  id: string;
+  name: string;
+  number: number;
+  announcementAudioUrl: string;
+  songs: Song[];
+  stats: { ab: number; h: number; r: number; rbi: number };
+}
+
+const INITIAL_ROSTER: Player[] = [
   { 
     id: "2", 
     name: "Diomedes Plata", 
@@ -117,9 +130,21 @@ const INITIAL_ROSTER = [
     number: 10, 
     announcementAudioUrl: "/audio/Camila.mp3",
     songs: [
-      { name: "California Love", videoId: "LRt6TdSvHag", startAt: 0 },
+      { name: "Not Like Us", videoId: "T6eK-2OQtew", startAt: 0 },
       { name: "California Love", videoId: "LRt6TdSvHag", startAt: 0 },
       { name: "HUMBLE. - Kendrick", videoId: "tvTRZJ-4EyI", startAt: 0 }
+    ],
+    stats: { ab: 0, h: 0, r: 0, rbi: 0 } 
+  },
+  { 
+    id: "8", 
+    name: "Jacob Vieyra", 
+    number: 11, 
+    announcementAudioUrl: "/audio/Jacob.mp3",
+    songs: [
+      { name: "Tennessee Whiskey", videoId: "4zAThXFOy2c", startAt: 0 },
+      { name: "Blow the Whistle", videoId: "W_dJPUWdB_A", startAt: 0 },
+      { name: "Uprising", videoId: "Sk2Qd13GA7g", startAt: 107 }
     ],
     stats: { ab: 0, h: 0, r: 0, rbi: 0 } 
   },
@@ -174,15 +199,15 @@ export default function StadiumBoothDashboard() {
   const [activePlayerId, setActivePlayerId] = useState<string | null>(null);
   const [selectedSongIndex, setSelectedSongIndex] = useState(0);
   const [isAnnouncing, setIsAnnouncing] = useState(false);
-  const [activeAudioUrl, setActiveAudioUrl] = useState<string | null>(null);
   const [activeTrackName, setActiveTrackName] = useState<string | null>(null);
   const [volume, setVolume] = useState(0.8);
   const [isWakeLocked, setIsWakeLocked] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<{id: string, title: string}[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
   
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const silentLoopRef = useRef<HTMLAudioElement | null>(null);
-  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const ytPlayerRef = useRef<any>(null);
   const wakeLockRef = useRef<any>(null);
   const fadeIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -208,77 +233,54 @@ export default function StadiumBoothDashboard() {
         try {
           wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
           setIsWakeLocked(true);
-          wakeLockRef.current.addEventListener('release', () => setIsWakeLocked(false));
         } catch (err) {
           console.warn('Wake Lock failed');
         }
       }
     };
-
     requestWakeLock();
-    const handleVisibility = async () => {
-      if (wakeLockRef.current !== null && document.visibilityState === 'visible') {
-        await requestWakeLock();
-      }
-    };
+  }, []);
 
-    document.addEventListener('visibilitychange', handleVisibility);
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibility);
-      if (wakeLockRef.current) wakeLockRef.current.release();
+  // YouTube API initialization
+  useEffect(() => {
+    const tag = document.createElement('script');
+    tag.src = "https://www.youtube.com/iframe_api";
+    const firstScriptTag = document.getElementsByTagName('script')[0];
+    firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
+
+    (window as any).onYouTubeIframeAPIReady = () => {
+      ytPlayerRef.current = new (window as any).YT.Player('stadium-yt-player', {
+        height: '0',
+        width: '0',
+        host: 'https://www.youtube.com',
+        playerVars: {
+          autoplay: 1,
+          controls: 1,
+          enablejsapi: 1,
+          origin: typeof window !== 'undefined' ? window.location.origin : '',
+          rel: 0,
+          modestbranding: 1
+        },
+        events: {
+          onReady: (event: any) => {
+            event.target.unMute();
+            event.target.setVolume(volume * 100);
+          },
+          onError: (event: any) => {
+            console.error("YouTube Player Error:", event.data);
+          }
+        }
+      });
     };
   }, []);
 
-  // Update Media Session and background silent loop
-  const startBackgroundPersistence = (title: string, artist: string = "Stadium Announcer") => {
-    setActiveTrackName(title);
-    if ('mediaSession' in navigator) {
-      navigator.mediaSession.metadata = new MediaMetadata({
-        title, artist, album: "Stadium Booth Live",
-        artwork: [{ src: 'https://picsum.photos/seed/baseball/512/512', sizes: '512x512', type: 'image/png' }]
-      });
-      navigator.mediaSession.playbackState = 'playing';
-    }
-
-    if (!silentLoopRef.current) {
-      const silentAudio = new Audio(SILENT_AUDIO_URI);
-      silentAudio.loop = true;
-      silentAudio.volume = 0.01; 
-      silentLoopRef.current = silentAudio;
-    }
-    silentLoopRef.current.play().catch(() => {});
-  };
-
+  // Update volume for both local and YT
   useEffect(() => {
     if (audioRef.current) audioRef.current.volume = volume;
-    if (iframeRef.current && activeAudioUrl) {
-      const msg = JSON.stringify({ event: 'command', func: 'setVolume', args: [volume * 100] });
-      iframeRef.current.contentWindow?.postMessage(msg, '*');
+    if (ytPlayerRef.current && typeof ytPlayerRef.current.setVolume === 'function') {
+      ytPlayerRef.current.setVolume(volume * 100);
     }
-  }, [volume, activeAudioUrl]);
-
-  useEffect(() => {
-    setSelectedSongIndex(0);
-  }, [activePlayerId]);
-
-  const restoreVolume = () => {
-    if (fadeIntervalRef.current) {
-      clearInterval(fadeIntervalRef.current);
-      fadeIntervalRef.current = null;
-    }
-    setVolume(0.8);
-  };
-
-  const updateStat = (type: "ab" | "h" | "r" | "rbi", delta: number) => {
-    if (!activePlayerId) return;
-    setRoster((prev) =>
-      prev.map((p) =>
-        p.id === activePlayerId
-          ? { ...p, stats: { ...p.stats, [type]: Math.max(0, p.stats[type] + delta) } }
-          : p
-      )
-    );
-  };
+  }, [volume]);
 
   const stopEverything = () => {
     if (fadeIntervalRef.current) {
@@ -288,24 +290,26 @@ export default function StadiumBoothDashboard() {
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.src = "";
-      audioRef.current = null;
     }
-    if (silentLoopRef.current) {
-      silentLoopRef.current.pause();
+    if (ytPlayerRef.current && typeof ytPlayerRef.current.stopVideo === 'function') {
+      ytPlayerRef.current.stopVideo();
     }
-    if ('mediaSession' in navigator) {
-      navigator.mediaSession.playbackState = 'none';
-    }
-    setActiveAudioUrl(null);
     setActiveTrackName(null);
     setIsAnnouncing(false);
   };
 
+  const restoreVolume = () => {
+    if (fadeIntervalRef.current) {
+      clearInterval(fadeIntervalRef.current);
+      fadeIntervalRef.current = null;
+    }
+    setVolume(0.8);
+  };
+
   const handleFadeOut = () => {
     if (fadeIntervalRef.current) return;
-    
-    const duration = 2500; // 2.5 seconds
-    const interval = 50;   // 50ms for smooth motion
+    const duration = 2500;
+    const interval = 50;
     const steps = duration / interval;
     const volumeStep = volume / steps;
 
@@ -321,83 +325,86 @@ export default function StadiumBoothDashboard() {
     }, interval);
   };
 
-  const playSoundboard = (videoId: string, songName?: string) => {
+  const playYoutubeTrack = (videoId: string, songName: string, startAt: number = 0) => {
     restoreVolume();
     stopEverything();
-    startBackgroundPersistence(songName || "Crowd Pump-Up");
-    setTimeout(() => {
-      const origin = typeof window !== 'undefined' ? window.location.origin : '';
-      const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0&rel=0&enablejsapi=1&origin=${origin}&t=${Date.now()}`;
-      setActiveAudioUrl(embedUrl);
-    }, 50);
-  };
-
-  const playLocalAnnouncerOnly = (url: string, playerName: string) => {
-    restoreVolume();
-    stopEverything();
-    startBackgroundPersistence(`Now Batting: ${playerName}`);
-    const audio = new Audio(url);
-    audio.volume = 0.8;
-    audioRef.current = audio;
-    audio.play().catch(() => {});
-  };
-
-  const triggerSequence = async () => {
-    if (!activePlayer || isAnnouncing || !selectedSong) return;
-    restoreVolume();
-    stopEverything();
-    setIsAnnouncing(true);
-    startBackgroundPersistence(`Announcing: ${activePlayer.name}`);
-
-    const audio = new Audio(activePlayer.announcementAudioUrl);
-    audio.volume = 0.8;
-    audioRef.current = audio;
-
-    const playWalkUpMusic = () => {
-      if (audioRef.current !== audio) return;
-      setIsAnnouncing(false);
-      startBackgroundPersistence(selectedSong.name, activePlayer.name);
-      const origin = typeof window !== 'undefined' ? window.location.origin : '';
-      const embedUrl = `https://www.youtube.com/embed/${selectedSong.videoId}?autoplay=1&start=${selectedSong.startAt}&mute=0&rel=0&enablejsapi=1&origin=${origin}&t=${Date.now()}`;
-      setActiveAudioUrl(embedUrl);
-    };
-
-    audio.onended = () => {
-      if (audioRef.current === audio) playWalkUpMusic();
-    };
-
-    audio.onerror = () => {
-      if (audioRef.current === audio) {
-        setIsAnnouncing(false);
-        playWalkUpMusic();
-      }
-    };
-
-    try {
-      await audio.play();
-    } catch (e) {
-      if (audioRef.current === audio) playWalkUpMusic();
+    setActiveTrackName(songName);
+    if (ytPlayerRef.current && typeof ytPlayerRef.current.loadVideoById === 'function') {
+      ytPlayerRef.current.unMute();
+      ytPlayerRef.current.loadVideoById({
+        videoId: videoId,
+        startSeconds: startAt
+      });
+      ytPlayerRef.current.playVideo();
     }
   };
 
-  const handleSearch = (e: React.FormEvent) => {
+  const playLocalAnnouncement = (url: string, playerName: string) => {
+    restoreVolume();
+    stopEverything();
+    setActiveTrackName(`Now Batting: ${playerName}`);
+    const audio = new Audio(url);
+    audio.volume = volume;
+    audioRef.current = audio;
+    audio.play().catch(e => console.error("Local play error:", e));
+    return audio;
+  };
+
+  const triggerWalkonSequence = async () => {
+    if (!activePlayer || isAnnouncing || !selectedSong) return;
+    setIsAnnouncing(true);
+    const audio = playLocalAnnouncement(activePlayer.announcementAudioUrl, activePlayer.name);
+    
+    audio.onended = () => {
+      setIsAnnouncing(false);
+      playYoutubeTrack(selectedSong.videoId, selectedSong.name, selectedSong.startAt);
+    };
+
+    audio.onerror = () => {
+      setIsAnnouncing(false);
+      playYoutubeTrack(selectedSong.videoId, selectedSong.name, selectedSong.startAt);
+    };
+  };
+
+  const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchQuery) return;
     
+    // Extract ID if URL
     let videoId = searchQuery;
     if (searchQuery.includes("v=")) {
       videoId = searchQuery.split("v=")[1].split("&")[0];
     } else if (searchQuery.includes("youtu.be/")) {
       videoId = searchQuery.split("youtu.be/")[1].split("?")[0];
-    } else if (searchQuery.length < 15 && !searchQuery.includes(" ")) {
-      videoId = searchQuery; // Likely a direct ID
-    } else {
-      // If it's just text, open a search tab for the user as a helper
-      window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(searchQuery)}`, '_blank');
+    }
+
+    // If looks like an ID, play directly
+    if (videoId.length === 11 && !videoId.includes(" ")) {
+      playYoutubeTrack(videoId, "Custom Track");
       return;
     }
 
-    playSoundboard(videoId, "Custom Search Track");
+    // Mock search fetch for this UI layer
+    setIsSearching(true);
+    setTimeout(() => {
+      setSearchResults([
+        { id: "T6eK-2OQtew", title: "Not Like Us - Instrumental" },
+        { id: "4zAThXFOy2c", title: "Tennessee Whiskey - Stadium Organ" },
+        { id: "QamKhi1cxIs", title: "Take Me Out to the Ballgame" }
+      ]);
+      setIsSearching(false);
+    }, 800);
+  };
+
+  const updateStat = (type: keyof Player['stats'], delta: number) => {
+    if (!activePlayerId) return;
+    setRoster((prev) =>
+      prev.map((p) =>
+        p.id === activePlayerId
+          ? { ...p, stats: { ...p.stats, [type]: Math.max(0, p.stats[type] + delta) } }
+          : p
+      )
+    );
   };
 
   const emailStats = () => {
@@ -416,22 +423,17 @@ export default function StadiumBoothDashboard() {
         <header className="sticky top-0 z-50 flex flex-col gap-2 p-3 md:p-4 border-b border-border shadow-2xl bg-card/95 backdrop-blur-md">
           <div className="flex items-center justify-between gap-2 max-w-7xl mx-auto w-full relative">
             <div className="flex-none flex items-center gap-2">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button 
-                    variant="outline" size="sm" 
-                    className="border-primary/30 text-primary font-black uppercase tracking-widest text-[8px] md:text-[10px] h-8 md:h-10 px-2"
-                    onClick={emailStats}
-                  >
-                    <Mail className="h-3 w-3 sm:mr-2" /> <span className="hidden sm:inline">Email Stats</span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent><p>Email game stats</p></TooltipContent>
-              </Tooltip>
+              <Button 
+                variant="outline" size="sm" 
+                className="border-primary/30 text-primary font-black uppercase tracking-widest text-[8px] md:text-[10px] h-8 md:h-10 px-2"
+                onClick={emailStats}
+              >
+                <Mail className="h-3 w-3 sm:mr-2" /> <span className="hidden sm:inline">Email Stats</span>
+              </Button>
               {isWakeLocked && (
                 <div className="hidden lg:flex items-center gap-1.5 px-2 py-1 rounded-full bg-green-500/10 border border-green-500/20">
                   <ShieldCheck className="h-3 w-3 text-green-500" />
-                  <span className="text-[8px] font-black uppercase text-green-500 tracking-tighter">STADIUM ALIVE</span>
+                  <span className="text-[8px] font-black uppercase text-green-500 tracking-tighter">BOOTH ACTIVE</span>
                 </div>
               )}
             </div>
@@ -456,25 +458,13 @@ export default function StadiumBoothDashboard() {
               </div>
             </div>
 
-            <div className="hidden md:block">
-              <div className="flex items-center gap-2">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="outline" size="sm" onClick={handleFadeOut} className="font-black px-4 h-10 border-2 border-primary/20 text-[10px] uppercase shadow-lg">
-                      <ArrowDownWideNarrow className="mr-2 h-4 w-4" /> FADE OUT
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent><p>Smoothly fade out all audio over 2.5 seconds</p></TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="destructive" size="sm" onClick={stopEverything} className="font-black px-4 h-10 border-2 border-white/10 text-[10px] uppercase shadow-lg">
-                      <VolumeX className="mr-2 h-4 w-4" /> STOP AUDIO
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent><p>Immediately silence all audio outputs</p></TooltipContent>
-                </Tooltip>
-              </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={handleFadeOut} className="font-black px-4 h-10 border-2 border-primary/20 text-[10px] uppercase shadow-lg">
+                <ArrowDownWideNarrow className="mr-2 h-4 w-4" /> FADE OUT
+              </Button>
+              <Button variant="destructive" size="sm" onClick={stopEverything} className="font-black px-4 h-10 border-2 border-white/10 text-[10px] uppercase shadow-lg">
+                <VolumeX className="mr-2 h-4 w-4" /> STOP AUDIO
+              </Button>
             </div>
           </div>
 
@@ -484,24 +474,6 @@ export default function StadiumBoothDashboard() {
               <span className="hidden sm:inline text-[10px] font-black uppercase tracking-widest">Master Volume</span>
             </div>
             <Slider value={[volume * 100]} onValueChange={(vals) => setVolume(vals[0] / 100)} max={100} step={1} className="flex-1" />
-            <div className="md:hidden flex items-center gap-1">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="outline" size="icon" onClick={handleFadeOut} className="h-9 w-9 border-primary/20 shadow-lg">
-                    <ArrowDownWideNarrow className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent><p>Fade Out</p></TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="destructive" size="icon" onClick={stopEverything} className="h-9 w-9 border border-white/10 shadow-lg">
-                    <VolumeX className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent><p>Stop All</p></TooltipContent>
-              </Tooltip>
-            </div>
             <Badge variant="outline" className="font-mono text-[10px] md:text-xs border-primary/30 text-primary w-10 text-center">{Math.round(volume * 100)}%</Badge>
           </div>
         </header>
@@ -591,7 +563,7 @@ export default function StadiumBoothDashboard() {
                       </div>
                     )}
                     
-                    <Button disabled={!activePlayer || isAnnouncing} onClick={triggerSequence} className="w-full h-14 md:h-16 text-sm md:text-base font-black bg-primary hover:bg-primary/90 shadow-[0_8px_16px_-4px_rgba(66,133,255,0.4)]">
+                    <Button disabled={!activePlayer || isAnnouncing} onClick={triggerWalkonSequence} className="w-full h-14 md:h-16 text-sm md:text-base font-black bg-primary hover:bg-primary/90 shadow-[0_8px_16px_-4px_rgba(66,133,255,0.4)]">
                       {isAnnouncing ? <Activity className="animate-pulse mr-2" /> : <Zap className="mr-2 fill-white" />}
                       {isAnnouncing ? "STADIUM ANNOUNCING..." : "RUN WALKON SEQUENCE"}
                     </Button>
@@ -639,7 +611,7 @@ export default function StadiumBoothDashboard() {
                   </CardHeader>
                   <CardContent className="grid grid-cols-2 gap-2 md:gap-3 pt-4 md:pt-5">
                     {ORGAN_HITS.map((hit) => (
-                      <Button key={hit.name} variant="outline" onClick={() => playSoundboard(hit.videoId, hit.name)} className="h-10 md:h-12 border-secondary/20 text-secondary hover:bg-secondary/20 font-black uppercase text-[9px]">🎹 {hit.name}</Button>
+                      <Button key={hit.name} variant="outline" onClick={() => playYoutubeTrack(hit.videoId, hit.name)} className="h-10 md:h-12 border-secondary/20 text-secondary hover:bg-secondary/20 font-black uppercase text-[9px]">🎹 {hit.name}</Button>
                     ))}
                   </CardContent>
                 </Card>
@@ -652,7 +624,7 @@ export default function StadiumBoothDashboard() {
                   </CardHeader>
                   <CardContent className="grid grid-cols-2 gap-2 md:gap-3 pt-4 md:pt-5">
                     {HYPE_SONGS.map((song) => (
-                      <Button key={song.name} variant="outline" onClick={() => playSoundboard(song.videoId, song.name)} className="h-10 md:h-12 border-primary/20 text-primary hover:bg-primary/20 font-black uppercase text-[9px]">📣 {song.name}</Button>
+                      <Button key={song.name} variant="outline" onClick={() => playYoutubeTrack(song.videoId, song.name)} className="h-10 md:h-12 border-primary/20 text-primary hover:bg-primary/20 font-black uppercase text-[9px]">📣 {song.name}</Button>
                     ))}
                   </CardContent>
                 </Card>
@@ -673,12 +645,24 @@ export default function StadiumBoothDashboard() {
                         className="h-10 text-xs bg-background/50 border-white/10"
                       />
                       <Button type="submit" size="icon" className="h-10 w-10 shrink-0">
-                        <Play className="h-4 w-4" />
+                        {isSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
                       </Button>
                     </form>
-                    <div className="text-[8px] md:text-[9px] text-muted-foreground font-bold px-1 uppercase tracking-wider">
-                      Enter URL/ID to play in booth or term to search
+                    <div className="space-y-2">
+                      {searchResults.map((res) => (
+                        <button 
+                          key={res.id} 
+                          onClick={() => playYoutubeTrack(res.id, res.title)}
+                          className="w-full text-left px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 transition-colors"
+                        >
+                          <div className="flex items-center gap-2">
+                            <Play className="h-3 w-3 text-primary shrink-0" />
+                            <span className="text-[10px] font-bold text-white/80 truncate uppercase tracking-wider">{res.title}</span>
+                          </div>
+                        </button>
+                      ))}
                     </div>
+                    <div id="stadium-yt-player" className="hidden"></div>
                   </CardContent>
                 </Card>
               </section>
@@ -687,13 +671,13 @@ export default function StadiumBoothDashboard() {
               <section className="space-y-3 md:space-y-4 pt-6 md:pt-10 border-t border-white/10">
                 <div className="flex items-center gap-3">
                   <CheckCircle2 className="h-4 w-4 md:h-5 md:w-5 text-primary" />
-                  <h2 className="text-sm md:text-base font-black uppercase tracking-widest text-primary">At Bat Player Announcement</h2>
+                  <h2 className="text-sm md:text-base font-black uppercase tracking-widest text-primary">At Bat Player Announcement Only</h2>
                 </div>
-                <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-1.5 md:gap-2">
+                <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-8 gap-1.5 md:gap-2">
                   {sortedRoster.map((player) => (
                     <Button 
                       key={player.id} variant="outline"
-                      onClick={() => playLocalAnnouncerOnly(player.announcementAudioUrl, player.name)}
+                      onClick={() => playLocalAnnouncement(player.announcementAudioUrl, player.name)}
                       className="flex flex-col h-11 md:h-12 gap-0.5 border-white/10 hover:border-primary/50 bg-card/60 px-1"
                     >
                       <span className="text-[7px] md:text-[8px] font-black leading-tight text-center">#{player.number} {player.name.split(' ')[0]}</span>
@@ -743,7 +727,7 @@ export default function StadiumBoothDashboard() {
         {/* COMPACT MINI-PLAYER (Visible when active) */}
         <div className={cn(
           "fixed bottom-4 right-4 w-64 md:w-80 h-16 md:h-20 bg-card border border-primary/40 rounded-2xl overflow-hidden shadow-[0_12px_40px_rgba(0,0,0,0.5)] z-[100] transition-all duration-700 ease-in-out transform",
-          activeAudioUrl ? "translate-y-0 opacity-100 scale-100" : "translate-y-32 opacity-0 scale-95"
+          activeTrackName ? "translate-y-0 opacity-100 scale-100" : "translate-y-32 opacity-0 scale-95"
         )}>
           <div className="absolute inset-0 flex items-center px-4 bg-background/95 backdrop-blur-xl border-t border-white/5">
             <div className="flex items-center gap-4 w-full">
@@ -761,15 +745,9 @@ export default function StadiumBoothDashboard() {
               </Button>
             </div>
           </div>
-          {activeAudioUrl && (
-            <iframe 
-              ref={iframeRef} key={activeAudioUrl} src={activeAudioUrl} 
-              className="w-1 h-1 absolute opacity-0 pointer-events-none" 
-              allow="autoplay; encrypted-media" 
-            />
-          )}
         </div>
       </div>
     </TooltipProvider>
   );
 }
+
