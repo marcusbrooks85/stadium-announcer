@@ -10,7 +10,8 @@ import {
   MapPin, 
   Clock, 
   Trophy,
-  MessageSquare
+  MessageSquare,
+  Utensils
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -34,6 +35,14 @@ const gameSchedule = [
   { week: 12, date: "2026-08-08", time: "9:00 AM", home: "Consolation", away: "Consolation", location: "Jim Thorpe - Cordary Field", notes: "Finals" },
   { week: 12, date: "2026-08-08", time: "11:00 AM", home: "Championship", away: "Championship", location: "Jim Thorpe - Cordary Field", notes: "Finals" }
 ];
+
+const SNACK_SCHEDULE: Record<string, string> = {
+  "2026-06-27": "Jacob",
+  "2026-06-30": "Camila",
+  "2026-07-11": "Zeke",
+  "2026-07-14": "Alexa",
+  "2026-07-25": "Dominic",
+};
 
 export default function GameSchedulePage() {
   const [wins, setWins] = useState<Record<string, boolean>>({});
@@ -141,6 +150,7 @@ export default function GameSchedulePage() {
               const isPast = status === "past";
               const isNextUpcoming = index === nextUpcomingGameIndex;
               const isHome = game.home === "Coach Chewy" || game.notes === "Playoffs" || game.notes === "Finals";
+              const snackDuty = SNACK_SCHEDULE[game.date];
 
               return (
                 <Card 
@@ -192,13 +202,20 @@ export default function GameSchedulePage() {
                       </div>
 
                       {/* Time & Location */}
-                      <div className="md:col-span-3 space-y-1">
+                      <div className="md:col-span-3 flex flex-col space-y-1">
                         <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground">
                           <Clock className="h-3 w-3" /> {game.time}
                         </div>
                         <div className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground uppercase truncate">
                           <MapPin className="h-3 w-3 shrink-0" /> {game.location}
                         </div>
+                        
+                        {snackDuty && (
+                          <div className="bg-slate-800/90 text-slate-100 border border-slate-700 font-bold px-2 py-1 rounded-md inline-flex items-center gap-1.5 text-[10px] mt-2 self-start shadow-sm">
+                            <span>🍴</span>
+                            <span className="uppercase tracking-tighter">SNACK: {snackDuty}</span>
+                          </div>
+                        )}
                       </div>
 
                       {/* Matchup */}
