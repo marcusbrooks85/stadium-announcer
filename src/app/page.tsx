@@ -78,67 +78,57 @@ interface Player {
 
 const INITIAL_ROSTER: Player[] = [
   { 
-    id: "2", 
+    id: "4", 
     name: "Diomedes Plata", 
     number: 4, 
     announcementAudioUrl: "/audio/Diomedes.mp3",
     songs: [
-      { name: "WE LA (EAST LA Remix)", videoId: "l-eMsVOTCY4", startAt: 80 },
-      { name: "Level Up - Ciara", videoId: "Dh-ULbQmmF8", startAt: 0 },
-      { name: "God's Plan - Drake", videoId: "xpVfcZ0ZcFM", startAt: 0 }
-    ],
-    stats: { ab: 0, h: 0, r: 0, rbi: 0 } 
-  },
-  { 
-    id: "1", 
-    name: "Max Camargo", 
-    number: 6, 
-    announcementAudioUrl: "/audio/Max.mp3",
-    songs: [
-      { name: "Miss You (Bonus Track)", videoId: "2S5Ku0mVkzI", startAt: 0 },
-      { name: "Thunder - Imagine Dragons", videoId: "fKopy74weus", startAt: 0 },
-      { name: "Seven Nation Army", videoId: "0J2QdDbelmY", startAt: 0 }
-    ],
-    stats: { ab: 0, h: 0, r: 0, rbi: 0 } 
-  },
-  { 
-    id: "4", 
-    name: "Alexa Franco", 
-    number: 7, 
-    announcementAudioUrl: "/audio/Alexa.mp3",
-    songs: [
-      { name: "BATTER UP", videoId: "olDWm2veCrM", startAt: 60 },
-      { name: "Shake It Off - T-Swift", videoId: "nfWlot6h_JM", startAt: 0 },
-      { name: "Girls Just Want To Have Fun", videoId: "PIb6AZdTr-A", startAt: 0 }
+      { name: "We LA", videoId: "l-eMsVOTCY4", startAt: 80 }
     ],
     stats: { ab: 0, h: 0, r: 0, rbi: 0 } 
   },
   { 
     id: "6", 
-    name: "Zeke Jacobo", 
-    number: 8, 
-    announcementAudioUrl: "/audio/Zeke.mp3",
+    name: "Max Camargo", 
+    number: 6, 
+    announcementAudioUrl: "/audio/Max.mp3",
     songs: [
-      { name: "Under Control", videoId: "in8rYZQrwnw", startAt: 55 },
-      { name: "Titanium - David Guetta", videoId: "JRfuAukYTKg", startAt: 0 },
-      { name: "Levels - Avicii", videoId: "_ovdm2yX4MA", startAt: 0 }
+      { name: "Miss You", videoId: "2S5Ku0mVkzI", startAt: 0 }
     ],
     stats: { ab: 0, h: 0, r: 0, rbi: 0 } 
   },
   { 
-    id: "5", 
+    id: "7", 
+    name: "Alexa Franco", 
+    number: 7, 
+    announcementAudioUrl: "/audio/Alexa.mp3",
+    songs: [
+      { name: "Batter Up", videoId: "AleC4OpNjkY", startAt: 58 }
+    ],
+    stats: { ab: 0, h: 0, r: 0, rbi: 0 } 
+  },
+  { 
+    id: "8", 
+    name: "Zeke", 
+    number: 8, 
+    announcementAudioUrl: "/audio/Zeke.mp3",
+    songs: [
+      { name: "Under Control", videoId: "cRYDSdXcT5o", startAt: 0 }
+    ],
+    stats: { ab: 0, h: 0, r: 0, rbi: 0 } 
+  },
+  { 
+    id: "10", 
     name: "Camila Brooks", 
     number: 10, 
     announcementAudioUrl: "/audio/Camila.mp3",
     songs: [
-      { name: "Not Like Us", videoId: "T6eK-2OQtew", startAt: 0 },
-      { name: "California Love", videoId: "LRt6TdSvHag", startAt: 0 },
-      { name: "HUMBLE. - Kendrick", videoId: "tvTRZJ-4EyI", startAt: 0 }
+      { name: "Not Like Us", videoId: "T6eK-2OQtew", startAt: 0 }
     ],
     stats: { ab: 0, h: 0, r: 0, rbi: 0 } 
   },
   { 
-    id: "9", 
+    id: "11-j", 
     name: "Jacob Vieyra", 
     number: 11, 
     announcementAudioUrl: "/audio/Jacob.mp3",
@@ -150,26 +140,22 @@ const INITIAL_ROSTER: Player[] = [
     stats: { ab: 0, h: 0, r: 0, rbi: 0 } 
   },
   { 
-    id: "7", 
+    id: "11-a", 
     name: "Aldrich Munoz", 
     number: 11, 
     announcementAudioUrl: "/audio/Aldrich.mp3",
     songs: [
-      { name: "MONTAGEM SUPERSONIC", videoId: "iI6Ypo8D-Pg", startAt: 0 },
-      { name: "Sicko Mode - Travis Scott", videoId: "d-JBBNg8YKs", startAt: 0 },
-      { name: "Superhero - Metro Boomin", videoId: "6XFpXidjKz8", startAt: 0 }
+      { name: "Montagem Supersonic", videoId: "lM4v4sq8ypo", startAt: 0 }
     ],
     stats: { ab: 0, h: 0, r: 0, rbi: 0 } 
   },
   { 
-    id: "3", 
+    id: "12", 
     name: "Jimena Briones", 
     number: 12, 
     announcementAudioUrl: "/audio/Jimena.mp3",
     songs: [
-      { name: "Watermelon Sugar", videoId: "KPM_BYl-EaQ", startAt: 0 },
-      { name: "Flowers - Miley Cyrus", videoId: "G7KNmW9a75Y", startAt: 0 },
-      { name: "Espresso - Sabrina Carpenter", videoId: "eVli-tstM5E", startAt: 0 }
+      { name: "Watermelon Sugar", videoId: "KPM_BYl-EaQ", startAt: 0 }
     ],
     stats: { ab: 0, h: 0, r: 0, rbi: 0 } 
   },
@@ -247,6 +233,7 @@ export default function StadiumBoothDashboard() {
   // YouTube API initialization
   useEffect(() => {
     const onYouTubeIframeAPIReady = () => {
+      if (ytPlayerRef.current) return;
       ytPlayerRef.current = new (window as any).YT.Player('stadium-yt-player', {
         height: '1',
         width: '1',
@@ -348,8 +335,6 @@ export default function StadiumBoothDashboard() {
 
   const playYoutubeTrack = (videoId: string, songName: string, startAt: number = 0) => {
     restoreVolume();
-    // Only stop music if we aren't currently "announcing" (to allow announcement overlay)
-    // but in most soundboard cases, we want to clear the deck.
     if (!isAnnouncing) stopEverything();
     
     setActiveTrackName(songName);
@@ -380,7 +365,6 @@ export default function StadiumBoothDashboard() {
     
     audio.play().catch(e => {
       console.warn("Local Announcement missing/blocked", e);
-      // If intro fails, we should still allow the sequence to potentially continue
     });
     return audio;
   };
@@ -390,6 +374,12 @@ export default function StadiumBoothDashboard() {
     
     stopEverything();
     setIsAnnouncing(true);
+
+    // Warm up YouTube (unlock audio context)
+    if (ytPlayerRef.current && playerReady) {
+      ytPlayerRef.current.unMute();
+      ytPlayerRef.current.setVolume(volume * 100);
+    }
     
     const announcementUrl = activePlayer.announcementAudioUrl;
     const song = selectedSong;
