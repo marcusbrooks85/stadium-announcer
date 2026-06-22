@@ -22,6 +22,8 @@ import {
   Search,
   ArrowDownWideNarrow,
   Calendar,
+  BarChart3,
+  MessageSquare,
   CircleDot
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -304,12 +306,22 @@ export default function StadiumBoothDashboard() {
                </Button>
             </div>
 
-            <div className="flex items-center gap-2">
-              <Link href="/schedule">
-                <Button variant="ghost" size="icon" className="h-10 w-10 text-muted-foreground hover:text-primary transition-colors">
-                  <Calendar className="h-5 w-5" />
+            <div className="flex items-center gap-1 md:gap-3">
+              <Link href="/stats">
+                <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-primary">
+                  <BarChart3 className="h-4 w-4" />
                 </Button>
               </Link>
+              <Link href="/schedule">
+                <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-primary">
+                  <Calendar className="h-4 w-4" />
+                </Button>
+              </Link>
+              <a href="https://groupme.com/join_group/115533519/bxlMSOlb" target="_blank" rel="noopener noreferrer">
+                <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-primary">
+                  <MessageSquare className="h-4 w-4" />
+                </Button>
+              </a>
             </div>
           </div>
 
@@ -522,7 +534,7 @@ export default function StadiumBoothDashboard() {
         </div>
 
         {/* FLOATING GAME STATS ICON */}
-        <div className="fixed bottom-6 right-6 z-[110]">
+        <div className="fixed bottom-24 right-6 z-[110] md:bottom-6">
           <Tooltip>
             <TooltipTrigger asChild>
               <Link href="/stats">
@@ -540,9 +552,27 @@ export default function StadiumBoothDashboard() {
           </Tooltip>
         </div>
 
+        {/* MOBILE FOOTER NAVIGATION */}
+        <footer className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] md:hidden z-50">
+          <div className="flex items-center justify-center gap-3 bg-card/90 backdrop-blur-xl border border-white/10 p-2 rounded-2xl shadow-2xl">
+            <Link href="/stats" className="flex-1">
+              <div className="flex items-center justify-center gap-2 h-11 border border-white/5 rounded-xl bg-white/5 text-muted-foreground">
+                <BarChart3 className="h-4 w-4" />
+                <span className="text-[10px] font-black uppercase tracking-widest">Stats</span>
+              </div>
+            </Link>
+            <Link href="/schedule" className="flex-1">
+              <div className="flex items-center justify-center gap-2 h-11 border border-white/5 rounded-xl bg-white/5 text-muted-foreground">
+                <Calendar className="h-4 w-4" />
+                <span className="text-[10px] font-black uppercase tracking-widest">Schedule</span>
+              </div>
+            </Link>
+          </div>
+        </footer>
+
         {/* STATUS BAR */}
         <div className={cn(
-          "fixed bottom-4 left-4 w-64 md:w-80 h-16 md:h-20 bg-card border border-primary/40 rounded-2xl overflow-hidden shadow-[0_12px_40px_rgba(0,0,0,0.5)] z-[100] transition-all duration-700 ease-in-out transform",
+          "fixed bottom-24 left-4 w-64 md:w-80 h-16 md:h-20 bg-card border border-primary/40 rounded-2xl overflow-hidden shadow-[0_12px_40px_rgba(0,0,0,0.5)] z-[100] transition-all duration-700 ease-in-out transform",
           activeTrackName ? "translate-y-0 opacity-100 scale-100" : "translate-y-32 opacity-0 scale-95"
         )}>
           <div className="absolute inset-0 flex items-center px-4 bg-background/95 backdrop-blur-xl border-t border-white/5">

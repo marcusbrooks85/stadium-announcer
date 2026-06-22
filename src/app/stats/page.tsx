@@ -11,7 +11,9 @@ import {
   Home,
   Mail,
   Calendar,
-  Users
+  BarChart3,
+  MessageSquare,
+  ChevronLeft
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -56,20 +58,20 @@ export default function GameStatsPage() {
 
   return (
     <TooltipProvider>
-      <div className="flex flex-col min-h-screen bg-background text-foreground stadium-gradient">
+      <div className="flex flex-col min-h-screen bg-background text-foreground stadium-gradient overflow-y-auto">
         {/* HEADER */}
         <header className="sticky top-0 z-50 flex items-center justify-between p-4 border-b border-border shadow-2xl bg-card/95 backdrop-blur-md h-auto md:h-24">
           <div className="flex items-center gap-4">
              <Link href="/">
-               <Button variant="outline" size="icon" className="h-10 w-10 border-primary/20 text-primary">
-                 <Home className="h-5 w-5" />
-               </Button>
+               <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-primary/20 bg-primary/5 text-primary transition-colors hover:bg-primary/10">
+                 <ChevronLeft className="h-5 w-5" />
+               </div>
              </Link>
              <h1 className="font-headline font-black uppercase tracking-[0.2em] text-xs md:text-sm hidden lg:block">Stats Center</h1>
           </div>
           
           {/* Centered Scores in Header */}
-          <div className="flex items-center justify-center gap-4 md:gap-8 mx-auto">
+          <div className="flex items-center justify-center gap-4 md:gap-8 flex-1">
               <div className="flex flex-col items-center bg-secondary/10 px-3 md:px-6 py-1 rounded-xl border border-secondary/20 shadow-inner min-w-[80px] md:min-w-[120px]">
                 <span className="text-[7px] md:text-[9px] font-black tracking-widest text-secondary/70 uppercase mb-0.5">Away</span>
                 <div className="flex items-center gap-1 md:gap-3">
@@ -89,19 +91,26 @@ export default function GameStatsPage() {
               </div>
           </div>
 
-          <div className="flex items-center gap-3">
-             <Link href="/schedule">
-               <Button variant="ghost" size="icon" className="h-10 w-10 text-muted-foreground hover:text-primary transition-colors">
-                 <Calendar className="h-5 w-5" />
-               </Button>
-             </Link>
-             <Badge variant="outline" className="font-mono text-primary border-primary/30 py-1 px-3 text-[10px] md:text-xs">
-               LIVE FEED
-             </Badge>
+          <div className="flex items-center gap-1 md:gap-3">
+            <Link href="/">
+              <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-primary">
+                <Home className="h-4 w-4" />
+              </Button>
+            </Link>
+            <Link href="/schedule">
+              <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-primary transition-colors">
+                <Calendar className="h-5 w-5" />
+              </Button>
+            </Link>
+            <a href="https://groupme.com/join_group/115533519/bxlMSOlb" target="_blank" rel="noopener noreferrer">
+              <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-primary">
+                <MessageSquare className="h-4 w-4" />
+              </Button>
+            </a>
           </div>
         </header>
 
-        <main className="flex-1 p-4 md:p-8 space-y-6 md:space-y-10 max-w-7xl mx-auto w-full pb-32 overflow-y-auto">
+        <main className="flex-1 p-4 md:p-8 space-y-6 md:space-y-10 max-w-7xl mx-auto w-full pb-32">
           <section className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10">
             {/* STAT TRACKER COMMAND */}
             <Card className="bg-card/80 border-2 border-white/5 overflow-hidden shadow-2xl">
@@ -151,21 +160,24 @@ export default function GameStatsPage() {
               </CardContent>
             </Card>
 
-            {/* TEAM SUMMARY INFO */}
+            {/* QUICK ACTIONS */}
             <Card className="bg-card/80 border-2 border-white/5 overflow-hidden shadow-2xl flex flex-col">
                <CardHeader className="pb-3 md:pb-4 border-b border-white/5 bg-white/5">
                   <CardTitle className="text-[10px] md:text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                    <Users className="h-3 w-3 md:h-4 md:w-4" /> Team Overview
+                    Quick Actions
                   </CardTitle>
                </CardHeader>
-               <CardContent className="flex-1 flex flex-col justify-center items-center p-8 text-center space-y-4">
+               <CardContent className="flex-1 flex flex-col justify-center items-center p-8 text-center space-y-6">
                   <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20">
                     <TableIcon className="h-8 w-8 text-primary" />
                   </div>
                   <div className="space-y-2">
                     <h3 className="font-headline font-bold uppercase text-lg">Performance Sync</h3>
-                    <p className="text-xs text-muted-foreground max-w-[280px]">All stats updated here will automatically reflect in the stadium announcer booth and reports.</p>
+                    <p className="text-xs text-muted-foreground max-w-[280px]">Stats update automatically in the booth.</p>
                   </div>
+                  <Button onClick={emailStats} className="w-full h-12 gap-2 font-black uppercase tracking-widest text-xs">
+                    <Mail className="h-4 w-4" /> Export Game Report
+                  </Button>
                </CardContent>
             </Card>
           </section>
@@ -205,23 +217,23 @@ export default function GameStatsPage() {
           </section>
         </main>
 
-        {/* FLOATING EXPORT ICON */}
-        <div className="fixed bottom-6 right-6 z-[110]">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button 
-                onClick={emailStats}
-                size="icon" 
-                className="h-14 w-14 rounded-full bg-primary hover:bg-primary/90 shadow-lg shadow-primary/30"
-              >
-                <Mail className="h-7 w-7 text-white" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="left" className="font-black uppercase tracking-widest text-[10px]">
-              Export Stats
-            </TooltipContent>
-          </Tooltip>
-        </div>
+        {/* MOBILE FOOTER NAVIGATION */}
+        <footer className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] md:hidden z-50">
+          <div className="flex items-center justify-center gap-3 bg-card/90 backdrop-blur-xl border border-white/10 p-2 rounded-2xl shadow-2xl">
+            <Link href="/" className="flex-1">
+              <div className="flex items-center justify-center gap-2 h-11 border border-white/5 rounded-xl bg-white/5 text-muted-foreground">
+                <Home className="h-4 w-4" />
+                <span className="text-[10px] font-black uppercase tracking-widest">Booth</span>
+              </div>
+            </Link>
+            <Link href="/schedule" className="flex-1">
+              <div className="flex items-center justify-center gap-2 h-11 border border-white/5 rounded-xl bg-white/5 text-muted-foreground">
+                <Calendar className="h-4 w-4" />
+                <span className="text-[10px] font-black uppercase tracking-widest">Schedule</span>
+              </div>
+            </Link>
+          </div>
+        </footer>
       </div>
     </TooltipProvider>
   );
