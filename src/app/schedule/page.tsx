@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useMemo, useState, useEffect } from "react";
@@ -10,7 +11,10 @@ import {
   MapPin, 
   Clock, 
   Trophy,
-  MessageSquare
+  MessageSquare,
+  Ban,
+  CheckCircle2,
+  XCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -48,9 +52,14 @@ const SNACK_SCHEDULE: Record<string, string> = {
   "2026-07-25": "Dominic",
 };
 
+interface GameStatus {
+  won?: boolean;
+  cancelled?: boolean;
+}
+
 export default function GameSchedulePage() {
   const db = useFirestore();
-  const [wins, setWins] = useState<Record<string, boolean>>({});
+  const [gameStatuses, setGameStatuses] = useState<Record<string, GameStatus>>({});
   const [todayPST, setTodayPST] = useState<Date | null>(null);
 
   useEffect(() => {
@@ -68,11 +77,15 @@ export default function GameSchedulePage() {
     const unsubscribe = onSnapshot(
       winsRef,
       (snapshot) => {
-        const winsData: Record<string, boolean> = {};
+        const statuses: Record<string, GameStatus> = {};
         snapshot.forEach((doc) => {
-          winsData[doc.id] = doc.data().won || false;
+          const data = doc.data();
+          statuses[doc.id] = {
+            won: data.won || false,
+            cancelled: data.cancelled || false
+          };
         });
-        setWins(winsData);
+        setGameStatuses(statuses);
       },
       async (error) => {
         const permissionError = new FirestorePermissionError({
@@ -86,7 +99,7 @@ export default function GameSchedulePage() {
     return () => unsubscribe();
   }, [db]);
 
-  const getGameStatus = (dateStr: string) => {
+  const getGameStatusLabel = (dateStr: string) => {
     if (!todayPST) return "future";
     const [y, m, d] = dateStr.split("-").map(Number);
     const gameDate = new Date(y, m - 1, d);
@@ -103,62 +116,97 @@ export default function GameSchedulePage() {
     let l = 0;
     gameSchedule.forEach((game, index) => {
       const gameKey = `game_${game.week}_${game.date}_${index}`;
-      const isWon = wins[gameKey] || false;
-      const status = getGameStatus(game.date);
+      const status = gameStatuses[gameKey];
       
-      if (status !== "future") {
+      // Completely ignore cancelled games for stats
+      if (status?.cancelled) return;
+
+      const isWon = status?.won || false;
+      const timelineStatus = getGameStatusLabel(game.date);
+      
+      if (timelineStatus !== "future") {
         if (isWon) {
           w++;
-        } else if (status === "past") {
+        } else if (timelineStatus === "past") {
           l++;
         }
       }
     });
     return { w, l };
-  }, [wins, todayPST]);
+  }, [gameStatuses, todayPST]);
 
   const nextUpcomingGameIndex = useMemo(() => {
     if (!todayPST) return -1;
     return gameSchedule.findIndex(game => {
-      const status = getGameStatus(game.date);
-      return status === "today" || status === "future";
+      const label = getGameStatusLabel(game.date);
+      return label === "today" || label === "future";
     });
   }, [todayPST]);
 
-  const handleToggleWin = async (gameKey: string, currentStatus: boolean) => {
+  const verifyAdmin = () => {
     const password = window.prompt("Enter Admin Password to update game status:");
-    
-    if (password !== "Chewy2026") {
-      if (password !== null) alert("Incorrect Password");
-      return;
-    }
+    if (password === "Chewy2026") return true;
+    if (password !== null) alert("Incorrect Password");
+    return false;
+  };
 
+  const handleToggleWin = async (gameKey: string, currentWon: boolean) => {
+    if (!verifyAdmin()) return;
     if (!db) return;
 
     const docRef = doc(db, "game_wins", gameKey);
-    
-    if (!currentStatus) {
+    const currentCancelled = gameStatuses[gameKey]?.cancelled || false;
+
+    // Mutually exclusive: cannot win a cancelled game
+    if (!currentWon) {
       setDoc(docRef, { 
         won: true, 
+        cancelled: false,
         updatedAt: new Date().toISOString() 
       }, { merge: true })
         .catch(async (error) => {
           const permissionError = new FirestorePermissionError({
             path: docRef.path,
             operation: 'write',
-            requestResourceData: { won: true },
+            requestResourceData: { won: true, cancelled: false },
           });
           errorEmitter.emit('permission-error', permissionError);
         });
     } else {
-      deleteDoc(docRef)
+      // If we are un-checking win, but it wasn't cancelled, we can just delete if we want to reset
+      // or set won: false
+      setDoc(docRef, { 
+        won: false,
+        updatedAt: new Date().toISOString() 
+      }, { merge: true });
+    }
+  };
+
+  const handleToggleCancelled = async (gameKey: string, currentCancelled: boolean) => {
+    if (!verifyAdmin()) return;
+    if (!db) return;
+
+    const docRef = doc(db, "game_wins", gameKey);
+
+    if (!currentCancelled) {
+      setDoc(docRef, { 
+        cancelled: true,
+        won: false, // Mutually exclusive
+        updatedAt: new Date().toISOString() 
+      }, { merge: true })
         .catch(async (error) => {
           const permissionError = new FirestorePermissionError({
             path: docRef.path,
-            operation: 'delete',
+            operation: 'write',
+            requestResourceData: { cancelled: true, won: false },
           });
           errorEmitter.emit('permission-error', permissionError);
         });
+    } else {
+      setDoc(docRef, { 
+        cancelled: false,
+        updatedAt: new Date().toISOString() 
+      }, { merge: true });
     }
   };
 
@@ -211,6 +259,7 @@ export default function GameSchedulePage() {
               <span className="text-3xl font-black digit-font text-destructive">{record.l}</span>
             </div>
           </div>
+          <p className="text-[9px] font-bold uppercase text-muted-foreground tracking-tighter">* Cancelled games are excluded from record</p>
         </section>
 
         <section className="space-y-4">
@@ -222,9 +271,11 @@ export default function GameSchedulePage() {
           <div className="grid gap-4">
             {gameSchedule.map((game, index) => {
               const gameKey = `game_${game.week}_${game.date}_${index}`;
-              const isWon = wins[gameKey] || false;
-              const status = getGameStatus(game.date);
-              const isPast = status === "past";
+              const statusData = gameStatuses[gameKey] || {};
+              const isWon = statusData.won || false;
+              const isCancelled = statusData.cancelled || false;
+              const label = getGameStatusLabel(game.date);
+              const isPast = label === "past";
               const isNextUpcoming = index === nextUpcomingGameIndex;
               const isHome = game.home === "Coach Chewy" || game.notes === "Playoffs" || game.notes === "Finals";
               const snackDuty = SNACK_SCHEDULE[game.date];
@@ -235,32 +286,55 @@ export default function GameSchedulePage() {
                   className={cn(
                     "transition-all duration-300 relative overflow-hidden",
                     isHome ? "bg-blue-950/40 border-blue-800/60" : "bg-slate-800/50 border-slate-700/60",
-                    isNextUpcoming && "scale-[1.02] shadow-[0_0_20px_rgba(59,130,246,0.4)] ring-2 ring-blue-500 border-t-white/30"
+                    isNextUpcoming && !isCancelled && "scale-[1.02] shadow-[0_0_20px_rgba(59,130,246,0.4)] ring-2 ring-blue-500 border-t-white/30",
+                    isCancelled && "opacity-60 border-destructive/40"
                   )}
                 >
-                  {isWon && (
-                    <div className="absolute top-2 right-2 z-20 isolation pointer-events-none">
+                  {/* Cancel Button */}
+                  <div className="absolute top-2 left-2 z-20">
+                     <Button 
+                       variant="ghost" 
+                       size="icon" 
+                       className={cn(
+                         "h-7 w-7 rounded-full transition-colors",
+                         isCancelled ? "bg-destructive text-white hover:bg-destructive/80" : "bg-white/5 text-muted-foreground hover:bg-destructive/20 hover:text-destructive"
+                       )}
+                       onClick={() => handleToggleCancelled(gameKey, isCancelled)}
+                     >
+                       <Ban className="h-3.5 w-3.5" />
+                     </Button>
+                  </div>
+
+                  {/* Status Badges */}
+                  <div className="absolute top-2 right-2 z-20 flex flex-col items-end gap-2">
+                    {isCancelled && (
+                      <Badge variant="destructive" className="font-black uppercase text-[8px] md:text-[9px] tracking-widest animate-pulse">
+                        <XCircle className="h-3 w-3 mr-1" /> Cancelled
+                      </Badge>
+                    )}
+                    {isWon && !isCancelled && (
                       <div className="filter drop-shadow-[0_0_12px_rgba(234,179,8,0.9)] animate-trophy-breathe">
                         <span className="text-2xl md:text-3xl">🏆</span>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
 
                   <div className={cn(
                     "transition-all duration-300",
-                    isPast && "line-through opacity-30 grayscale"
+                    (isPast || isCancelled) && "line-through opacity-40 grayscale"
                   )}>
-                    <CardContent className="p-4 md:p-6">
+                    <CardContent className="p-4 md:p-6 pt-10 md:pt-6">
                       <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
                         <div className="md:col-span-3 flex flex-col">
                           <div className="flex items-center gap-3">
                             <div className="flex items-center gap-2 not-line-through opacity-100 isolation">
                               <Checkbox 
                                 checked={isWon} 
+                                disabled={isCancelled}
                                 onCheckedChange={() => handleToggleWin(gameKey, isWon)}
                                 className="pointer-events-auto border-white/20 data-[state=checked]:bg-yellow-500 data-[state=checked]:border-yellow-500"
                               />
-                              <Badge variant={isNextUpcoming ? "default" : "outline"} className="text-[10px] font-black tracking-widest uppercase">
+                              <Badge variant={isNextUpcoming && !isCancelled ? "default" : "outline"} className="text-[10px] font-black tracking-widest uppercase">
                                 Week {game.week}
                               </Badge>
                             </div>
@@ -287,7 +361,7 @@ export default function GameSchedulePage() {
                             <MapPin className="h-3 w-3 shrink-0" /> {game.location}
                           </div>
                           
-                          {snackDuty && (
+                          {snackDuty && !isCancelled && (
                             <div className="bg-slate-800/90 text-slate-100 border border-slate-700 font-bold px-2 py-1 rounded-md inline-flex items-center gap-1.5 text-[10px] mt-2 self-start shadow-sm not-line-through opacity-100 isolation">
                               <span>🍴</span>
                               <span className="uppercase tracking-tighter">SNACK: {snackDuty}</span>

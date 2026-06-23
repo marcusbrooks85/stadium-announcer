@@ -1,13 +1,18 @@
+
 {
   "entities": {
     "GameWin": {
       "title": "Game Win",
-      "description": "Represents the win status of a specific baseball game.",
+      "description": "Represents the status (won, cancelled, etc.) of a specific baseball game.",
       "type": "object",
       "properties": {
         "won": {
           "type": "boolean",
           "description": "Whether the game was won or not."
+        },
+        "cancelled": {
+          "type": "boolean",
+          "description": "Whether the game was cancelled (e.g., rainout)."
         },
         "updatedAt": {
           "type": "string",
@@ -15,7 +20,7 @@
           "description": "The timestamp of when the status was last updated."
         }
       },
-      "required": ["won"]
+      "required": ["updatedAt"]
     }
   },
   "auth": {
@@ -26,7 +31,7 @@
       "schema": {
         "$ref": "#/backend/entities/GameWin"
       },
-      "description": "Collection storing win statuses for specific games identified by a unique key."
+      "description": "Collection storing status and outcomes for specific games."
     }
   }
 }
