@@ -18,12 +18,28 @@ export interface Player {
 }
 
 const INITIAL_ROSTER: Player[] = [
+  {
+    id: "1",
+    name: "Dominic Barrera",
+    number: 1,
+    announcementAudioUrl: "/audio/Dominic.mp3",
+    songs: [
+      { name: "We LA", videoId: "rltG2qA_RnA", startAt: 0 },
+      { name: "Con Calma", videoId: "yk7yVGbcpHE", startAt: 60 },
+      { name: "Mexico Mundial", videoId: "Mf-aUJjSneo", startAt: 14 }
+    ],
+    stats: { ab: 0, h: 0, r: 0, rbi: 0 }
+  },
   { 
     id: "4", 
     name: "Diomedes Plata", 
     number: 4, 
     announcementAudioUrl: "/audio/Diomedes.mp3",
-    songs: [{ name: "We LA", videoId: "l-eMsVOTCY4", startAt: 80 }],
+    songs: [
+      { name: "EoO", videoId: "l-eMsVOTCY4", startAt: 80 },
+      { name: "Brasil Com S", videoId: "bNTRIdraX8c", startAt: 20 },
+      { name: "Narco", videoId: "mDqvPTUuxGY", startAt: 0 }
+    ],
     stats: { ab: 0, h: 0, r: 0, rbi: 0 } 
   },
   { 
@@ -55,7 +71,11 @@ const INITIAL_ROSTER: Player[] = [
     name: "Camila Brooks", 
     number: 10, 
     announcementAudioUrl: "/audio/Camila.mp3",
-    songs: [{ name: "Not Like Us", videoId: "T6eK-2OQtew", startAt: 0 }],
+    songs: [
+      { name: "Not Like Us", videoId: "d6WiBXd3xfI", startAt: 0 },
+      { name: "California Love", videoId: "J7_bMdYfSws", startAt: 0 },
+      { name: "HUMBLE.", videoId: "ov4WobPqoSA", startAt: 1 }
+    ],
     stats: { ab: 0, h: 0, r: 0, rbi: 0 } 
   },
   { 
