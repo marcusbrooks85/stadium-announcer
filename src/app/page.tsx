@@ -41,6 +41,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useGame } from "./context/game-context";
 import { FloatingInstallButton } from "@/components/FloatingInstallButton";
+import { InstallButton } from "@/components/InstallButton";
 
 const ORGAN_HITS = [
   { name: "BULLFIGHTER", videoId: "melJslO0IJY" },
@@ -229,9 +230,6 @@ export default function StadiumBoothDashboard() {
   };
 
   const handleAnnouncementEnded = () => {
-    // CRITICAL FIX: Only transition to music if we were specifically in the 'announcing' phase.
-    // Quick-Taps are triggered with playbackPhase as 'idle' (via stopEverything), 
-    // so they will correctly skip the walk-up music transition.
     if (playbackPhase === 'announcing' && activePlayer && selectedSong) {
       setPlaybackPhase('walkup');
       playYoutubeTrack(selectedSong.videoId, selectedSong.name, selectedSong.startAt);
@@ -286,9 +284,12 @@ export default function StadiumBoothDashboard() {
         {/* COMMAND HEADER */}
         <header className="sticky top-0 z-50 flex flex-col gap-2 p-3 md:p-4 border-b border-border shadow-2xl bg-card/95 backdrop-blur-md">
           <div className="flex items-center justify-between max-w-7xl mx-auto w-full relative h-12 md:h-16">
-            <h1 className="font-headline font-black uppercase tracking-[0.2em] text-xs md:text-sm text-primary hidden md:block">
-              STADIUM ANNOUNCER
-            </h1>
+            <div className="flex items-center gap-4">
+              <h1 className="font-headline font-black uppercase tracking-[0.2em] text-xs md:text-sm text-primary hidden md:block">
+                STADIUM ANNOUNCER
+              </h1>
+              <InstallButton />
+            </div>
             
             {/* Centered Controls */}
             <div className="flex items-center justify-center gap-4 md:gap-8 flex-1">
@@ -514,9 +515,8 @@ export default function StadiumBoothDashboard() {
                             stopEverything();
                             // SNAP VOLUME to baseline
                             setVolume(0.8);
-                            // We trigger the audio directly. 
-                            // Note that we DON'T set playbackPhase to 'announcing',
-                            // so handleAnnouncementEnded will properly reset to idle.
+                            // Explicitly clear any music phase triggers
+                            setPlaybackPhase('idle');
                             setCurrentAnnouncementUrl(player.announcementAudioUrl);
                             setActiveTrackName(`Announcing: ${player.name}`);
                           }}

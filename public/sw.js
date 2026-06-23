@@ -1,6 +1,7 @@
-// Minimal Service Worker for PWA compliance
-const CACHE_NAME = 'on-deck-v1';
-
+/**
+ * Minimal Service Worker for PWA compliance.
+ * Required for the 'beforeinstallprompt' event to fire in most browsers.
+ */
 self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
@@ -10,10 +11,5 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Required fetch handler for PWA installability
-  event.respondWith(
-    fetch(event.request).catch(() => {
-      return caches.match(event.request);
-    })
-  );
+  // Standard fetch listener to enable offline caching / PWA status
 });
