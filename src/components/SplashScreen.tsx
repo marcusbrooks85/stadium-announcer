@@ -35,19 +35,19 @@ export function SplashScreen() {
       )}
     >
       <div className="relative flex flex-col items-center animate-in fade-in zoom-in-95 duration-1000 ease-out">
-        {/* Central Graphic (Official Branding) */}
-        <div className="relative w-64 h-64 md:w-[450px] md:h-[450px]">
+        {/* Central Graphic (Tall Splash Asset) */}
+        <div className="relative w-72 h-72 md:w-[600px] md:h-[600px]">
           <Image
             src="/audio/splash.png"
-            alt="On Deck Branding"
+            alt="On Deck"
             fill
             className="object-contain"
             priority
           />
         </div>
 
-        {/* Tagline - Clean & Minimal */}
-        <div className="mt-4 md:mt-0 flex flex-col items-center gap-3">
+        {/* Tagline */}
+        <div className="mt-2 flex flex-col items-center gap-3">
           <p className="text-[10px] md:text-xs font-medium text-white/40 tracking-[0.5em] uppercase">
             Schedule • Stats • Announcer
           </p>
