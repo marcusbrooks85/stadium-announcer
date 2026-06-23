@@ -370,7 +370,7 @@ export default function StadiumBoothDashboard() {
 
           {/* DASHBOARD */}
           <main className="flex-1 flex flex-col p-4 md:p-8 overflow-y-auto space-y-4 md:space-y-8 bg-black/10">
-            <div className="max-w-5xl mx-auto w-full space-y-4 md:space-y-8">
+            <div className="max-w-5xl mx-auto w-full space-y-4 md:space-y-8 pb-40">
               {/* TOP SECTION: WALK-ON SEQUENCE */}
               <section className="flex justify-center">
                 <Card className="w-full md:max-w-2xl bg-card/80 border-2 border-white/5 overflow-hidden shadow-2xl">
@@ -501,7 +501,7 @@ export default function StadiumBoothDashboard() {
               </section>
 
               {/* BATTER INTRO QUICK-TAP */}
-              <section className="flex justify-center pb-24">
+              <section className="flex justify-center">
                 <Card className="w-full md:max-w-2xl bg-card/80 border-2 border-white/5 overflow-hidden shadow-2xl">
                   <CardHeader className="pb-3 md:pb-4 border-b border-white/5 bg-white/5">
                     <CardTitle className="text-[10px] md:text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">

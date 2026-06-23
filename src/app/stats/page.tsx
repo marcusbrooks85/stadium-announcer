@@ -83,7 +83,7 @@ export default function GameStatsPage() {
           </div>
         </header>
 
-        <main className="flex-1 p-4 md:p-8 space-y-6 md:space-y-10 max-w-7xl mx-auto w-full pb-32">
+        <main className="flex-1 p-4 md:p-8 space-y-6 md:space-y-10 max-w-7xl mx-auto w-full pb-40">
           <section className="flex flex-col items-center justify-center gap-6">
             <div className="flex items-center justify-center gap-2 md:gap-8 w-full max-w-2xl">
                 <div className="flex-1 flex flex-col items-center bg-secondary/10 px-2 py-4 md:px-6 rounded-2xl border-2 border-secondary/20 shadow-inner">
@@ -159,7 +159,7 @@ export default function GameStatsPage() {
             </Card>
           </section>
 
-          <section className="space-y-4 pt-6 pb-24">
+          <section className="space-y-4 pt-6">
             <div className="flex items-center gap-3">
               <TableIcon className="h-5 w-5 text-secondary" />
               <h2 className="text-base font-black uppercase tracking-widest text-secondary">Team Performance Summary</h2>

@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useMemo, useState, useEffect } from "react";
@@ -243,7 +242,7 @@ export default function GameSchedulePage() {
         </div>
       </header>
 
-      <main className="flex-1 p-4 md:p-8 max-w-5xl mx-auto w-full space-y-6 pb-24">
+      <main className="flex-1 p-4 md:p-8 max-w-5xl mx-auto w-full space-y-6 pb-40">
         <section className="flex flex-col items-center md:items-start space-y-4">
           <div className="flex items-center gap-3">
             <Trophy className="h-5 w-5 text-yellow-500" />
@@ -327,7 +326,7 @@ export default function GameSchedulePage() {
                       <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
                         <div className="md:col-span-3 flex flex-col">
                           <div className="flex items-center gap-3">
-                            <div className="flex items-center gap-2 not-line-through opacity-100 isolation">
+                            <div className="flex items-center gap-2 not-line-through isolation">
                               <Checkbox 
                                 checked={isWon} 
                                 disabled={isCancelled}
@@ -362,7 +361,7 @@ export default function GameSchedulePage() {
                           </div>
                           
                           {snackDuty && !isCancelled && (
-                            <div className="bg-slate-800/90 text-slate-100 border border-slate-700 font-bold px-2 py-1 rounded-md inline-flex items-center gap-1.5 text-[10px] mt-2 self-start shadow-sm not-line-through opacity-100 isolation">
+                            <div className="bg-slate-800/90 text-slate-100 border border-slate-700 font-bold px-2 py-1 rounded-md inline-flex items-center gap-1.5 text-[10px] mt-2 self-start shadow-sm not-line-through isolation">
                               <span>🍴</span>
                               <span className="uppercase tracking-tighter">SNACK: {snackDuty}</span>
                             </div>
