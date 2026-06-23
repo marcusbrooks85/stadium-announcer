@@ -40,7 +40,6 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useGame } from "./context/game-context";
-import { FloatingInstallButton } from "@/components/FloatingInstallButton";
 import { InstallButton } from "@/components/InstallButton";
 
 const ORGAN_HITS = [
@@ -282,38 +281,38 @@ export default function StadiumBoothDashboard() {
         )}
 
         {/* COMMAND HEADER */}
-        <header className="sticky top-0 z-50 flex flex-col gap-2 p-3 md:p-4 border-b border-border shadow-2xl bg-card/95 backdrop-blur-md">
-          <div className="flex items-center justify-between max-w-7xl mx-auto w-full relative h-12 md:h-16">
-            <div className="flex items-center gap-4">
-              <h1 className="font-headline font-black uppercase tracking-[0.2em] text-xs md:text-sm text-primary hidden md:block">
-                STADIUM ANNOUNCER
+        <header className="sticky top-0 z-50 flex flex-col gap-2 p-2 md:p-4 border-b border-border shadow-2xl bg-card/95 backdrop-blur-md">
+          <div className="flex items-center justify-between max-w-7xl mx-auto w-full relative h-10 md:h-16 gap-2">
+            <div className="flex items-center gap-2 md:gap-4 shrink-0">
+              <h1 className="font-headline font-black uppercase tracking-[0.2em] text-xs md:text-sm text-primary hidden lg:block">
+                ON DECK
               </h1>
               <InstallButton />
             </div>
             
             {/* Centered Controls */}
-            <div className="flex items-center justify-center gap-4 md:gap-8 flex-1">
-               <Button variant="outline" size="sm" onClick={handleFadeOut} className="h-10 md:h-12 border-primary/20 text-primary px-4 md:px-8 font-black text-[10px] md:text-xs uppercase shadow-lg hover:bg-primary/10">
-                 <ArrowDownWideNarrow className="h-4 w-4 mr-2" /> <span>FADE</span>
+            <div className="flex items-center justify-center gap-1.5 md:gap-8 flex-1">
+               <Button variant="outline" size="sm" onClick={handleFadeOut} className="h-8 md:h-12 border-primary/20 text-primary px-3 md:px-8 font-black text-[9px] md:text-xs uppercase shadow-lg hover:bg-primary/10">
+                 <ArrowDownWideNarrow className="h-3.5 w-3.5 md:h-4 md:w-4 md:mr-2" /> <span className="hidden xs:inline">FADE</span>
                </Button>
-               <Button variant="destructive" size="sm" onClick={stopEverything} className="h-10 md:h-12 px-4 md:px-8 font-black text-[10px] md:text-xs uppercase shadow-lg">
-                 <VolumeX className="h-4 w-4 mr-2" /> <span>STOP ALL</span>
+               <Button variant="destructive" size="sm" onClick={stopEverything} className="h-8 md:h-12 px-3 md:px-8 font-black text-[9px] md:text-xs uppercase shadow-lg">
+                 <VolumeX className="h-3.5 w-3.5 md:h-4 md:w-4 md:mr-2" /> <span className="hidden xs:inline">STOP ALL</span>
                </Button>
             </div>
 
-            <div className="flex items-center gap-1 md:gap-3">
+            <div className="flex items-center gap-1 md:gap-3 shrink-0">
               <Link href="/stats">
-                <Button variant="ghost" size="icon" className="h-9 w-9 text-primary hover:text-primary/80">
+                <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 text-primary hover:text-primary/80">
                   <BarChart3 className="h-4 w-4" />
                 </Button>
               </Link>
               <Link href="/schedule">
-                <Button variant="ghost" size="icon" className="h-9 w-9 text-primary hover:text-primary/80">
+                <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 text-primary hover:text-primary/80">
                   <Calendar className="h-4 w-4" />
                 </Button>
               </Link>
               <a href="https://groupme.com/join_group/115533519/bxlMSOlb" target="_blank" rel="noopener noreferrer">
-                <Button variant="ghost" size="icon" className="h-9 w-9 text-primary hover:text-primary/80">
+                <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 text-primary hover:text-primary/80">
                   <MessageSquare className="h-4 w-4" />
                 </Button>
               </a>
@@ -321,15 +320,15 @@ export default function StadiumBoothDashboard() {
           </div>
 
           {/* Master Slider Row */}
-          <div className="max-w-7xl mx-auto w-full flex items-center gap-2 md:gap-6 bg-primary/5 p-2 rounded-lg border border-primary/10">
+          <div className="max-w-7xl mx-auto w-full flex items-center gap-2 md:gap-6 bg-primary/5 p-1.5 md:p-2 rounded-lg border border-primary/10">
             <div className="flex items-center gap-2 min-w-max">
-              {volume === 0 ? <VolumeX className="h-4 w-4 text-muted-foreground" /> : <Volume2 className="h-4 w-4 text-primary" />}
-              <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest">Master Slider</span>
+              {volume === 0 ? <VolumeX className="h-3.5 w-3.5 text-muted-foreground" /> : <Volume2 className="h-3.5 w-3.5 text-primary" />}
+              <span className="text-[8px] md:text-[10px] font-black uppercase tracking-widest hidden xs:inline">Master Slider</span>
             </div>
             
             <Slider value={[volume * 100]} onValueChange={(vals) => setVolume(vals[0] / 100)} max={100} step={1} className="flex-1" />
             
-            <Badge variant="outline" className="font-mono text-[10px] md:text-xs border-primary/30 text-primary w-10 text-center">{Math.round(volume * 100)}%</Badge>
+            <Badge variant="outline" className="font-mono text-[9px] md:text-xs border-primary/30 text-primary w-9 md:w-10 text-center px-1">{Math.round(volume * 100)}%</Badge>
           </div>
         </header>
 
@@ -542,9 +541,6 @@ export default function StadiumBoothDashboard() {
             </div>
           </main>
         </div>
-
-        {/* FLOATING INSTALL BUTTON */}
-        <FloatingInstallButton />
 
         {/* MOBILE FOOTER NAVIGATION */}
         <footer className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] md:hidden z-50">
