@@ -1,4 +1,6 @@
-// Minimal Service Worker for PWA Installability
+// Minimal Service Worker for PWA compliance
+const CACHE_NAME = 'on-deck-v1';
+
 self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
@@ -8,6 +10,10 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Basic pass-through to satisfy the browser audit
-  event.respondWith(fetch(event.request));
+  // Required fetch handler for PWA installability
+  event.respondWith(
+    fetch(event.request).catch(() => {
+      return caches.match(event.request);
+    })
+  );
 });

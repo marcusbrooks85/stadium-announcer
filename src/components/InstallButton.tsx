@@ -20,13 +20,14 @@ export function InstallButton() {
       setDeferredPrompt(e);
       // Show the install button
       setIsVisible(true);
+      console.log('PWA: beforeinstallprompt fired. App is ready for installation.');
     };
 
     const handleAppInstalled = () => {
       // Clear the deferredPrompt and hide the UI
       setDeferredPrompt(null);
       setIsVisible(false);
-      console.log('On Deck was successfully installed.');
+      console.log('PWA: App was successfully installed.');
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
@@ -46,6 +47,7 @@ export function InstallButton() {
 
     // Wait for the user to respond to the prompt
     const { outcome } = await deferredPrompt.userChoice;
+    console.log(`PWA: User response to install prompt: ${outcome}`);
     
     // We've used the prompt once, clear it out
     setDeferredPrompt(null);
