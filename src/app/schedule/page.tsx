@@ -54,7 +54,6 @@ export default function GameSchedulePage() {
   const [wins, setWins] = useState<Record<string, boolean>>({});
   const [todayPST, setTodayPST] = useState<Date | null>(null);
 
-  // Avoid hydration mismatch by setting today's date on mount
   useEffect(() => {
     const now = new Date();
     const pstDateStr = now.toLocaleDateString("en-US", { timeZone: "America/Los_Angeles" });
@@ -63,7 +62,6 @@ export default function GameSchedulePage() {
     setTodayPST(d);
   }, []);
 
-  // Real-time listener for game wins
   useEffect(() => {
     if (!db) return;
 
@@ -134,11 +132,6 @@ export default function GameSchedulePage() {
     if (password !== "Chewy2026") {
       if (password !== null) alert("Incorrect Password");
       return;
-    }
-
-    if (currentStatus) {
-      const confirmRemove = window.confirm("Are you sure you want to remove the championship trophy from this game?");
-      if (!confirmRemove) return;
     }
 
     if (!db) return;
