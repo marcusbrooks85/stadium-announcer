@@ -344,7 +344,10 @@ export default function StadiumBoothDashboard() {
                 {sortedRoster.map((player) => (
                   <button 
                     key={player.id} 
-                    onClick={() => setActivePlayerId(player.id)}
+                    onClick={() => {
+                      setActivePlayerId(player.id);
+                      setSelectedSongIndex(0);
+                    }}
                     className={cn(
                       "w-full text-left p-4 rounded-xl border transition-all duration-200 group",
                       activePlayerId === player.id ? "bg-primary border-primary" : "bg-background/40 border-white/5 hover:bg-white/5"
@@ -515,12 +518,18 @@ export default function StadiumBoothDashboard() {
                             stopEverything();
                             // SNAP VOLUME to baseline
                             setVolume(0.8);
+                            // Set Active Player to sync with setlist card
+                            setActivePlayerId(player.id);
+                            setSelectedSongIndex(0);
                             // Explicitly clear any music phase triggers
                             setPlaybackPhase('idle');
                             setCurrentAnnouncementUrl(player.announcementAudioUrl);
                             setActiveTrackName(`Announcing: ${player.name}`);
                           }}
-                          className="flex flex-col h-11 md:h-12 gap-0.5 border-white/10 hover:border-primary/50 bg-card/60 px-1"
+                          className={cn(
+                            "flex flex-col h-11 md:h-12 gap-0.5 border-white/10 hover:border-primary/50 bg-card/60 px-1",
+                            activePlayerId === player.id && "border-primary/60 bg-primary/10"
+                          )}
                         >
                           <span className="text-[7px] md:text-[8px] font-black leading-tight text-center">#{player.number} {player.name.split(' ')[0]}</span>
                           <FileAudio className="h-2 w-2 md:h-2.5 md:w-2.5 text-primary/60" />

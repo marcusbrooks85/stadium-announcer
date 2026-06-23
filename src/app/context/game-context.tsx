@@ -24,9 +24,9 @@ const INITIAL_ROSTER: Player[] = [
     number: 1,
     announcementAudioUrl: "/audio/Dominic.mp3",
     songs: [
-      { name: "We LA", videoId: "rltG2qA_RnA", startAt: 0 },
-      { name: "Con Calma", videoId: "yk7yVGbcpHE", startAt: 60 },
-      { name: "Mexico Mundial", videoId: "Mf-aUJjSneo", startAt: 14 }
+      { name: "EoO", videoId: "rltG2qA_RnA", startAt: 0 },
+      { name: "Brasil Com S", videoId: "yk7yVGbcpHE", startAt: 60 },
+      { name: "Narco", videoId: "Mf-aUJjSneo", startAt: 14 }
     ],
     stats: { ab: 0, h: 0, r: 0, rbi: 0 }
   },
@@ -36,9 +36,9 @@ const INITIAL_ROSTER: Player[] = [
     number: 4, 
     announcementAudioUrl: "/audio/Diomedes.mp3",
     songs: [
-      { name: "EoO", videoId: "l-eMsVOTCY4", startAt: 80 },
-      { name: "Brasil Com S", videoId: "bNTRIdraX8c", startAt: 20 },
-      { name: "Narco", videoId: "mDqvPTUuxGY", startAt: 0 }
+      { name: "We LA (East LA Remix)", videoId: "l-eMsVOTCY4", startAt: 80 },
+      { name: "Con Calma", videoId: "bNTRIdraX8c", startAt: 20 },
+      { name: "Mexico Mundial", videoId: "mDqvPTUuxGY", startAt: 0 }
     ],
     stats: { ab: 0, h: 0, r: 0, rbi: 0 } 
   },
