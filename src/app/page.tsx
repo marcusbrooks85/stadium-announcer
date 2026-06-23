@@ -34,15 +34,13 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import {
-  Tooltip,
-  TooltipContent,
   TooltipProvider,
-  TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useGame } from "./context/game-context";
+import { FloatingInstallButton } from "@/components/FloatingInstallButton";
 
 const ORGAN_HITS = [
   { name: "BULLFIGHTER", videoId: "melJslO0IJY" },
@@ -267,14 +265,6 @@ export default function StadiumBoothDashboard() {
       setIsSearching(false);
     }, 800);
   };
-
-  const BaseballIcon = (props: React.SVGProps<SVGSVGElement>) => (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <circle cx="12" cy="12" r="10" />
-      <path d="M8.5 2.5a10 10 0 0 1 0 19" />
-      <path d="M15.5 2.5a10 10 0 0 0 0 19" />
-    </svg>
-  );
 
   return (
     <TooltipProvider>
@@ -537,24 +527,8 @@ export default function StadiumBoothDashboard() {
           </main>
         </div>
 
-        {/* FLOATING GAME STATS ICON */}
-        <div className="fixed bottom-24 right-6 z-[110] md:bottom-6">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Link href="/stats">
-                <Button 
-                  size="icon" 
-                  className="h-14 w-14 rounded-full bg-green-500 hover:bg-green-600 shadow-lg shadow-green-500/30 animate-pulse"
-                >
-                  <BaseballIcon className="h-8 w-8 text-white" />
-                </Button>
-              </Link>
-            </TooltipTrigger>
-            <TooltipContent side="left" className="font-black uppercase tracking-widest text-[10px]">
-              Game Stats
-            </TooltipContent>
-          </Tooltip>
-        </div>
+        {/* FLOATING INSTALL BUTTON */}
+        <FloatingInstallButton />
 
         {/* MOBILE FOOTER NAVIGATION - PILL STYLE */}
         <footer className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] md:hidden z-50">
