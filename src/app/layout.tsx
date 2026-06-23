@@ -5,6 +5,7 @@ import { FirebaseClientProvider } from '@/firebase';
 import { Toaster } from '@/components/ui/toaster';
 import { SplashScreen } from '@/components/SplashScreen';
 import { ServiceWorkerRegistration } from '@/components/ServiceWorkerRegistration';
+import { InstallPrompt } from '@/components/InstallPrompt';
 
 export const metadata: Metadata = {
   title: 'On Deck: Baseball Schedule & Announcer',
@@ -33,6 +34,7 @@ export default function RootLayout({
         <ServiceWorkerRegistration />
         <SplashScreen />
         <FirebaseClientProvider>
+          <InstallPrompt />
           <GameProvider>
             {children}
             <Toaster />

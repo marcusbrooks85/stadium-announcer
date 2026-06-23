@@ -21,7 +21,6 @@ import { useFirestore } from "@/firebase";
 import { doc, setDoc, onSnapshot, collection, deleteDoc } from "firebase/firestore";
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
-import { InstallButton } from "@/components/InstallButton";
 
 const gameSchedule = [
   { week: 1, date: "2026-06-20", time: "2:00 PM", home: "Coach Alexis", away: "Coach Chewy", location: "Jim Thorpe - Cordary Field" },
@@ -178,7 +177,6 @@ export default function GameSchedulePage() {
         </div>
 
         <div className="flex items-center gap-1 md:gap-3">
-          <InstallButton />
           <Link href="/">
             <Button variant="ghost" size="icon" className="h-9 w-9 text-primary hover:text-primary/80">
               <Home className="h-4 w-4" />

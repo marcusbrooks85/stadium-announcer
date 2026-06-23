@@ -20,7 +20,6 @@ import {
   Calendar,
   BarChart3,
   MessageSquare,
-  Home
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,7 +43,6 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useGame } from "./context/game-context";
-import { InstallButton } from "@/components/InstallButton";
 
 const ORGAN_HITS = [
   { name: "BULLFIGHTER", videoId: "melJslO0IJY" },
@@ -301,7 +299,6 @@ export default function StadiumBoothDashboard() {
             
             {/* Centered Controls */}
             <div className="flex items-center justify-center gap-4 md:gap-8 flex-1">
-               <InstallButton />
                <Button variant="outline" size="sm" onClick={handleFadeOut} className="h-10 md:h-12 border-primary/20 text-primary px-4 md:px-8 font-black text-[10px] md:text-xs uppercase shadow-lg hover:bg-primary/10">
                  <ArrowDownWideNarrow className="h-4 w-4 mr-2" /> <span>FADE</span>
                </Button>
