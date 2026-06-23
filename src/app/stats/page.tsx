@@ -35,7 +35,8 @@ import {
   TooltipProvider,
 } from "@/components/ui/tooltip";
 import { useGame } from "@/app/context/game-context";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils";
+import { InstallButton } from "@/components/InstallButton";
 
 export default function GameStatsPage() {
   const { roster, updateStat, emailStats, homeScore, setHomeScore, awayScore, setAwayScore } = useGame();
@@ -66,6 +67,7 @@ export default function GameStatsPage() {
           </div>
           
           <div className="flex items-center gap-1 md:gap-3">
+            <InstallButton />
             <Link href="/">
               <Button variant="ghost" size="icon" className="h-9 w-9 text-primary hover:text-primary/80">
                 <Home className="h-4 w-4" />
