@@ -55,6 +55,7 @@ export default function GameSchedulePage() {
   const [todayPST, setTodayPST] = useState<Date | null>(null);
 
   useEffect(() => {
+    // Determine current PST date on client to avoid hydration mismatch
     const now = new Date();
     const pstDateStr = now.toLocaleDateString("en-US", { timeZone: "America/Los_Angeles" });
     const d = new Date(pstDateStr);
@@ -139,6 +140,7 @@ export default function GameSchedulePage() {
     const docRef = doc(db, "game_wins", gameKey);
     
     if (!currentStatus) {
+      // Save to Firestore
       setDoc(docRef, { won: true, updatedAt: new Date().toISOString() })
         .catch(async (error) => {
           const permissionError = new FirestorePermissionError({
@@ -149,6 +151,7 @@ export default function GameSchedulePage() {
           errorEmitter.emit('permission-error', permissionError);
         });
     } else {
+      // Remove from Firestore
       deleteDoc(docRef)
         .catch(async (error) => {
           const permissionError = new FirestorePermissionError({
@@ -194,6 +197,7 @@ export default function GameSchedulePage() {
       </header>
 
       <main className="flex-1 p-4 md:p-8 max-w-5xl mx-auto w-full space-y-6 pb-24">
+        {/* SEASON RECORD CARDS */}
         <section className="flex flex-col items-center md:items-start space-y-4">
           <div className="flex items-center gap-3">
             <Trophy className="h-5 w-5 text-yellow-500" />
@@ -236,6 +240,7 @@ export default function GameSchedulePage() {
                     isNextUpcoming && "scale-[1.02] shadow-[0_0_20px_rgba(59,130,246,0.4)] ring-2 ring-blue-500 border-t-white/30"
                   )}
                 >
+                  {/* BRIGHT TROPHY - EXEMPT FROM FADE */}
                   {isWon && (
                     <div className="absolute top-2 right-2 z-20 isolation pointer-events-none">
                       <div className="filter drop-shadow-[0_0_12px_rgba(234,179,8,0.9)] animate-trophy-breathe">
@@ -252,6 +257,7 @@ export default function GameSchedulePage() {
                       <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
                         <div className="md:col-span-3 flex flex-col">
                           <div className="flex items-center gap-3">
+                            {/* Checkbox remains active but isolatd from grayscale if needed */}
                             <div className="flex items-center gap-2 not-line-through opacity-100 isolation">
                               <Checkbox 
                                 checked={isWon} 
@@ -320,6 +326,7 @@ export default function GameSchedulePage() {
         </section>
       </main>
 
+      {/* MOBILE FOOTER NAVIGATION */}
       <footer className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] md:hidden z-50">
         <div className="flex items-center justify-center gap-3 bg-card/90 backdrop-blur-xl border border-white/10 p-2 rounded-2xl shadow-2xl">
           <Link href="/" className="flex-1">
