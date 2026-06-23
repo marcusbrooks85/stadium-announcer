@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { cn } from "@/utils";
+import { cn } from "@/lib/utils";
 import { useFirestore } from "@/firebase";
 import { doc, setDoc, onSnapshot, collection, deleteDoc } from "firebase/firestore";
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -55,7 +55,6 @@ export default function GameSchedulePage() {
   const [todayPST, setTodayPST] = useState<Date | null>(null);
 
   useEffect(() => {
-    // Determine current PST date on client to avoid hydration mismatch
     const now = new Date();
     const pstDateStr = now.toLocaleDateString("en-US", { timeZone: "America/Los_Angeles" });
     const d = new Date(pstDateStr);
@@ -66,7 +65,6 @@ export default function GameSchedulePage() {
   useEffect(() => {
     if (!db) return;
 
-    // Real-time listener for game wins
     const winsRef = collection(db, "game_wins");
     const unsubscribe = onSnapshot(
       winsRef,
@@ -141,7 +139,6 @@ export default function GameSchedulePage() {
     const docRef = doc(db, "game_wins", gameKey);
     
     if (!currentStatus) {
-      // Save win to Firestore
       setDoc(docRef, { 
         won: true, 
         updatedAt: new Date().toISOString() 
@@ -155,7 +152,6 @@ export default function GameSchedulePage() {
           errorEmitter.emit('permission-error', permissionError);
         });
     } else {
-      // Remove win (reset to L)
       deleteDoc(docRef)
         .catch(async (error) => {
           const permissionError = new FirestorePermissionError({
@@ -202,7 +198,6 @@ export default function GameSchedulePage() {
       </header>
 
       <main className="flex-1 p-4 md:p-8 max-w-5xl mx-auto w-full space-y-6 pb-24">
-        {/* SEASON RECORD CARDS */}
         <section className="flex flex-col items-center md:items-start space-y-4">
           <div className="flex items-center gap-3">
             <Trophy className="h-5 w-5 text-yellow-500" />
@@ -245,7 +240,6 @@ export default function GameSchedulePage() {
                     isNextUpcoming && "scale-[1.02] shadow-[0_0_20px_rgba(59,130,246,0.4)] ring-2 ring-blue-500 border-t-white/30"
                   )}
                 >
-                  {/* BRIGHT TROPHY */}
                   {isWon && (
                     <div className="absolute top-2 right-2 z-20 isolation pointer-events-none">
                       <div className="filter drop-shadow-[0_0_12px_rgba(234,179,8,0.9)] animate-trophy-breathe">
@@ -330,7 +324,6 @@ export default function GameSchedulePage() {
         </section>
       </main>
 
-      {/* MOBILE FOOTER NAVIGATION */}
       <footer className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] md:hidden z-50">
         <div className="flex items-center justify-center gap-3 bg-card/90 backdrop-blur-xl border border-white/10 p-2 rounded-2xl shadow-2xl">
           <Link href="/" className="flex-1">

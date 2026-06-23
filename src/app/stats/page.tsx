@@ -35,7 +35,7 @@ import {
   TooltipProvider,
 } from "@/components/ui/tooltip";
 import { useGame } from "@/app/context/game-context";
-import { cn } from "@/utils";
+import { cn } from "@/lib/utils";
 import { InstallButton } from "@/components/InstallButton";
 
 export default function GameStatsPage() {
@@ -55,7 +55,6 @@ export default function GameStatsPage() {
   return (
     <TooltipProvider>
       <div className="flex flex-col min-h-screen bg-background text-foreground stadium-gradient overflow-y-auto">
-        {/* HEADER */}
         <header className="sticky top-0 z-50 flex items-center justify-between p-4 border-b border-border shadow-2xl bg-card/95 backdrop-blur-md">
           <div className="flex items-center gap-4">
              <Link href="/">
@@ -87,7 +86,6 @@ export default function GameStatsPage() {
         </header>
 
         <main className="flex-1 p-4 md:p-8 space-y-6 md:space-y-10 max-w-7xl mx-auto w-full pb-32">
-          {/* SCOREBOARD SECTION */}
           <section className="flex flex-col items-center justify-center gap-6">
             <div className="flex items-center justify-center gap-2 md:gap-8 w-full max-w-2xl">
                 <div className="flex-1 flex flex-col items-center bg-secondary/10 px-2 py-4 md:px-6 rounded-2xl border-2 border-secondary/20 shadow-inner">
@@ -115,7 +113,6 @@ export default function GameStatsPage() {
           </section>
 
           <section className="flex flex-col items-center justify-center">
-            {/* STAT TRACKER COMMAND */}
             <Card className="w-full md:max-w-2xl bg-card/80 border-2 border-white/5 overflow-hidden shadow-2xl">
               <CardHeader className="pb-3 md:pb-4 border-b border-white/5 bg-white/5">
                 <div className="flex items-center justify-between">
@@ -164,7 +161,6 @@ export default function GameStatsPage() {
             </Card>
           </section>
 
-          {/* PERFORMANCE TABLE */}
           <section className="space-y-4 pt-6 pb-24">
             <div className="flex items-center gap-3">
               <TableIcon className="h-5 w-5 text-secondary" />
@@ -199,7 +195,6 @@ export default function GameStatsPage() {
           </section>
         </main>
 
-        {/* MOBILE FOOTER NAVIGATION - PILL STYLE */}
         <footer className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] md:hidden z-50">
           <div className="flex items-center justify-center gap-3 bg-card/90 backdrop-blur-xl border border-white/10 p-2 rounded-2xl shadow-2xl">
             <Link href="/" className="flex-1">
