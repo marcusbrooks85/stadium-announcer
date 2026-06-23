@@ -7,7 +7,7 @@ import { SplashScreen } from '@/components/SplashScreen';
 
 export const metadata: Metadata = {
   title: 'On Deck: Baseball Schedule & Announcer',
-  description: 'Professional-grade Little League Baseball Announcer, Schedule, and Stats Dashboard',
+  description: 'Professional-grade Baseball Schedule, Stats, and Stadium Announcer Dashboard',
   appleWebApp: {
     title: 'OnDeck',
     statusBarStyle: 'black-translucent',
