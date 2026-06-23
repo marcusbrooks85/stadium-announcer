@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useMemo, useState, useEffect } from "react";
@@ -66,6 +65,7 @@ export default function GameSchedulePage() {
   useEffect(() => {
     if (!db) return;
 
+    // Real-time listener for game wins
     const winsRef = collection(db, "game_wins");
     const unsubscribe = onSnapshot(
       winsRef,
@@ -140,18 +140,21 @@ export default function GameSchedulePage() {
     const docRef = doc(db, "game_wins", gameKey);
     
     if (!currentStatus) {
-      // Save to Firestore
-      setDoc(docRef, { won: true, updatedAt: new Date().toISOString() })
+      // Save win to Firestore
+      setDoc(docRef, { 
+        won: true, 
+        updatedAt: new Date().toISOString() 
+      }, { merge: true })
         .catch(async (error) => {
           const permissionError = new FirestorePermissionError({
             path: docRef.path,
-            operation: 'create',
+            operation: 'write',
             requestResourceData: { won: true },
           });
           errorEmitter.emit('permission-error', permissionError);
         });
     } else {
-      // Remove from Firestore
+      // Remove win (reset to L)
       deleteDoc(docRef)
         .catch(async (error) => {
           const permissionError = new FirestorePermissionError({
@@ -240,7 +243,7 @@ export default function GameSchedulePage() {
                     isNextUpcoming && "scale-[1.02] shadow-[0_0_20px_rgba(59,130,246,0.4)] ring-2 ring-blue-500 border-t-white/30"
                   )}
                 >
-                  {/* BRIGHT TROPHY - EXEMPT FROM FADE */}
+                  {/* BRIGHT TROPHY */}
                   {isWon && (
                     <div className="absolute top-2 right-2 z-20 isolation pointer-events-none">
                       <div className="filter drop-shadow-[0_0_12px_rgba(234,179,8,0.9)] animate-trophy-breathe">
@@ -257,7 +260,6 @@ export default function GameSchedulePage() {
                       <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
                         <div className="md:col-span-3 flex flex-col">
                           <div className="flex items-center gap-3">
-                            {/* Checkbox remains active but isolatd from grayscale if needed */}
                             <div className="flex items-center gap-2 not-line-through opacity-100 isolation">
                               <Checkbox 
                                 checked={isWon} 
