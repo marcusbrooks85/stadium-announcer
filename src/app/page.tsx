@@ -229,7 +229,10 @@ export default function StadiumBoothDashboard() {
   };
 
   const handleAnnouncementEnded = () => {
-    if (activePlayer && selectedSong) {
+    // CRITICAL FIX: Only transition to music if we were specifically in the 'announcing' phase.
+    // Quick-Taps are triggered with playbackPhase as 'idle' (via stopEverything), 
+    // so they will correctly skip the walk-up music transition.
+    if (playbackPhase === 'announcing' && activePlayer && selectedSong) {
       setPlaybackPhase('walkup');
       playYoutubeTrack(selectedSong.videoId, selectedSong.name, selectedSong.startAt);
     } else {
@@ -494,7 +497,7 @@ export default function StadiumBoothDashboard() {
                 </Card>
               </section>
 
-              {/* BATTER INTRO QUICK-TAP (Relocated below crowd pump-up area logic) */}
+              {/* BATTER INTRO QUICK-TAP */}
               <section className="flex justify-center pb-24">
                 <Card className="w-full md:max-w-2xl bg-card/80 border-2 border-white/5 overflow-hidden shadow-2xl">
                   <CardHeader className="pb-3 md:pb-4 border-b border-white/5 bg-white/5">
@@ -509,7 +512,11 @@ export default function StadiumBoothDashboard() {
                           key={player.id} variant="outline"
                           onClick={() => {
                             stopEverything();
-                            setVolume(0.8); // Snap Volume to 80% baseline
+                            // SNAP VOLUME to baseline
+                            setVolume(0.8);
+                            // We trigger the audio directly. 
+                            // Note that we DON'T set playbackPhase to 'announcing',
+                            // so handleAnnouncementEnded will properly reset to idle.
                             setCurrentAnnouncementUrl(player.announcementAudioUrl);
                             setActiveTrackName(`Announcing: ${player.name}`);
                           }}
@@ -530,7 +537,7 @@ export default function StadiumBoothDashboard() {
         {/* FLOATING INSTALL BUTTON */}
         <FloatingInstallButton />
 
-        {/* MOBILE FOOTER NAVIGATION - PILL STYLE */}
+        {/* MOBILE FOOTER NAVIGATION */}
         <footer className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] md:hidden z-50">
           <div className="flex items-center justify-center gap-3 bg-card/90 backdrop-blur-xl border border-white/10 p-2 rounded-2xl shadow-2xl">
             <Link href="/stats" className="flex-1">
