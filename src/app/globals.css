@@ -4,24 +4,24 @@
 
 @layer base {
   :root {
-    --background: 228 22% 12%; /* #181B26 Deep Night Navy */
+    --background: 221 32% 15%; /* #1A2233 Deep Charcoal Blue */
     --foreground: 0 0% 100%;
-    --card: 228 22% 16%;
+    --card: 221 32% 18%;
     --card-foreground: 0 0% 100%;
-    --popover: 228 22% 12%;
+    --popover: 221 32% 15%;
     --popover-foreground: 0 0% 100%;
     --primary: 218 100% 63%; /* #4285FF Vivid Sport Blue */
     --primary-foreground: 0 0% 100%;
     --secondary: 193 72% 52%; /* #2EB1D9 Arctic Cerulean */
-    --secondary-foreground: 228 22% 12%;
-    --muted: 228 10% 25%;
-    --muted-foreground: 228 10% 70%;
+    --secondary-foreground: 221 32% 15%;
+    --muted: 221 15% 25%;
+    --muted-foreground: 221 10% 70%;
     --accent: 193 72% 52%;
-    --accent-foreground: 228 22% 12%;
+    --accent-foreground: 221 32% 15%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 228 15% 25%;
-    --input: 228 15% 25%;
+    --border: 221 15% 25%;
+    --input: 221 15% 25%;
     --ring: 218 100% 63%;
     --radius: 0.75rem;
   }
@@ -40,7 +40,7 @@
 }
 
 .stadium-gradient {
-  background: linear-gradient(180deg, rgba(24, 27, 38, 0.8) 0%, rgba(24, 27, 38, 1) 100%);
+  background: linear-gradient(180deg, rgba(26, 34, 51, 0.8) 0%, rgba(26, 34, 51, 1) 100%);
 }
 
 .digit-font {
