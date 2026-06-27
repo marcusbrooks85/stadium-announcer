@@ -17,7 +17,9 @@ import {
   Unlock,
   LogOut,
   ShieldCheck,
-  AlertCircle
+  AlertCircle,
+  Eye,
+  EyeOff
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -59,6 +61,7 @@ export default function GameStatsPage() {
   
   const [activePlayerId, setActivePlayerId] = useState<string | null>(null);
   const [passwordInput, setPasswordInput] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const { toast } = useToast();
 
   const handleLogin = (e: React.FormEvent) => {
@@ -133,12 +136,23 @@ export default function GameStatsPage() {
                       <div className="relative flex-1">
                         <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                         <Input 
-                          type="password" 
+                          type={showPassword ? "text" : "password"} 
                           placeholder="Enter Booth Password..." 
                           value={passwordInput}
                           onChange={(e) => setPasswordInput(e.target.value)}
-                          className="pl-9 h-10 text-xs bg-black/20 border-white/10"
+                          className="pl-9 pr-10 h-10 text-xs bg-black/20 border-white/10"
                         />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white transition-colors"
+                        >
+                          {showPassword ? (
+                            <EyeOff className="h-3.5 w-3.5" />
+                          ) : (
+                            <Eye className="h-3.5 w-3.5" />
+                          )}
+                        </button>
                       </div>
                       <Button type="submit" size="sm" className="h-10 px-4 font-black uppercase text-[10px] gap-2">
                         <Unlock className="h-3.5 w-3.5" /> Unlock
