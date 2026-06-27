@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useMemo } from "react";
@@ -12,7 +13,8 @@ import {
   Calendar,
   BarChart3,
   MessageSquare,
-  ChevronLeft
+  ChevronLeft,
+  ChevronDown
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,20 +33,23 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  TooltipProvider,
-} from "@/components/ui/tooltip";
-import { useGame } from "@/app/context/game-context";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { useGame, GAME_SCHEDULE_LIST } from "@/app/context/game-context";
 import { cn } from "@/lib/utils";
 
 export default function GameStatsPage() {
-  const { roster, updateStat, emailStats, homeScore, setHomeScore, awayScore, setAwayScore } = useGame();
+  const { 
+    roster, 
+    selectedGameId, 
+    setSelectedGameId, 
+    homeScore, 
+    awayScore, 
+    updateTeamScore, 
+    updatePlayerStat, 
+    emailStats 
+  } = useGame();
+  
   const [activePlayerId, setActivePlayerId] = useState<string | null>(null);
-
-  const sortedRoster = useMemo(() => 
-    [...roster].sort((a, b) => a.number - b.number),
-    [roster]
-  );
 
   const activePlayer = useMemo(() => 
     roster.find((p) => p.id === activePlayerId),
@@ -75,32 +80,46 @@ export default function GameStatsPage() {
                 <Calendar className="h-4 w-4" />
               </Button>
             </Link>
-            <a href="https://groupme.com/join_group/115533519/bxlMSOlb" target="_blank" rel="noopener noreferrer">
-              <Button variant="ghost" size="icon" className="h-9 w-9 text-primary hover:text-primary/80">
-                <MessageSquare className="h-4 w-4" />
-              </Button>
-            </a>
           </div>
         </header>
 
         <main className="flex-1 p-4 md:p-8 space-y-6 md:space-y-10 max-w-7xl mx-auto w-full pb-40">
+          {/* GAME SELECTOR */}
+          <section className="flex flex-col items-center justify-center space-y-4">
+            <div className="flex items-center gap-3">
+              <Calendar className="h-5 w-5 text-primary" />
+              <span className="text-[10px] font-black uppercase tracking-widest text-primary">Target Game Selection</span>
+            </div>
+            <Select value={selectedGameId} onValueChange={setSelectedGameId}>
+              <SelectTrigger className="w-full max-w-md h-12 bg-card/50 border-primary/30 font-black uppercase text-xs">
+                <SelectValue placeholder="Select Game..." />
+              </SelectTrigger>
+              <SelectContent>
+                {GAME_SCHEDULE_LIST.map((game) => (
+                  <SelectItem key={game.id} value={game.id} className="font-bold">{game.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </section>
+
+          {/* TEAM SCOREBOARD */}
           <section className="flex flex-col items-center justify-center gap-6">
             <div className="flex items-center justify-center gap-2 md:gap-8 w-full max-w-2xl">
                 <div className="flex-1 flex flex-col items-center bg-secondary/10 px-2 py-4 md:px-6 rounded-2xl border-2 border-secondary/20 shadow-inner">
                   <span className="text-[8px] md:text-[10px] font-black tracking-widest text-secondary uppercase mb-2 md:mb-3">Away Team</span>
                   <div className="flex items-center gap-1 md:gap-4">
-                    <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 hover:bg-secondary/20" onClick={() => setAwayScore(Math.max(0, awayScore - 1))}><Minus className="h-4 w-4 md:h-6 md:w-6" /></Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 hover:bg-secondary/20" onClick={() => updateTeamScore('away', -1)}><Minus className="h-4 w-4 md:h-6 md:w-6" /></Button>
                     <div className="w-10 md:w-16 text-center digit-font text-3xl md:text-5xl font-black text-secondary">{awayScore}</div>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 hover:bg-secondary/20" onClick={() => setAwayScore(awayScore + 1)}><Plus className="h-4 w-4 md:h-6 md:w-6" /></Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 hover:bg-secondary/20" onClick={() => updateTeamScore('away', 1)}><Plus className="h-4 w-4 md:h-6 md:w-6" /></Button>
                   </div>
                 </div>
 
                 <div className="flex-1 flex flex-col items-center bg-primary/10 px-2 py-4 md:px-6 rounded-2xl border-2 border-primary/20 shadow-inner">
                   <span className="text-[8px] md:text-[10px] font-black tracking-widest text-primary uppercase mb-2 md:mb-3">Home Team</span>
                   <div className="flex items-center gap-1 md:gap-4">
-                    <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 hover:bg-primary/20" onClick={() => setHomeScore(Math.max(0, homeScore - 1))}><Minus className="h-4 w-4 md:h-6 md:w-6" /></Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 hover:bg-primary/20" onClick={() => updateTeamScore('home', -1)}><Minus className="h-4 w-4 md:h-6 md:w-6" /></Button>
                     <div className="w-10 md:w-16 text-center digit-font text-3xl md:text-5xl font-black text-primary">{homeScore}</div>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 hover:bg-primary/20" onClick={() => setHomeScore(homeScore + 1)}><Plus className="h-4 w-4 md:h-6 md:w-6" /></Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 hover:bg-primary/20" onClick={() => updateTeamScore('home', 1)}><Plus className="h-4 w-4 md:h-6 md:w-6" /></Button>
                   </div>
                 </div>
             </div>
@@ -110,6 +129,7 @@ export default function GameStatsPage() {
             </Button>
           </section>
 
+          {/* PLAYER INPUT */}
           <section className="flex flex-col items-center justify-center">
             <Card className="w-full md:max-w-2xl bg-card/80 border-2 border-white/5 overflow-hidden shadow-2xl">
               <CardHeader className="pb-3 md:pb-4 border-b border-white/5 bg-white/5">
@@ -122,12 +142,12 @@ export default function GameStatsPage() {
               <CardContent className="space-y-6 pt-6">
                 <div className="space-y-2">
                   <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Active Batter</span>
-                  <Select value={activePlayerId || ""} onValueChange={(val) => setActivePlayerId(val)}>
+                  <Select value={activePlayerId || ""} onValueChange={setActivePlayerId}>
                     <SelectTrigger className="h-12 text-sm md:text-lg font-black bg-background/50 border-white/10">
                       <SelectValue placeholder="Select Batter..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {sortedRoster.map((p) => (
+                      {roster.map((p) => (
                         <SelectItem key={p.id} value={p.id} className="font-bold">#{p.number} - {p.name}</SelectItem>
                       ))}
                     </SelectContent>
@@ -145,12 +165,12 @@ export default function GameStatsPage() {
                       <div className="flex items-center justify-between">
                         <span className="text-[8px] md:text-[10px] font-black uppercase tracking-widest text-muted-foreground">{stat.label}</span>
                         <span className={cn("text-xl md:text-2xl font-black digit-font", stat.color === 'primary' ? 'text-primary' : stat.color === 'secondary' ? 'text-secondary' : 'text-white')}>
-                          {activePlayer ? (activePlayer.stats as any)[stat.key] : 0}
+                          {activePlayer?.stats ? (activePlayer.stats as any)[stat.key] : 0}
                         </span>
                       </div>
                       <div className="flex gap-2">
-                        <Button disabled={!activePlayer} variant="outline" size="sm" onClick={() => updateStat(activePlayerId!, stat.key as any, -1)} className="flex-1 h-9 border-white/5 hover:text-destructive"><Minus className="h-3 w-3" /></Button>
-                        <Button disabled={!activePlayer} variant="outline" size="sm" onClick={() => updateStat(activePlayerId!, stat.key as any, 1)} className="flex-1 h-9 border-white/5 hover:text-primary"><Plus className="h-3 w-3" /></Button>
+                        <Button disabled={!activePlayer} variant="outline" size="sm" onClick={() => updatePlayerStat(activePlayerId!, stat.key as any, -1)} className="flex-1 h-9 border-white/5 hover:text-destructive"><Minus className="h-3 w-3" /></Button>
+                        <Button disabled={!activePlayer} variant="outline" size="sm" onClick={() => updatePlayerStat(activePlayerId!, stat.key as any, 1)} className="flex-1 h-9 border-white/5 hover:text-primary"><Plus className="h-3 w-3" /></Button>
                       </div>
                     </div>
                   ))}
@@ -159,10 +179,11 @@ export default function GameStatsPage() {
             </Card>
           </section>
 
+          {/* TABLE SUMMARY */}
           <section className="space-y-4 pt-6">
             <div className="flex items-center gap-3">
               <TableIcon className="h-5 w-5 text-secondary" />
-              <h2 className="text-base font-black uppercase tracking-widest text-secondary">Team Performance Summary</h2>
+              <h2 className="text-base font-black uppercase tracking-widest text-secondary">Game Performance Summary</h2>
             </div>
             <Card className="bg-card/60 border-white/5 shadow-2xl overflow-hidden">
               <Table>
@@ -177,16 +198,19 @@ export default function GameStatsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sortedRoster.map((player) => (
-                    <TableRow key={player.id} className="border-white/5 hover:bg-white/5 transition-colors">
-                      <TableCell className="text-center digit-font font-bold text-muted-foreground text-sm">{player.number}</TableCell>
-                      <TableCell className="font-bold text-sm">{player.name}</TableCell>
-                      <TableCell className="text-center digit-font text-white text-sm">{player.stats.ab}</TableCell>
-                      <TableCell className="text-center digit-font text-primary text-sm">{player.stats.h}</TableCell>
-                      <TableCell className="text-center digit-font text-secondary text-sm">{player.stats.r}</TableCell>
-                      <TableCell className="text-center digit-font text-primary text-sm">{player.stats.rbi}</TableCell>
-                    </TableRow>
-                  ))}
+                  {roster.map((player) => {
+                    const s = player.stats || { ab: 0, h: 0, r: 0, rbi: 0 };
+                    return (
+                      <TableRow key={player.id} className="border-white/5 hover:bg-white/5 transition-colors">
+                        <TableCell className="text-center digit-font font-bold text-muted-foreground text-sm">{player.number}</TableCell>
+                        <TableCell className="font-bold text-sm">{player.name}</TableCell>
+                        <TableCell className="text-center digit-font text-white text-sm">{s.ab}</TableCell>
+                        <TableCell className="text-center digit-font text-primary text-sm">{s.h}</TableCell>
+                        <TableCell className="text-center digit-font text-secondary text-sm">{s.r}</TableCell>
+                        <TableCell className="text-center digit-font text-primary text-sm">{s.rbi}</TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </Card>
