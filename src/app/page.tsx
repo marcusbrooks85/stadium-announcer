@@ -93,8 +93,8 @@ export default function StadiumBoothDashboard() {
     const onYouTubeIframeAPIReady = () => {
       if (ytPlayerRef.current) return;
       ytPlayerRef.current = new (window as any).YT.Player('stadium-yt-player', {
-        height: '1',
-        width: '1',
+        height: '200',
+        width: '200',
         host: 'https://www.youtube.com',
         playerVars: {
           autoplay: 1,
@@ -103,7 +103,8 @@ export default function StadiumBoothDashboard() {
           origin: typeof window !== 'undefined' ? window.location.origin : '',
           rel: 0,
           modestbranding: 1,
-          iv_load_policy: 3
+          iv_load_policy: 3,
+          playsinline: 1
         },
         events: {
           onReady: (event: any) => {
@@ -117,7 +118,7 @@ export default function StadiumBoothDashboard() {
               toast({
                 variant: "destructive",
                 title: "Playback Restricted",
-                description: "This video cannot be embedded. Try a different version.",
+                description: "The owner of this track has restricted embedding. Try a different version (Topic/Lyric) in the Admin Panel.",
               });
             }
           }
@@ -392,7 +393,8 @@ export default function StadiumBoothDashboard() {
           </div>
         </div>
 
-        <div id="stadium-yt-player" className="fixed -bottom-10 -right-10 opacity-0 pointer-events-none w-1 h-1 overflow-hidden"></div>
+        {/* Hidden but non-zero sized YouTube Player to satisfy embedding requirements */}
+        <div id="stadium-yt-player" className="fixed -bottom-40 -right-40 opacity-0 pointer-events-none w-40 h-40 overflow-hidden"></div>
       </div>
     </TooltipProvider>
   );

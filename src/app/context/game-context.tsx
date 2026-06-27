@@ -38,8 +38,8 @@ export interface Player {
 }
 
 export const INITIAL_ROSTER: Omit<Player, 'id'>[] = [
-  { name: "Dominic Barrera", number: 1, announcementAudioUrl: "/audio/Dominic.mp3", songs: [{ name: "EoO", videoId: "rltG2qA_RnA", startAt: 0 }, { name: "Brasil Com S", videoId: "yk7yVGbcpHE", startAt: 60 }, { name: "Narco", videoId: "Mf-aUJjSneo", startAt: 14 }] },
-  { name: "Diomedes Plata", number: 4, announcementAudioUrl: "/audio/Diomedes.mp3", songs: [{ name: "We LA (East LA Remix)", videoId: "l-eMsVOTCY4", startAt: 80 }, { name: "Con Calma", videoId: "bNTRIdraX8c", startAt: 20 }, { name: "Mexico Mundial", videoId: "mDqvPTUuxGY", startAt: 0 }] },
+  { name: "Dominic Barrera", number: 1, announcementAudioUrl: "/audio/Dominic.mp3", songs: [{ name: "EoO", videoId: "59_681t81W4", startAt: 0 }, { name: "Brasil Com S", videoId: "yk7yVGbcpHE", startAt: 60 }, { name: "Narco", videoId: "Mf-aUJjSneo", startAt: 14 }] },
+  { name: "Diomedes Plata", number: 4, announcementAudioUrl: "/audio/Diomedes.mp3", songs: [{ name: "We LA (East LA Remix)", videoId: "l-eMsVOTCY4", startAt: 80 }, { name: "Con Calma", videoId: "whXmS_P9LpA", startAt: 20 }, { name: "Mexico Mundial", videoId: "mDqvPTUuxGY", startAt: 0 }] },
   { name: "Max Camargo", number: 6, announcementAudioUrl: "/audio/Max.mp3", songs: [{ name: "Miss You", videoId: "2S5Ku0mVkzI", startAt: 0 }] },
   { name: "Alexa Franco", number: 7, announcementAudioUrl: "/audio/Alexa.mp3", songs: [{ name: "Batter Up", videoId: "olDWm2veCrM", startAt: 61 }] },
   { name: "Zeke Jacobo", number: 8, announcementAudioUrl: "/audio/Zeke.mp3", songs: [{ name: "Under Control", videoId: "cRYDSdXcT5o", startAt: 0 }] },
