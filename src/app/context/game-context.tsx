@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
 import { useFirestore } from "@/firebase";
 import { 
   collection, 
@@ -67,6 +67,8 @@ export const GAME_SCHEDULE_LIST = [
   { id: "finals_2", label: "Finals - Championship" },
 ];
 
+const SESSION_DURATION = 2 * 60 * 60 * 1000; // 2 Hours in ms
+
 interface GameContextType {
   roster: Player[];
   selectedGameId: string;
@@ -77,7 +79,8 @@ interface GameContextType {
   updatePlayerStat: (playerId: string, statType: keyof PlayerStats, delta: number) => void;
   emailStats: () => void;
   isAdmin: boolean;
-  verifyAdmin: () => boolean;
+  adminLogin: (password: string) => boolean;
+  adminLogout: () => void;
 }
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -89,14 +92,50 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [gameStats, setGameStats] = useState<any>({});
   const [isAdmin, setIsAdmin] = useState(false);
 
-  // 1. Load Roster and Seed if empty
+  // --- Session Management ---
+  const resetAdminTimer = useCallback(() => {
+    const expiry = Date.now() + SESSION_DURATION;
+    localStorage.setItem("admin_session_expiry", expiry.toString());
+  }, []);
+
+  const adminLogout = useCallback(() => {
+    setIsAdmin(false);
+    localStorage.removeItem("admin_session_expiry");
+  }, []);
+
+  useEffect(() => {
+    const checkSession = () => {
+      const expiry = localStorage.getItem("admin_session_expiry");
+      if (expiry) {
+        if (Date.now() < parseInt(expiry)) {
+          setIsAdmin(true);
+        } else {
+          adminLogout();
+        }
+      }
+    };
+
+    checkSession();
+    const interval = setInterval(checkSession, 60000); // Check every minute
+    return () => clearInterval(interval);
+  }, [adminLogout]);
+
+  const adminLogin = (password: string) => {
+    if (password === "Chewy2026") {
+      setIsAdmin(true);
+      resetAdminTimer();
+      return true;
+    }
+    return false;
+  };
+
+  // --- Firestore Data ---
   useEffect(() => {
     if (!db) return;
     const playersRef = collection(db, "players");
     
     const unsubscribe = onSnapshot(playersRef, (snapshot) => {
       if (snapshot.empty) {
-        // Seed initial roster
         INITIAL_ROSTER.forEach((p, idx) => {
           setDoc(doc(playersRef, `player_${idx + 1}`), p);
         });
@@ -112,7 +151,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe();
   }, [db]);
 
-  // 2. Load Game Stats real-time
   useEffect(() => {
     if (!db || !selectedGameId) return;
     const statsDocRef = doc(db, "game_stats", selectedGameId);
@@ -128,19 +166,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe();
   }, [db, selectedGameId]);
 
-  const verifyAdmin = () => {
-    if (isAdmin) return true;
-    const pass = window.prompt("Enter Admin Password:");
-    if (pass === "Chewy2026") {
-      setIsAdmin(true);
-      return true;
-    }
-    if (pass !== null) alert("Incorrect Password");
-    return false;
-  };
-
+  // --- Data Mutations ---
   const updateTeamScore = (team: 'home' | 'away', delta: number) => {
-    if (!verifyAdmin()) return;
+    if (!isAdmin) return;
+    resetAdminTimer();
     const key = team === 'home' ? 'homeScore' : 'awayScore';
     const current = gameStats[key] || 0;
     const statsDocRef = doc(db, "game_stats", selectedGameId);
@@ -154,7 +183,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
   };
 
   const updatePlayerStat = (playerId: string, statType: keyof PlayerStats, delta: number) => {
-    if (!verifyAdmin()) return;
+    if (!isAdmin) return;
+    resetAdminTimer();
     const statsDocRef = doc(db, "game_stats", selectedGameId);
     const playerStats = gameStats.playerStats || {};
     const currentStats = playerStats[playerId] || { ab: 0, h: 0, r: 0, rbi: 0 };
@@ -203,7 +233,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       updatePlayerStat,
       emailStats,
       isAdmin,
-      verifyAdmin
+      adminLogin,
+      adminLogout
     }}>
       {children}
     </GameContext.Provider>

@@ -12,9 +12,12 @@ import {
   Mail,
   Calendar,
   BarChart3,
-  MessageSquare,
   ChevronLeft,
-  ChevronDown
+  Lock,
+  Unlock,
+  LogOut,
+  ShieldCheck,
+  AlertCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,9 +36,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Input } from "@/components/ui/input";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useGame, GAME_SCHEDULE_LIST } from "@/app/context/game-context";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 
 export default function GameStatsPage() {
   const { 
@@ -46,10 +51,25 @@ export default function GameStatsPage() {
     awayScore, 
     updateTeamScore, 
     updatePlayerStat, 
-    emailStats 
+    emailStats,
+    isAdmin,
+    adminLogin,
+    adminLogout
   } = useGame();
   
   const [activePlayerId, setActivePlayerId] = useState<string | null>(null);
+  const [passwordInput, setPasswordInput] = useState("");
+  const { toast } = useToast();
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (adminLogin(passwordInput)) {
+      toast({ title: "Booth Access Granted", description: "Admin Mode active for 2 hours." });
+      setPasswordInput("");
+    } else {
+      toast({ variant: "destructive", title: "Access Denied", description: "Incorrect password." });
+    }
+  };
 
   const activePlayer = useMemo(() => 
     roster.find((p) => p.id === activePlayerId),
@@ -84,6 +104,50 @@ export default function GameStatsPage() {
         </header>
 
         <main className="flex-1 p-4 md:p-8 space-y-6 md:space-y-10 max-w-7xl mx-auto w-full pb-40">
+          
+          {/* ADMIN ACCESS WIDGET */}
+          <section className="flex justify-center">
+            <Card className={cn(
+              "w-full max-w-md transition-all duration-500",
+              isAdmin ? "bg-primary/10 border-primary/40 shadow-[0_0_20px_rgba(66,133,255,0.2)]" : "bg-card/50 border-white/5"
+            )}>
+              <CardContent className="p-4">
+                {isAdmin ? (
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-primary/20 p-2 rounded-full animate-pulse">
+                        <ShieldCheck className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-primary">Booth Access Active</p>
+                        <p className="text-[9px] font-bold text-muted-foreground uppercase">Editing Enabled • 2hr Session</p>
+                      </div>
+                    </div>
+                    <Button variant="ghost" size="sm" onClick={adminLogout} className="text-muted-foreground hover:text-destructive gap-2 text-[10px] font-black uppercase">
+                      <LogOut className="h-3.5 w-3.5" /> Logout
+                    </Button>
+                  </div>
+                ) : (
+                  <form onSubmit={handleLogin} className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                      <Input 
+                        type="password" 
+                        placeholder="Enter Booth Password..." 
+                        value={passwordInput}
+                        onChange={(e) => setPasswordInput(e.target.value)}
+                        className="pl-9 h-10 text-xs bg-black/20 border-white/10"
+                      />
+                    </div>
+                    <Button type="submit" size="sm" className="h-10 px-4 font-black uppercase text-[10px] gap-2">
+                      <Unlock className="h-3.5 w-3.5" /> Unlock
+                    </Button>
+                  </form>
+                )}
+              </CardContent>
+            </Card>
+          </section>
+
           {/* GAME SELECTOR */}
           <section className="flex flex-col items-center justify-center space-y-4">
             <div className="flex items-center gap-3">
@@ -108,18 +172,18 @@ export default function GameStatsPage() {
                 <div className="flex-1 flex flex-col items-center bg-secondary/10 px-2 py-4 md:px-6 rounded-2xl border-2 border-secondary/20 shadow-inner">
                   <span className="text-[8px] md:text-[10px] font-black tracking-widest text-secondary uppercase mb-2 md:mb-3">Away Team</span>
                   <div className="flex items-center gap-1 md:gap-4">
-                    <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 hover:bg-secondary/20" onClick={() => updateTeamScore('away', -1)}><Minus className="h-4 w-4 md:h-6 md:w-6" /></Button>
+                    {isAdmin && <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 hover:bg-secondary/20" onClick={() => updateTeamScore('away', -1)}><Minus className="h-4 w-4 md:h-6 md:w-6" /></Button>}
                     <div className="w-10 md:w-16 text-center digit-font text-3xl md:text-5xl font-black text-secondary">{awayScore}</div>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 hover:bg-secondary/20" onClick={() => updateTeamScore('away', 1)}><Plus className="h-4 w-4 md:h-6 md:w-6" /></Button>
+                    {isAdmin && <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 hover:bg-secondary/20" onClick={() => updateTeamScore('away', 1)}><Plus className="h-4 w-4 md:h-6 md:w-6" /></Button>}
                   </div>
                 </div>
 
                 <div className="flex-1 flex flex-col items-center bg-primary/10 px-2 py-4 md:px-6 rounded-2xl border-2 border-primary/20 shadow-inner">
                   <span className="text-[8px] md:text-[10px] font-black tracking-widest text-primary uppercase mb-2 md:mb-3">Home Team</span>
                   <div className="flex items-center gap-1 md:gap-4">
-                    <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 hover:bg-primary/20" onClick={() => updateTeamScore('home', -1)}><Minus className="h-4 w-4 md:h-6 md:w-6" /></Button>
+                    {isAdmin && <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 hover:bg-primary/20" onClick={() => updateTeamScore('home', -1)}><Minus className="h-4 w-4 md:h-6 md:w-6" /></Button>}
                     <div className="w-10 md:w-16 text-center digit-font text-3xl md:text-5xl font-black text-primary">{homeScore}</div>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 hover:bg-primary/20" onClick={() => updateTeamScore('home', 1)}><Plus className="h-4 w-4 md:h-6 md:w-6" /></Button>
+                    {isAdmin && <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 hover:bg-primary/20" onClick={() => updateTeamScore('home', 1)}><Plus className="h-4 w-4 md:h-6 md:w-6" /></Button>}
                   </div>
                 </div>
             </div>
@@ -129,55 +193,66 @@ export default function GameStatsPage() {
             </Button>
           </section>
 
-          {/* PLAYER INPUT */}
-          <section className="flex flex-col items-center justify-center">
-            <Card className="w-full md:max-w-2xl bg-card/80 border-2 border-white/5 overflow-hidden shadow-2xl">
-              <CardHeader className="pb-3 md:pb-4 border-b border-white/5 bg-white/5">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-[10px] md:text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                    <Target className="h-3 w-3 md:h-4 md:w-4" /> Live Game Stats
-                  </CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-6 pt-6">
-                <div className="space-y-2">
-                  <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Active Batter</span>
-                  <Select value={activePlayerId || ""} onValueChange={setActivePlayerId}>
-                    <SelectTrigger className="h-12 text-sm md:text-lg font-black bg-background/50 border-white/10">
-                      <SelectValue placeholder="Select Batter..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {roster.map((p) => (
-                        <SelectItem key={p.id} value={p.id} className="font-bold">#{p.number} - {p.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+          {/* PLAYER INPUT (ONLY SHOW IF ADMIN) */}
+          {isAdmin ? (
+            <section className="flex flex-col items-center justify-center animate-in fade-in slide-in-from-bottom-5 duration-500">
+              <Card className="w-full md:max-w-2xl bg-card/80 border-2 border-primary/30 overflow-hidden shadow-2xl">
+                <CardHeader className="pb-3 md:pb-4 border-b border-primary/10 bg-primary/5">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-[10px] md:text-xs font-black uppercase tracking-widest text-primary flex items-center gap-2">
+                      <Target className="h-3 w-3 md:h-4 md:w-4" /> Live Game Stats Editor
+                    </CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-6 pt-6">
+                  <div className="space-y-2">
+                    <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Active Batter</span>
+                    <Select value={activePlayerId || ""} onValueChange={setActivePlayerId}>
+                      <SelectTrigger className="h-12 text-sm md:text-lg font-black bg-background/50 border-white/10">
+                        <SelectValue placeholder="Select Batter..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {roster.map((p) => (
+                          <SelectItem key={p.id} value={p.id} className="font-bold">#{p.number} - {p.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  {[
-                    { key: "ab", label: "At Bats", color: "white" },
-                    { key: "h", label: "Total Hits", color: "primary" },
-                    { key: "r", label: "Runs Scored", color: "secondary" },
-                    { key: "rbi", label: "RBI", color: "primary" }
-                  ].map((stat) => (
-                    <div key={stat.key} className="flex flex-col gap-2 bg-background/50 p-3 rounded-xl border border-white/5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[8px] md:text-[10px] font-black uppercase tracking-widest text-muted-foreground">{stat.label}</span>
-                        <span className={cn("text-xl md:text-2xl font-black digit-font", stat.color === 'primary' ? 'text-primary' : stat.color === 'secondary' ? 'text-secondary' : 'text-white')}>
-                          {activePlayer?.stats ? (activePlayer.stats as any)[stat.key] : 0}
-                        </span>
+                  <div className="grid grid-cols-2 gap-4">
+                    {[
+                      { key: "ab", label: "At Bats", color: "white" },
+                      { key: "h", label: "Total Hits", color: "primary" },
+                      { key: "r", label: "Runs Scored", color: "secondary" },
+                      { key: "rbi", label: "RBI", color: "primary" }
+                    ].map((stat) => (
+                      <div key={stat.key} className="flex flex-col gap-2 bg-background/50 p-3 rounded-xl border border-white/5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[8px] md:text-[10px] font-black uppercase tracking-widest text-muted-foreground">{stat.label}</span>
+                          <span className={cn("text-xl md:text-2xl font-black digit-font", stat.color === 'primary' ? 'text-primary' : stat.color === 'secondary' ? 'text-secondary' : 'text-white')}>
+                            {activePlayer?.stats ? (activePlayer.stats as any)[stat.key] : 0}
+                          </span>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button disabled={!activePlayer} variant="outline" size="sm" onClick={() => updatePlayerStat(activePlayerId!, stat.key as any, -1)} className="flex-1 h-9 border-white/5 hover:text-destructive"><Minus className="h-3 w-3" /></Button>
+                          <Button disabled={!activePlayer} variant="outline" size="sm" onClick={() => updatePlayerStat(activePlayerId!, stat.key as any, 1)} className="flex-1 h-9 border-white/5 hover:text-primary"><Plus className="h-3 w-3" /></Button>
+                        </div>
                       </div>
-                      <div className="flex gap-2">
-                        <Button disabled={!activePlayer} variant="outline" size="sm" onClick={() => updatePlayerStat(activePlayerId!, stat.key as any, -1)} className="flex-1 h-9 border-white/5 hover:text-destructive"><Minus className="h-3 w-3" /></Button>
-                        <Button disabled={!activePlayer} variant="outline" size="sm" onClick={() => updatePlayerStat(activePlayerId!, stat.key as any, 1)} className="flex-1 h-9 border-white/5 hover:text-primary"><Plus className="h-3 w-3" /></Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </section>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </section>
+          ) : (
+            <section className="flex justify-center">
+              <div className="bg-white/5 border border-white/10 p-6 rounded-2xl flex flex-col items-center gap-3 text-center max-w-sm">
+                <AlertCircle className="h-8 w-8 text-muted-foreground opacity-50" />
+                <p className="text-xs font-bold text-muted-foreground uppercase leading-relaxed">
+                  You are in Read-Only Mode. <br /> Log in to the booth to update stats.
+                </p>
+              </div>
+            </section>
+          )}
 
           {/* TABLE SUMMARY */}
           <section className="space-y-4 pt-6">
