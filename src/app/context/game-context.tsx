@@ -8,10 +8,9 @@ import {
   onSnapshot, 
   doc, 
   setDoc, 
-  updateDoc, 
-  getDocs, 
+  deleteDoc,
   query, 
-  limit 
+  orderBy 
 } from "firebase/firestore";
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -35,7 +34,7 @@ export interface Player {
   number: number;
   announcementAudioUrl: string;
   songs: Song[];
-  stats?: PlayerStats; // Game-specific stats
+  stats?: PlayerStats;
 }
 
 export const INITIAL_ROSTER: Omit<Player, 'id'>[] = [
@@ -67,7 +66,7 @@ export const GAME_SCHEDULE_LIST = [
   { id: "finals_2", label: "Finals - Championship" },
 ];
 
-const SESSION_DURATION = 2 * 60 * 60 * 1000; // 2 Hours in ms
+const SESSION_DURATION = 2 * 60 * 60 * 1000;
 
 interface GameContextType {
   roster: Player[];
@@ -81,6 +80,8 @@ interface GameContextType {
   isAdmin: boolean;
   adminLogin: (password: string) => boolean;
   adminLogout: () => void;
+  savePlayer: (playerData: Omit<Player, 'id'>, id?: string) => Promise<void>;
+  deletePlayer: (id: string) => Promise<void>;
 }
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -92,7 +93,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [gameStats, setGameStats] = useState<any>({});
   const [isAdmin, setIsAdmin] = useState(false);
 
-  // --- Session Management ---
   const resetAdminTimer = useCallback(() => {
     const expiry = Date.now() + SESSION_DURATION;
     localStorage.setItem("admin_session_expiry", expiry.toString());
@@ -114,9 +114,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
         }
       }
     };
-
     checkSession();
-    const interval = setInterval(checkSession, 60000); // Check every minute
+    const interval = setInterval(checkSession, 60000);
     return () => clearInterval(interval);
   }, [adminLogout]);
 
@@ -129,10 +128,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
     return false;
   };
 
-  // --- Firestore Data ---
   useEffect(() => {
     if (!db) return;
     const playersRef = collection(db, "players");
+    const q = query(playersRef, orderBy("number", "asc"));
     
     const unsubscribe = onSnapshot(playersRef, (snapshot) => {
       if (snapshot.empty) {
@@ -166,7 +165,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe();
   }, [db, selectedGameId]);
 
-  // --- Data Mutations ---
   const updateTeamScore = (team: 'home' | 'away', delta: number) => {
     if (!isAdmin) return;
     resetAdminTimer();
@@ -188,13 +186,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const statsDocRef = doc(db, "game_stats", selectedGameId);
     const playerStats = gameStats.playerStats || {};
     const currentStats = playerStats[playerId] || { ab: 0, h: 0, r: 0, rbi: 0 };
-    
     const newValue = Math.max(0, currentStats[statType] + delta);
     const updatedPlayerStats = {
       ...playerStats,
       [playerId]: { ...currentStats, [statType]: newValue }
     };
-
     setDoc(statsDocRef, { playerStats: updatedPlayerStats }, { merge: true })
       .catch(async () => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
@@ -203,16 +199,29 @@ export function GameProvider({ children }: { children: ReactNode }) {
       });
   };
 
+  const savePlayer = async (playerData: Omit<Player, 'id'>, id?: string) => {
+    if (!isAdmin || !db) return;
+    resetAdminTimer();
+    const playersRef = collection(db, "players");
+    const docRef = id ? doc(playersRef, id) : doc(playersRef);
+    await setDoc(docRef, playerData, { merge: true });
+  };
+
+  const deletePlayer = async (id: string) => {
+    if (!isAdmin || !db) return;
+    resetAdminTimer();
+    const docRef = doc(db, "players", id);
+    await deleteDoc(docRef);
+  };
+
   const emailStats = () => {
     const gameLabel = GAME_SCHEDULE_LIST.find(g => g.id === selectedGameId)?.label || selectedGameId;
     const subject = `Game Report: ${gameLabel}`;
-    
     const scoreText = `STADIUM REPORT\n${gameLabel}\nAway: ${gameStats.awayScore || 0} | Home: ${gameStats.homeScore || 0}\n\n`;
     const rosterStatsText = roster.map(p => {
       const s = gameStats.playerStats?.[p.id] || { ab: 0, h: 0, r: 0, rbi: 0 };
       return `${p.name} (#${p.number}): AB: ${s.ab}, H: ${s.h}, R: ${s.r}, RBI: ${s.rbi}`;
     }).join('\n');
-    
     const mailtoUrl = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(scoreText + rosterStatsText)}`;
     window.location.href = mailtoUrl;
   };
@@ -234,7 +243,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
       emailStats,
       isAdmin,
       adminLogin,
-      adminLogout
+      adminLogout,
+      savePlayer,
+      deletePlayer
     }}>
       {children}
     </GameContext.Provider>

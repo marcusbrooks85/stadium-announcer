@@ -41,6 +41,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useGame } from "./context/game-context";
 import { InstallButton } from "@/components/InstallButton";
+import { AdminPanel } from "@/components/AdminPanel";
 
 const ORGAN_HITS = [
   { name: "BULLFIGHTER", videoId: "melJslO0IJY" },
@@ -69,7 +70,6 @@ export default function StadiumBoothDashboard() {
   const [activeTrackName, setActiveTrackName] = useState<string | null>(null);
   const [volume, setVolume] = useState(0.8);
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<{id: string, title: string}[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [playerReady, setPlayerReady] = useState(false);
   const [currentAnnouncementUrl, setCurrentAnnouncementUrl] = useState<string | null>(null);
@@ -89,7 +89,6 @@ export default function StadiumBoothDashboard() {
     return activePlayer.songs[selectedSongIndex] || activePlayer.songs[0];
   }, [activePlayer, selectedSongIndex]);
 
-  // YouTube API initialization
   useEffect(() => {
     const onYouTubeIframeAPIReady = () => {
       if (ytPlayerRef.current) return;
@@ -249,6 +248,7 @@ export default function StadiumBoothDashboard() {
             <div className="flex items-center gap-1 md:gap-3 shrink-0">
               <Link href="/stats"><Button variant="ghost" size="icon" className="h-8 w-8 text-primary hover:text-primary/80"><BarChart3 className="h-4 w-4" /></Button></Link>
               <Link href="/schedule"><Button variant="ghost" size="icon" className="h-8 w-8 text-primary hover:text-primary/80"><Calendar className="h-4 w-4" /></Button></Link>
+              <AdminPanel />
             </div>
           </div>
 
