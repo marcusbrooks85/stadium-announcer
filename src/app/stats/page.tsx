@@ -128,21 +128,26 @@ export default function GameStatsPage() {
                     </Button>
                   </div>
                 ) : (
-                  <form onSubmit={handleLogin} className="flex gap-2">
-                    <div className="relative flex-1">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                      <Input 
-                        type="password" 
-                        placeholder="Enter Booth Password..." 
-                        value={passwordInput}
-                        onChange={(e) => setPasswordInput(e.target.value)}
-                        className="pl-9 h-10 text-xs bg-black/20 border-white/10"
-                      />
-                    </div>
-                    <Button type="submit" size="sm" className="h-10 px-4 font-black uppercase text-[10px] gap-2">
-                      <Unlock className="h-3.5 w-3.5" /> Unlock
-                    </Button>
-                  </form>
+                  <div className="space-y-3">
+                    <form onSubmit={handleLogin} className="flex gap-2">
+                      <div className="relative flex-1">
+                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                        <Input 
+                          type="password" 
+                          placeholder="Enter Booth Password..." 
+                          value={passwordInput}
+                          onChange={(e) => setPasswordInput(e.target.value)}
+                          className="pl-9 h-10 text-xs bg-black/20 border-white/10"
+                        />
+                      </div>
+                      <Button type="submit" size="sm" className="h-10 px-4 font-black uppercase text-[10px] gap-2">
+                        <Unlock className="h-3.5 w-3.5" /> Unlock
+                      </Button>
+                    </form>
+                    <p className="text-[9px] font-black text-muted-foreground uppercase text-center tracking-[0.2em] animate-pulse">
+                      Read-Only Mode • Login for Booth Access
+                    </p>
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -194,7 +199,7 @@ export default function GameStatsPage() {
           </section>
 
           {/* PLAYER INPUT (ONLY SHOW IF ADMIN) */}
-          {isAdmin ? (
+          {isAdmin && (
             <section className="flex flex-col items-center justify-center animate-in fade-in slide-in-from-bottom-5 duration-500">
               <Card className="w-full md:max-w-2xl bg-card/80 border-2 border-primary/30 overflow-hidden shadow-2xl">
                 <CardHeader className="pb-3 md:pb-4 border-b border-primary/10 bg-primary/5">
@@ -242,15 +247,6 @@ export default function GameStatsPage() {
                   </div>
                 </CardContent>
               </Card>
-            </section>
-          ) : (
-            <section className="flex justify-center">
-              <div className="bg-white/5 border border-white/10 p-6 rounded-2xl flex flex-col items-center gap-3 text-center max-w-sm">
-                <AlertCircle className="h-8 w-8 text-muted-foreground opacity-50" />
-                <p className="text-xs font-bold text-muted-foreground uppercase leading-relaxed">
-                  You are in Read-Only Mode. <br /> Log in to the booth to update stats.
-                </p>
-              </div>
             </section>
           )}
 
