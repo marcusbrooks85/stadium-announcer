@@ -48,13 +48,11 @@ export function AdminPanel() {
   const db = useFirestore();
   const { toast } = useToast();
   
-  // State for Login UI
   const [showLoginFields, setShowLoginFields] = useState(false);
   const [authPassword, setAuthPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState(false);
 
-  // State for Management Panel
   const [isOpen, setIsOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
@@ -137,26 +135,31 @@ export function AdminPanel() {
     }
 
     setIsSaving(true);
-    setUploadProgress(null);
+    setUploadProgress(0);
     
     try {
-      // 1. Determine the stable ID for the player
       let playerId = selectedPlayerId;
       if (playerId === "new") {
-        // Pre-generate ID for consistent file naming (overwrite logic)
         playerId = doc(collection(db, "players")).id;
       }
 
       let audioUrl = formData.announcementAudioUrl;
 
-      // 2. Handle File Upload (Smart Overwrite)
       if (audioFile) {
-        if (!storage) throw new Error("Cloud Storage not initialized");
+        if (!storage) {
+          console.error("DIAGNOSTIC: Storage instance is null.");
+          throw new Error("Cloud Storage not initialized.");
+        }
         
-        // Use a stable path: announcements/{playerId}.mp3 
-        // This automatically overwrites existing files for that player in Firebase Storage
         const fileName = `announcements/${playerId}.mp3`;
         const storageRef = ref(storage, fileName);
+
+        console.log("DIAGNOSTIC: Starting upload to:", fileName);
+        console.log("DIAGNOSTIC: File Object:", {
+          name: audioFile.name,
+          size: audioFile.size,
+          type: audioFile.type
+        });
 
         const uploadTask = uploadBytesResumable(storageRef, audioFile);
 
@@ -165,17 +168,28 @@ export function AdminPanel() {
             "state_changed",
             (snapshot) => {
               const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+              console.log(`DIAGNOSTIC: Upload progress: ${Math.round(progress)}% (${snapshot.state})`);
               setUploadProgress(Math.round(progress));
             },
-            (error) => {
-              console.error("Upload error:", error);
-              reject(new Error(`Audio upload failed: ${error.message}`));
+            (error: any) => {
+              console.error("DIAGNOSTIC: Upload error encountered!");
+              console.error("DIAGNOSTIC: Error Code:", error.code);
+              console.error("DIAGNOSTIC: Error Message:", error.message);
+              console.error("DIAGNOSTIC: Full Error:", error);
+              
+              const message = error.code === 'storage/unauthorized' 
+                ? "Permission Denied: Please check your Firebase Storage rules."
+                : `Audio upload failed: ${error.message}`;
+              
+              reject(new Error(message));
             },
             async () => {
               try {
                 const url = await getDownloadURL(uploadTask.snapshot.ref);
+                console.log("DIAGNOSTIC: Upload complete. Download URL retrieved.");
                 resolve(url);
               } catch (e: any) {
+                console.error("DIAGNOSTIC: Error retrieving download URL:", e);
                 reject(new Error(`Failed to retrieve download link: ${e.message}`));
               }
             }
@@ -183,7 +197,6 @@ export function AdminPanel() {
         });
       }
 
-      // 3. Prepare Data for Firestore
       const playerToSave = {
         name: formData.name,
         number: formData.number,
@@ -195,11 +208,11 @@ export function AdminPanel() {
         }))
       };
 
-      // 4. Update Database
       savePlayer(playerToSave, playerId);
       toast({ title: "Stadium Updated", description: `${formData.name} is ready for walk-on.` });
       setIsOpen(false);
     } catch (error: any) {
+      console.error("DIAGNOSTIC: handleSave catch block:", error);
       toast({ 
         variant: "destructive", 
         title: "Update Failed", 
