@@ -11,7 +11,8 @@ import {
   Mail,
   Calendar,
   BarChart3,
-  ChevronLeft
+  ChevronLeft,
+  Zap
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -62,19 +63,19 @@ export default function GameStatsPage() {
           <div className="flex items-center gap-4">
              <Link href="/">
                <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-primary/20 bg-primary/5 text-primary transition-colors hover:bg-primary/10">
-                 <ChevronLeft className="h-5 w-5" />
+                 <Home className="h-5 w-5" />
                </div>
              </Link>
              <h1 className="font-headline font-black uppercase tracking-[0.2em] text-xs md:text-sm">Stats Center</h1>
           </div>
           
           <div className="flex items-center gap-1 md:gap-3">
-            <Link href="/">
+            <Link href="/booth">
               <Button variant="ghost" size="icon" className="h-9 w-9 text-primary hover:text-primary/80">
-                <Home className="h-4 w-4" />
+                <Zap className="h-4 w-4" />
               </Button>
             </Link>
-            <Link href="/schedule">
+            <Link href="/">
               <Button variant="ghost" size="icon" className="h-9 w-9 text-primary hover:text-primary/80">
                 <Calendar className="h-4 w-4" />
               </Button>
@@ -85,7 +86,6 @@ export default function GameStatsPage() {
 
         <main className="flex-1 p-4 md:p-8 space-y-6 md:space-y-10 max-w-7xl mx-auto w-full pb-40">
           
-          {/* GAME SELECTOR */}
           <section className="flex flex-col items-center justify-center space-y-4">
             <div className="flex items-center gap-3">
               <Calendar className="h-5 w-5 text-primary" />
@@ -103,7 +103,6 @@ export default function GameStatsPage() {
             </Select>
           </section>
 
-          {/* TEAM SCOREBOARD */}
           <section className="flex flex-col items-center justify-center gap-6">
             <div className="flex items-center justify-center gap-2 md:gap-8 w-full max-w-2xl">
                 <div className="flex-1 flex flex-col items-center bg-secondary/10 px-2 py-4 md:px-6 rounded-2xl border-2 border-secondary/20 shadow-inner">
@@ -130,7 +129,6 @@ export default function GameStatsPage() {
             </Button>
           </section>
 
-          {/* PLAYER INPUT (ONLY SHOW IF ADMIN) */}
           {isAdmin && (
             <section className="flex flex-col items-center justify-center animate-in fade-in slide-in-from-bottom-5 duration-500">
               <Card className="w-full md:max-w-2xl bg-card/80 border-2 border-primary/30 overflow-hidden shadow-2xl">
@@ -182,7 +180,6 @@ export default function GameStatsPage() {
             </section>
           )}
 
-          {/* TABLE SUMMARY */}
           <section className="space-y-4 pt-6">
             <div className="flex items-center gap-3">
               <TableIcon className="h-5 w-5 text-secondary" />
@@ -222,13 +219,13 @@ export default function GameStatsPage() {
 
         <footer className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] md:hidden z-50">
           <div className="flex items-center justify-center gap-3 bg-card/90 backdrop-blur-xl border border-white/10 p-2 rounded-2xl shadow-2xl">
-            <Link href="/" className="flex-1">
+            <Link href="/booth" className="flex-1">
               <div className="flex items-center justify-center gap-2 h-11 border border-white/10 rounded-xl bg-white/5 text-secondary hover:bg-white/10 transition-all">
-                <Home className="h-4 w-4" />
+                <Zap className="h-4 w-4" />
                 <span className="text-[10px] font-black uppercase tracking-widest">Booth</span>
               </div>
             </Link>
-            <Link href="/schedule" className="flex-1">
+            <Link href="/" className="flex-1">
               <div className="flex items-center justify-center gap-2 h-11 border border-white/10 rounded-xl bg-white/5 text-secondary hover:bg-white/10 transition-all">
                 <Calendar className="h-4 w-4" />
                 <span className="text-[10px] font-black uppercase tracking-widest">Schedule</span>
