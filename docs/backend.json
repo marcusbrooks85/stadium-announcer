@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "Player": {
@@ -40,6 +41,7 @@
       "properties": {
         "won": { "type": "boolean" },
         "cancelled": { "type": "boolean" },
+        "snackPlayerId": { "type": "string" },
         "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["updatedAt"]
