@@ -13,7 +13,8 @@ import {
   BarChart3,
   Music2,
   Zap,
-  ArrowDownWideNarrow
+  ArrowDownWideNarrow,
+  Ban
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,7 +28,12 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import { 
+  Tooltip,
+  TooltipContent,
+  TooltipProvider, 
+  TooltipTrigger 
+} from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useGame } from "./context/game-context";
@@ -38,7 +44,7 @@ export default function StadiumBoothDashboard() {
   const { roster, organSongs, pumpUpSongs } = useGame();
   
   const [activePlayerId, setActivePlayerId] = useState<string | null>(null);
-  const [selectedSongIndex, setSelectedSongIndex] = useState(0);
+  const [selectedSongIndex, setSelectedSongIndex] = useState(0); // -1 means NO TRACK
   const [playbackPhase, setPlaybackPhase] = useState<'idle' | 'announcing' | 'walkup'>('idle');
   const [activeTrackName, setActiveTrackName] = useState<string | null>(null);
   const [volume, setVolume] = useState(0.8);
@@ -56,7 +62,7 @@ export default function StadiumBoothDashboard() {
   );
 
   const selectedSong = useMemo(() => {
-    if (!activePlayer) return null;
+    if (!activePlayer || selectedSongIndex === -1) return null;
     return activePlayer.songs[selectedSongIndex] || activePlayer.songs[0];
   }, [activePlayer, selectedSongIndex]);
 
@@ -138,6 +144,13 @@ export default function StadiumBoothDashboard() {
     }, interval);
   };
 
+  const handleMute = () => {
+    setVolume(0);
+    if (ytPlayerRef.current && playerReady) {
+      try { ytPlayerRef.current.setVolume(0); } catch (e) {}
+    }
+  };
+
   const playYoutubeTrack = (videoId: string, songName: string, startAt: number = 0) => {
     if (playbackPhase !== 'announcing') stopEverything();
     setVolume(0.8);
@@ -153,16 +166,22 @@ export default function StadiumBoothDashboard() {
   };
 
   const triggerWalkonSequence = () => {
-    if (!activePlayer || playbackPhase === 'announcing' || !selectedSong) return;
+    if (!activePlayer || playbackPhase === 'announcing') return;
     stopEverything();
     setVolume(0.8);
     setPlaybackPhase('announcing');
-    setActiveTrackName(`Announcing: ${activePlayer.name}`);
+    
+    if (selectedSongIndex === -1) {
+      setActiveTrackName("Player Announcement ONLY");
+    } else {
+      setActiveTrackName(`Announcing: ${activePlayer.name}`);
+    }
+    
     setCurrentAnnouncementUrl(activePlayer.announcementAudioUrl);
   };
 
   const handleAnnouncementEnded = () => {
-    if (playbackPhase === 'announcing' && activePlayer && selectedSong) {
+    if (playbackPhase === 'announcing' && activePlayer && selectedSongIndex !== -1 && selectedSong) {
       setPlaybackPhase('walkup');
       playYoutubeTrack(selectedSong.videoId, selectedSong.name, selectedSong.startAt);
     } else {
@@ -193,9 +212,6 @@ export default function StadiumBoothDashboard() {
             </div>
             
             <div className="flex items-center justify-center gap-1.5 md:gap-8 flex-1">
-               <Button variant="outline" size="sm" onClick={handleFadeOut} className="h-8 md:h-12 border-primary/20 text-primary px-3 md:px-8 font-black text-[9px] md:text-xs uppercase shadow-lg">
-                 <ArrowDownWideNarrow className="h-3.5 w-3.5 md:h-4 md:w-4 md:mr-2" /> <span className="hidden xs:inline">FADE</span>
-               </Button>
                <Button variant="destructive" size="sm" onClick={stopEverything} className="h-8 md:h-12 px-3 md:px-8 font-black text-[9px] md:text-xs uppercase shadow-lg">
                  <VolumeX className="h-3.5 w-3.5 md:h-4 md:w-4 md:mr-2" /> <span className="hidden xs:inline">STOP ALL</span>
                </Button>
@@ -208,12 +224,36 @@ export default function StadiumBoothDashboard() {
             </div>
           </div>
 
-          <div className="max-w-7xl mx-auto w-full flex items-center gap-2 md:gap-6 bg-primary/5 p-1.5 md:p-2 rounded-lg border border-primary/10">
+          <div className="max-w-7xl mx-auto w-full flex items-center gap-2 md:gap-4 bg-primary/5 p-1.5 md:p-2 rounded-lg border border-primary/10">
             <div className="flex items-center gap-2 min-w-max">
               {volume === 0 ? <VolumeX className="h-3.5 w-3.5 text-muted-foreground" /> : <Volume2 className="h-3.5 w-3.5 text-primary" />}
             </div>
             <Slider value={[volume * 100]} onValueChange={(vals) => setVolume(vals[0] / 100)} max={100} step={1} className="flex-1" />
             <Badge variant="outline" className="font-mono text-[9px] md:text-xs border-primary/30 text-primary w-9 md:w-10 text-center px-1">{Math.round(volume * 100)}%</Badge>
+            
+            <div className="flex items-center gap-1 ml-2">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="outline" size="sm" onClick={handleFadeOut} className="h-8 md:h-9 border-primary/20 text-primary px-2 md:px-4 font-black text-[9px] md:text-xs uppercase shadow-sm">
+                    <ArrowDownWideNarrow className="h-3.5 w-3.5 md:mr-1.5" /> <span className="hidden sm:inline">Fade</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Gradually lowers the volume over 3 seconds to smoothly transition out.</p>
+                </TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="outline" size="sm" onClick={handleMute} className="h-8 md:h-9 border-destructive/20 text-destructive px-2 md:px-4 font-black text-[9px] md:text-xs uppercase shadow-sm">
+                    <VolumeX className="h-3.5 w-3.5 md:mr-1.5" /> <span className="hidden sm:inline">Mute</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Instantly silences the audio playback.</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
           </div>
         </header>
 
@@ -270,7 +310,15 @@ export default function StadiumBoothDashboard() {
 
                     {activePlayer && (
                       <div className="space-y-3 p-3 md:p-4 bg-background/40 rounded-xl border border-white/5">
-                        <div className="grid grid-cols-3 gap-1.5 md:gap-2">
+                        <div className="grid grid-cols-4 gap-1.5 md:gap-2">
+                          <Button
+                            variant={selectedSongIndex === -1 ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setSelectedSongIndex(-1)}
+                            className={cn("h-9 md:h-10 text-[8px] md:text-[9px] uppercase font-black", selectedSongIndex === -1 && "bg-secondary text-secondary-foreground")}
+                          >
+                            NO TRACK
+                          </Button>
                           {activePlayer.songs.map((song, idx) => (
                             <Button
                               key={idx} variant={selectedSongIndex === idx ? "default" : "outline"} size="sm"
@@ -280,7 +328,11 @@ export default function StadiumBoothDashboard() {
                           ))}
                         </div>
                         <div className="flex items-center gap-2 mt-1 text-[9px] font-bold text-secondary truncate">
-                          <Music2 className="h-3 w-3" /> {selectedSong?.name}
+                          {selectedSongIndex === -1 ? (
+                            <><Ban className="h-3 w-3" /> Player Announcement ONLY</>
+                          ) : (
+                            <><Music2 className="h-3 w-3" /> {selectedSong?.name}</>
+                          )}
                         </div>
                       </div>
                     )}
