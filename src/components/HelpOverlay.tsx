@@ -39,13 +39,13 @@ export function HelpOverlay() {
           sections: [
             {
               icon: <ShieldCheck className="h-4 w-4 text-primary" />,
-              heading: "Unlocking Admin Access",
-              text: "Click the 'ADMIN' button in the header and enter 'Chewy2026' to enable playback controls and management tools."
+              heading: "Admin Operations",
+              text: "Click the 'ADMIN' button to log enable admin changes and management tools."
             },
             {
               icon: <Music className="h-4 w-4 text-secondary" />,
-              heading: "Player Walk-Ons",
-              text: "Upload MP3 announcement audio directly to Firebase via the Settings Wheel. You can also link YouTube tracks for background music."
+              heading: "Audio Management",
+              text: "Upload MP3 announcement audio directly via the Settings Wheel. You can also link YouTube crowd songs, update and remove player info."
             },
             {
               icon: <HelpCircle className="h-4 w-4 text-accent" />,
