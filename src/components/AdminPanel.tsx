@@ -129,7 +129,8 @@ export function AdminPanel() {
 
   const handleSave = async () => {
     setIsSaving(true);
-    setUploadProgress(null);
+    setUploadProgress(0); // Start progress at 0%
+    
     try {
       let audioUrl = formData.announcementAudioUrl;
 
@@ -137,15 +138,13 @@ export function AdminPanel() {
         const { firebaseApp } = initializeFirebase();
         const storage = getStorage(firebaseApp);
         
-        // Smart Overwrite Logic: Use consistent filename based on player context
-        // If it's a new player, use a timestamp, if existing, use their ID
         const playerIdentifier = selectedPlayerId === "new" ? `new-${Date.now()}` : selectedPlayerId;
         const fileName = `announcements/${playerIdentifier}.mp3`;
         const storageRef = ref(storage, fileName);
 
         const uploadTask = uploadBytesResumable(storageRef, audioFile);
 
-        await new Promise((resolve, reject) => {
+        const finalUrl = await new Promise<string>((resolve, reject) => {
           uploadTask.on(
             "state_changed",
             (snapshot) => {
@@ -153,15 +152,19 @@ export function AdminPanel() {
               setUploadProgress(Math.round(progress));
             },
             (error) => {
-              console.error("Upload error:", error);
               reject(error);
             },
             async () => {
-              audioUrl = await getDownloadURL(uploadTask.snapshot.ref);
-              resolve(audioUrl);
+              try {
+                const url = await getDownloadURL(uploadTask.snapshot.ref);
+                resolve(url);
+              } catch (e) {
+                reject(e);
+              }
             }
           );
         });
+        audioUrl = finalUrl;
       }
 
       const playerToSave = {
@@ -178,7 +181,11 @@ export function AdminPanel() {
       toast({ title: "Stadium Updated", description: `${formData.name} is ready for walk-on.` });
       setIsOpen(false);
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Update Failed", description: error.message || "Could not sync with stadium database." });
+      toast({ 
+        variant: "destructive", 
+        title: "Update Failed", 
+        description: error.message || "Could not sync with stadium database. Please check your connection." 
+      });
     } finally {
       setIsSaving(false);
       setUploadProgress(null);
@@ -365,7 +372,7 @@ export function AdminPanel() {
                 disabled={isSaving}
               >
                 {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-                {isSaving ? `Processing... ${uploadProgress || ''}` : (selectedPlayerId === "new" ? "Add to Stadium" : "Update Stadium")}
+                {isSaving ? `Processing... ${uploadProgress !== null ? uploadProgress + '%' : ''}` : (selectedPlayerId === "new" ? "Add to Stadium" : "Update Stadium")}
               </Button>
               
               {selectedPlayerId !== "new" && (
