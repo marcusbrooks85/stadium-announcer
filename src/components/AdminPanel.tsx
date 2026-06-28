@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -127,7 +126,8 @@ export function AdminPanel() {
         }))
       };
 
-      await savePlayer(playerToSave, selectedPlayerId === "new" ? undefined : selectedPlayerId);
+      // Initiate save and close immediately for better UX
+      savePlayer(playerToSave, selectedPlayerId === "new" ? undefined : selectedPlayerId);
       toast({ title: "Stadium Updated", description: `${formData.name} is ready for walk-on.` });
       setIsOpen(false);
     } catch (error) {
@@ -137,19 +137,15 @@ export function AdminPanel() {
     }
   };
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (deletePassword !== "Chewy2026") {
       toast({ variant: "destructive", title: "Access Denied", description: "Incorrect master password." });
       return;
     }
-    try {
-      await deletePlayer(selectedPlayerId);
-      toast({ title: "Player Removed", description: "Numerical roster updated." });
-      setIsDeleting(false);
-      setSelectedPlayerId("new");
-    } catch (e) {
-      toast({ variant: "destructive", title: "Delete Failed", description: "Could not remove player." });
-    }
+    deletePlayer(selectedPlayerId);
+    toast({ title: "Player Removed", description: "Numerical roster updated." });
+    setIsDeleting(false);
+    setSelectedPlayerId("new");
   };
 
   if (!isAdmin) {
@@ -213,7 +209,12 @@ export function AdminPanel() {
             </div>
             <div className="space-y-2">
               <Label className="text-[10px] font-black uppercase text-muted-foreground">Jersey #</Label>
-              <Input type="number" value={formData.number} onChange={(e) => setFormData({...formData, number: parseInt(e.target.value) || 0})} className="font-bold digit-font" />
+              <Input 
+                type="number" 
+                value={isNaN(formData.number) ? "" : formData.number} 
+                onChange={(e) => setFormData({...formData, number: parseInt(e.target.value) || 0})} 
+                className="font-bold digit-font" 
+              />
             </div>
           </div>
 
@@ -258,11 +259,16 @@ export function AdminPanel() {
                 </div>
                 <div className="col-span-3 space-y-1">
                   <Label className="text-[8px] uppercase text-muted-foreground">Start (e.g. 1m30s)</Label>
-                  <Input value={song.startAt} onChange={(e) => {
-                    const newSongs = [...formData.songs];
-                    newSongs[idx].startAt = e.target.value as any;
-                    setFormData({...formData, songs: newSongs});
-                  }} className="h-8 text-[10px] digit-font" placeholder="0" />
+                  <Input 
+                    value={song.startAt} 
+                    onChange={(e) => {
+                      const newSongs = [...formData.songs];
+                      newSongs[idx].startAt = e.target.value as any;
+                      setFormData({...formData, songs: newSongs});
+                    }} 
+                    className="h-8 text-[10px] digit-font" 
+                    placeholder="0" 
+                  />
                 </div>
               </div>
             ))}

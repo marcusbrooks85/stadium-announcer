@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
@@ -37,9 +36,13 @@ export interface Player {
   stats?: PlayerStats;
 }
 
+/**
+ * Professional Roster with stable, embed-friendly YouTube IDs.
+ * Swapped restricted music videos for reliable Topic/Lyric versions.
+ */
 export const INITIAL_ROSTER: Omit<Player, 'id'>[] = [
-  { name: "Dominic Barrera", number: 1, announcementAudioUrl: "/audio/Dominic.mp3", songs: [{ name: "EoO", videoId: "59_681t81W4", startAt: 0 }, { name: "Brasil Com S", videoId: "yk7yVGbcpHE", startAt: 60 }, { name: "Narco", videoId: "Mf-aUJjSneo", startAt: 14 }] },
-  { name: "Diomedes Plata", number: 4, announcementAudioUrl: "/audio/Diomedes.mp3", songs: [{ name: "We LA (East LA Remix)", videoId: "l-eMsVOTCY4", startAt: 80 }, { name: "Con Calma", videoId: "whXmS_P9LpA", startAt: 20 }, { name: "Mexico Mundial", videoId: "mDqvPTUuxGY", startAt: 0 }] },
+  { name: "Dominic Barrera", number: 1, announcementAudioUrl: "/audio/Dominic.mp3", songs: [{ name: "EoO", videoId: "R83_B-T0O6g", startAt: 0 }, { name: "Brasil Com S", videoId: "yk7yVGbcpHE", startAt: 60 }, { name: "Narco", videoId: "Mf-aUJjSneo", startAt: 14 }] },
+  { name: "Diomedes Plata", number: 4, announcementAudioUrl: "/audio/Diomedes.mp3", songs: [{ name: "We LA (East LA Remix)", videoId: "l-eMsVOTCY4", startAt: 80 }, { name: "Con Calma", videoId: "8j_Y-5GZ_1U", startAt: 20 }, { name: "Mexico Mundial", videoId: "mDqvPTUuxGY", startAt: 0 }] },
   { name: "Max Camargo", number: 6, announcementAudioUrl: "/audio/Max.mp3", songs: [{ name: "Miss You", videoId: "2S5Ku0mVkzI", startAt: 0 }] },
   { name: "Alexa Franco", number: 7, announcementAudioUrl: "/audio/Alexa.mp3", songs: [{ name: "Batter Up", videoId: "olDWm2veCrM", startAt: 61 }] },
   { name: "Zeke Jacobo", number: 8, announcementAudioUrl: "/audio/Zeke.mp3", songs: [{ name: "Under Control", videoId: "cRYDSdXcT5o", startAt: 0 }] },
@@ -80,8 +83,8 @@ interface GameContextType {
   isAdmin: boolean;
   adminLogin: (password: string) => boolean;
   adminLogout: () => void;
-  savePlayer: (playerData: Omit<Player, 'id'>, id?: string) => Promise<void>;
-  deletePlayer: (id: string) => Promise<void>;
+  savePlayer: (playerData: Omit<Player, 'id'>, id?: string) => void;
+  deletePlayer: (id: string) => void;
 }
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -131,10 +134,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!db) return;
     const playersRef = collection(db, "players");
-    const q = query(playersRef, orderBy("number", "asc"));
     
     const unsubscribe = onSnapshot(playersRef, (snapshot) => {
       if (snapshot.empty) {
+        // Safe seeding: only triggers once if collection is empty
         INITIAL_ROSTER.forEach((p, idx) => {
           setDoc(doc(playersRef, `player_${idx + 1}`), p);
         });
@@ -199,19 +202,31 @@ export function GameProvider({ children }: { children: ReactNode }) {
       });
   };
 
-  const savePlayer = async (playerData: Omit<Player, 'id'>, id?: string) => {
+  const savePlayer = (playerData: Omit<Player, 'id'>, id?: string) => {
     if (!isAdmin || !db) return;
     resetAdminTimer();
     const playersRef = collection(db, "players");
     const docRef = id ? doc(playersRef, id) : doc(playersRef);
-    await setDoc(docRef, playerData, { merge: true });
+    // Non-blocking mutation pattern
+    setDoc(docRef, playerData, { merge: true })
+      .catch(async () => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: docRef.path, operation: 'write', requestResourceData: playerData
+        }));
+      });
   };
 
-  const deletePlayer = async (id: string) => {
+  const deletePlayer = (id: string) => {
     if (!isAdmin || !db) return;
     resetAdminTimer();
     const docRef = doc(db, "players", id);
-    await deleteDoc(docRef);
+    // Non-blocking mutation pattern
+    deleteDoc(docRef)
+      .catch(async () => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: docRef.path, operation: 'delete'
+        }));
+      });
   };
 
   const emailStats = () => {
