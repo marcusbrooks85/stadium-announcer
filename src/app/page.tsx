@@ -212,9 +212,15 @@ export default function StadiumBoothDashboard() {
             </div>
             
             <div className="flex items-center justify-center gap-1.5 md:gap-8 flex-1">
-               <Button variant="destructive" size="sm" onClick={stopEverything} className="h-8 md:h-12 px-3 md:px-8 font-black text-[9px] md:text-xs uppercase shadow-lg">
-                 <VolumeX className="h-3.5 w-3.5 md:h-4 md:w-4 md:mr-2" /> <span className="hidden xs:inline">STOP ALL</span>
-               </Button>
+              {/* Central space reserved for active track name or status */}
+              {activeTrackName && (
+                <div className="animate-in fade-in slide-in-from-top-2 duration-500">
+                  <Badge variant="secondary" className="font-black text-[9px] md:text-xs uppercase tracking-widest px-3 py-1">
+                    <Activity className="h-3 w-3 mr-2 animate-pulse text-primary" />
+                    {activeTrackName}
+                  </Badge>
+                </div>
+              )}
             </div>
 
             <div className="flex items-center gap-1 md:gap-3 shrink-0">
@@ -235,7 +241,7 @@ export default function StadiumBoothDashboard() {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button variant="outline" size="sm" onClick={handleFadeOut} className="h-8 md:h-9 border-primary/20 text-primary px-2 md:px-4 font-black text-[9px] md:text-xs uppercase shadow-sm">
-                    <ArrowDownWideNarrow className="h-3.5 w-3.5 md:mr-1.5" /> <span className="hidden sm:inline">Fade</span>
+                    <ArrowDownWideNarrow className="h-3.5 w-3.5 md:mr-1.5" /> <span>FADE</span>
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
@@ -246,7 +252,7 @@ export default function StadiumBoothDashboard() {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button variant="outline" size="sm" onClick={handleMute} className="h-8 md:h-9 border-destructive/20 text-destructive px-2 md:px-4 font-black text-[9px] md:text-xs uppercase shadow-sm">
-                    <VolumeX className="h-3.5 w-3.5 md:mr-1.5" /> <span className="hidden sm:inline">Mute</span>
+                    <VolumeX className="h-3.5 w-3.5 md:mr-1.5" /> <span>MUTE</span>
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
