@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState } from "react";
@@ -12,6 +11,7 @@ import {
   Trophy, 
   Shirt,
   Info,
+  Smartphone,
   ChevronRight
 } from "lucide-react";
 import {
@@ -20,27 +20,37 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogClose,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 /**
- * A global context-aware help system that explains Admin operations.
+ * A global context-aware help system that explains Admin operations and Installation.
  */
 export function HelpOverlay() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
 
   const getHelpContent = () => {
+    // Shared installation item for all pages
+    const installItem = {
+      icon: <Smartphone className="h-4 w-4 text-primary" />,
+      heading: "Install Web App",
+      text: "This app is NOT available in App Stores. To install: On iOS, tap 'Share' then 'Add to Home Screen'. On Android, tap the 'Install' button in the header or your browser menu."
+    };
+
+    let pageSpecific = { title: "", sections: [] as any[] };
+
     switch (pathname) {
       case "/booth":
-        return {
+        pageSpecific = {
           title: "Announcer Booth Guide",
           sections: [
             {
               icon: <ShieldCheck className="h-4 w-4 text-primary" />,
               heading: "Admin Operations",
-              text: "Click the 'ADMIN' button to log enable admin changes and management tools."
+              text: "Click the 'ADMIN' button to enable admin changes and management tools."
             },
             {
               icon: <Music className="h-4 w-4 text-secondary" />,
@@ -54,8 +64,9 @@ export function HelpOverlay() {
             }
           ]
         };
+        break;
       case "/stats":
-        return {
+        pageSpecific = {
           title: "Stats Center Guide",
           sections: [
             {
@@ -70,9 +81,10 @@ export function HelpOverlay() {
             }
           ]
         };
+        break;
       case "/":
       default:
-        return {
+        pageSpecific = {
           title: "Schedule & Logistics Guide",
           sections: [
             {
@@ -92,7 +104,14 @@ export function HelpOverlay() {
             }
           ]
         };
+        break;
     }
+
+    // Return combined content with Install instructions first
+    return {
+      title: pageSpecific.title,
+      sections: [installItem, ...pageSpecific.sections]
+    };
   };
 
   const content = getHelpContent();
@@ -134,10 +153,15 @@ export function HelpOverlay() {
             ))}
           </div>
 
-          <div className="mt-4 p-4 rounded-xl bg-primary/10 border border-primary/20">
-            <p className="text-[9px] font-black uppercase tracking-tighter text-primary text-center">
-              Tap outside or use 'X' to dismiss the guide
-            </p>
+          <div className="mt-8 flex justify-center">
+            <DialogClose asChild>
+              <Button 
+                variant="outline" 
+                className="w-full h-12 font-black uppercase tracking-[0.2em] border-primary/30 text-primary hover:bg-primary/10"
+              >
+                Dismiss Guide
+              </Button>
+            </DialogClose>
           </div>
         </ScrollArea>
       </DialogContent>
