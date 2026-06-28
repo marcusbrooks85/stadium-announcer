@@ -20,7 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { useGame, Player, Song } from "@/app/context/game-context";
-import { useStorage, useFirestore } from "@/firebase";
+import { useStorage, useFirestore, useFirebaseApp } from "@/firebase";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { collection, doc } from "firebase/firestore";
 import { 
@@ -46,6 +46,7 @@ export function AdminPanel() {
   const { roster, isAdmin, adminLogin, adminLogout, savePlayer, deletePlayer } = useGame();
   const storage = useStorage();
   const db = useFirestore();
+  const app = useFirebaseApp();
   const { toast } = useToast();
   
   const [showLoginFields, setShowLoginFields] = useState(false);
@@ -129,8 +130,8 @@ export function AdminPanel() {
   };
 
   const handleSave = async () => {
-    if (!db) {
-      toast({ variant: "destructive", title: "Sync Error", description: "Database connection not ready." });
+    if (!db || !storage) {
+      toast({ variant: "destructive", title: "Sync Error", description: "Storage or Database not ready." });
       return;
     }
 
@@ -138,6 +139,9 @@ export function AdminPanel() {
     setUploadProgress(0);
     
     try {
+      console.log("DIAGNOSTIC: Starting save operation...");
+      console.log("DIAGNOSTIC: Storage Bucket:", (storage as any).app?.options?.storageBucket);
+      
       let playerId = selectedPlayerId;
       if (playerId === "new") {
         playerId = doc(collection(db, "players")).id;
@@ -146,20 +150,11 @@ export function AdminPanel() {
       let audioUrl = formData.announcementAudioUrl;
 
       if (audioFile) {
-        if (!storage) {
-          console.error("DIAGNOSTIC: Storage instance is null.");
-          throw new Error("Cloud Storage not initialized.");
-        }
-        
         const fileName = `announcements/${playerId}.mp3`;
         const storageRef = ref(storage, fileName);
 
-        console.log("DIAGNOSTIC: Starting upload to:", fileName);
-        console.log("DIAGNOSTIC: File Object:", {
-          name: audioFile.name,
-          size: audioFile.size,
-          type: audioFile.type
-        });
+        console.log(`DIAGNOSTIC: Attempting upload to: ${fileName}`);
+        console.log("DIAGNOSTIC: File Details:", { name: audioFile.name, size: audioFile.size, type: audioFile.type });
 
         const uploadTask = uploadBytesResumable(storageRef, audioFile);
 
@@ -168,29 +163,23 @@ export function AdminPanel() {
             "state_changed",
             (snapshot) => {
               const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-              console.log(`DIAGNOSTIC: Upload progress: ${Math.round(progress)}% (${snapshot.state})`);
+              console.log(`DIAGNOSTIC: Progress: ${Math.round(progress)}% - State: ${snapshot.state}`);
               setUploadProgress(Math.round(progress));
             },
             (error: any) => {
-              console.error("DIAGNOSTIC: Upload error encountered!");
+              console.error("DIAGNOSTIC: UPLOAD FAILED!");
               console.error("DIAGNOSTIC: Error Code:", error.code);
               console.error("DIAGNOSTIC: Error Message:", error.message);
-              console.error("DIAGNOSTIC: Full Error:", error);
-              
-              const message = error.code === 'storage/unauthorized' 
-                ? "Permission Denied: Please check your Firebase Storage rules."
-                : `Audio upload failed: ${error.message}`;
-              
-              reject(new Error(message));
+              reject(error);
             },
             async () => {
               try {
                 const url = await getDownloadURL(uploadTask.snapshot.ref);
-                console.log("DIAGNOSTIC: Upload complete. Download URL retrieved.");
+                console.log("DIAGNOSTIC: Upload Successful. URL:", url);
                 resolve(url);
               } catch (e: any) {
-                console.error("DIAGNOSTIC: Error retrieving download URL:", e);
-                reject(new Error(`Failed to retrieve download link: ${e.message}`));
+                console.error("DIAGNOSTIC: Error getting download URL:", e);
+                reject(e);
               }
             }
           );
@@ -212,12 +201,12 @@ export function AdminPanel() {
       toast({ title: "Stadium Updated", description: `${formData.name} is ready for walk-on.` });
       setIsOpen(false);
     } catch (error: any) {
-      console.error("DIAGNOSTIC: handleSave catch block:", error);
-      toast({ 
-        variant: "destructive", 
-        title: "Update Failed", 
-        description: error.message || "Could not sync with stadium database." 
-      });
+      console.error("DIAGNOSTIC: Save Failed!", error);
+      const errorMsg = error.code === 'storage/unauthorized' 
+        ? "Permission Denied: Please check your Firebase Storage Rules."
+        : `Update failed: ${error.message}`;
+      
+      toast({ variant: "destructive", title: "Update Failed", description: errorMsg });
     } finally {
       setIsSaving(false);
       setUploadProgress(null);
