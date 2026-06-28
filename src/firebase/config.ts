@@ -6,7 +6,7 @@ export const firebaseConfig = {
   apiKey: "AIzaSyB-PLACEHOLDER",
   authDomain: "studio-8392544585-8fd34.firebaseapp.com",
   projectId: "studio-8392544585-8fd34",
-  storageBucket: "studio-8392544585-8fd34.appspot.com",
+  storageBucket: "studio-8392544585-8fd34.firebasestorage.app", // Updated to explicit bucket domain
   messagingSenderId: "PLACEHOLDER_SENDER_ID",
   appId: "PLACEHOLDER_APP_ID"
 };

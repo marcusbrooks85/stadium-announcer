@@ -135,6 +135,7 @@ export function AdminPanel() {
     }
 
     setIsSaving(true);
+    console.log("Save process initiated...");
     
     try {
       let playerId = selectedPlayerId;
@@ -145,21 +146,21 @@ export function AdminPanel() {
       let audioUrl = formData.announcementAudioUrl;
 
       if (audioFile) {
-        // Standardize path to /audio/ folder as requested
+        // Deterministic path: audio/{playerId}.mp3 ensures overwrite logic
         const fileName = `audio/${playerId}.mp3`;
         const storageRef = ref(storage, fileName);
 
+        console.log("Upload initiated for:", audioFile.name);
         console.log("Attempting upload to path:", storageRef.fullPath);
-        console.log("File details:", { name: audioFile.name, size: audioFile.size, type: audioFile.type });
 
-        // Using simple uploadBytes for stability as requested
+        // DIRECT UPLOAD METHOD: More stable for small audio files in development environments
         await uploadBytes(storageRef, audioFile);
         
-        console.log("Upload successful, fetching download URL...");
+        console.log("Upload complete! Fetching download URL...");
         const downloadUrl = await getDownloadURL(storageRef);
         
-        // Append a timestamp to the URL to force the browser to grab the latest version
-        audioUrl = `${downloadUrl}&t=${new Date().getTime()}`;
+        // Append a timestamp to the URL to force the browser to grab the latest version (Cache Busting)
+        audioUrl = `${downloadUrl}?t=${new Date().getTime()}`;
       }
 
       const playerToSave = {
@@ -361,7 +362,7 @@ export function AdminPanel() {
                 disabled={isSaving}
               >
                 {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-                {isSaving ? "Uploading file..." : (selectedPlayerId === "new" ? "Add Player" : "Save Changes")}
+                {isSaving ? "Processing..." : (selectedPlayerId === "new" ? "Add Player" : "Save Changes")}
               </Button>
               
               {selectedPlayerId !== "new" && (
