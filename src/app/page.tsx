@@ -90,6 +90,41 @@ export default function GameSchedulePage() {
     return { w, l };
   }, [gameStatuses]);
 
+  // Logic to find the current active game of the week for auto-scrolling
+  const activeGameId = useMemo(() => {
+    const now = new Date();
+    const convertTimeTo24h = (timeStr: string) => {
+      const [time, modifier] = timeStr.split(' ');
+      let [hours, minutes] = time.split(':').map(Number);
+      if (modifier === 'PM' && hours < 12) hours += 12;
+      if (modifier === 'AM' && hours === 12) hours = 0;
+      return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`;
+    };
+
+    const sorted = [...FULL_GAME_SCHEDULE].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    
+    const active = sorted.find(g => {
+      const gameStart = new Date(`${g.date}T${convertTimeTo24h(g.time)}`);
+      // Game is "active" if it's within 2 hours after start or in the future
+      return gameStart.getTime() + (2 * 60 * 60 * 1000) > now.getTime();
+    }) || sorted[sorted.length - 1];
+
+    return active.id;
+  }, []);
+
+  useEffect(() => {
+    if (activeGameId) {
+      // Small delay to ensure layout has stabilized before scrolling
+      const timer = setTimeout(() => {
+        const element = document.getElementById(activeGameId);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 800);
+      return () => clearTimeout(timer);
+    }
+  }, [activeGameId]);
+
   const handleUpdateStatus = async (gameId: string, type: 'W' | 'L' | 'C') => {
     if (!isAdmin || !db) return;
     const current = gameStatuses[gameId] || {};
@@ -232,11 +267,13 @@ export default function GameSchedulePage() {
               
               return (
                 <Card 
+                  id={game.id}
                   key={game.id} 
                   className={cn(
                     "transition-all duration-300 relative overflow-hidden",
                     isHome ? "bg-blue-950/40 border-blue-800/60" : "bg-slate-800/50 border-slate-700/60",
-                    isCancelled && "opacity-60 border-destructive/40"
+                    isCancelled && "opacity-60 border-destructive/40",
+                    activeGameId === game.id && "ring-2 ring-primary ring-offset-2 ring-offset-background"
                   )}
                 >
                   <div className="absolute top-2 right-2 z-20 flex flex-col items-end gap-2">
@@ -250,6 +287,7 @@ export default function GameSchedulePage() {
                       <div className="md:col-span-3 flex flex-col border-b md:border-b-0 md:border-r border-white/5 pb-4 md:pb-0 h-full">
                         <div className="flex items-center gap-2">
                           <Badge variant="outline" className="text-[10px] font-black uppercase">{game.notes || `Week ${game.week}`}</Badge>
+                          {activeGameId === game.id && <Badge className="bg-primary text-[8px] font-black uppercase">Active Week</Badge>}
                         </div>
                         <p className="mt-2 text-sm font-black uppercase tracking-wider text-white">
                           {new Date(game.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric' })}
@@ -278,13 +316,14 @@ export default function GameSchedulePage() {
                       </div>
 
                       <div className="md:col-span-4 flex flex-col space-y-4 h-full justify-center">
+                        {/* Team Names - Using whitespace-normal and no fixed width to allow container to adjust */}
                         <div className="flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-4 p-4 bg-black/30 rounded-xl border border-white/5">
-                          <div className="flex-1 text-center min-w-0">
+                          <div className="flex-1 text-center">
                             <p className="text-[8px] font-black uppercase text-muted-foreground mb-1">Away</p>
                             <p className={cn("text-xs font-bold whitespace-normal leading-tight", game.away === "Coach Chewy" ? "text-primary" : "text-white")}>{game.away}</p>
                           </div>
                           <span className="text-[8px] font-black text-muted-foreground shrink-0 py-1 px-2 bg-white/5 rounded-full">VS</span>
-                          <div className="flex-1 text-center min-w-0">
+                          <div className="flex-1 text-center">
                             <p className="text-[8px] font-black uppercase text-muted-foreground mb-1">Home</p>
                             <p className={cn("text-xs font-bold whitespace-normal leading-tight", game.home === "Coach Chewy" ? "text-primary" : "text-white")}>{game.home}</p>
                           </div>
