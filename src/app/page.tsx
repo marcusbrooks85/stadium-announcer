@@ -278,15 +278,15 @@ export default function GameSchedulePage() {
                       </div>
 
                       <div className="md:col-span-4 flex flex-col space-y-4 h-full justify-center">
-                        <div className="flex items-center justify-between gap-4 p-3 bg-black/30 rounded-xl border border-white/5">
-                          <div className="flex-1 text-center">
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-4 p-4 bg-black/30 rounded-xl border border-white/5">
+                          <div className="flex-1 text-center min-w-0">
                             <p className="text-[8px] font-black uppercase text-muted-foreground mb-1">Away</p>
-                            <p className={cn("text-xs font-bold truncate", game.away === "Coach Chewy" ? "text-primary" : "text-white")}>{game.away}</p>
+                            <p className={cn("text-xs font-bold whitespace-normal leading-tight", game.away === "Coach Chewy" ? "text-primary" : "text-white")}>{game.away}</p>
                           </div>
-                          <span className="text-[8px] font-black text-muted-foreground">VS</span>
-                          <div className="flex-1 text-center">
+                          <span className="text-[8px] font-black text-muted-foreground shrink-0 py-1 px-2 bg-white/5 rounded-full">VS</span>
+                          <div className="flex-1 text-center min-w-0">
                             <p className="text-[8px] font-black uppercase text-muted-foreground mb-1">Home</p>
-                            <p className={cn("text-xs font-bold truncate", game.home === "Coach Chewy" ? "text-primary" : "text-white")}>{game.home}</p>
+                            <p className={cn("text-xs font-bold whitespace-normal leading-tight", game.home === "Coach Chewy" ? "text-primary" : "text-white")}>{game.home}</p>
                           </div>
                         </div>
 
