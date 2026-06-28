@@ -20,8 +20,9 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { useGame, Player, Song } from "@/app/context/game-context";
-import { useStorage } from "@/firebase";
+import { useStorage, useFirestore } from "@/firebase";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
+import { collection, doc } from "firebase/firestore";
 import { 
   Settings, 
   Plus, 
@@ -44,6 +45,7 @@ import { cn } from "@/lib/utils";
 export function AdminPanel() {
   const { roster, isAdmin, adminLogin, adminLogout, savePlayer, deletePlayer } = useGame();
   const storage = useStorage();
+  const db = useFirestore();
   const { toast } = useToast();
   
   // State for Login UI
@@ -129,20 +131,36 @@ export function AdminPanel() {
   };
 
   const handleSave = async () => {
+    if (!db) {
+      toast({ variant: "destructive", title: "Sync Error", description: "Database connection not ready." });
+      return;
+    }
+
     setIsSaving(true);
-    setUploadProgress(0);
+    setUploadProgress(null);
     
     try {
+      // 1. Determine the stable ID for the player
+      let playerId = selectedPlayerId;
+      if (playerId === "new") {
+        // Pre-generate ID for consistent file naming (overwrite logic)
+        playerId = doc(collection(db, "players")).id;
+      }
+
       let audioUrl = formData.announcementAudioUrl;
 
-      if (audioFile && storage) {
-        const playerIdentifier = selectedPlayerId === "new" ? `player_${Date.now()}` : selectedPlayerId;
-        const fileName = `announcements/${playerIdentifier}.mp3`;
+      // 2. Handle File Upload (Smart Overwrite)
+      if (audioFile) {
+        if (!storage) throw new Error("Cloud Storage not initialized");
+        
+        // Use a stable path: announcements/{playerId}.mp3 
+        // This automatically overwrites existing files for that player in Firebase Storage
+        const fileName = `announcements/${playerId}.mp3`;
         const storageRef = ref(storage, fileName);
 
         const uploadTask = uploadBytesResumable(storageRef, audioFile);
 
-        const finalUrl = await new Promise<string>((resolve, reject) => {
+        audioUrl = await new Promise<string>((resolve, reject) => {
           uploadTask.on(
             "state_changed",
             (snapshot) => {
@@ -151,23 +169,24 @@ export function AdminPanel() {
             },
             (error) => {
               console.error("Upload error:", error);
-              reject(error);
+              reject(new Error(`Audio upload failed: ${error.message}`));
             },
             async () => {
               try {
                 const url = await getDownloadURL(uploadTask.snapshot.ref);
                 resolve(url);
-              } catch (e) {
-                reject(e);
+              } catch (e: any) {
+                reject(new Error(`Failed to retrieve download link: ${e.message}`));
               }
             }
           );
         });
-        audioUrl = finalUrl;
       }
 
+      // 3. Prepare Data for Firestore
       const playerToSave = {
-        ...formData,
+        name: formData.name,
+        number: formData.number,
         announcementAudioUrl: audioUrl,
         songs: formData.songs.map(s => ({
           name: s.name,
@@ -176,7 +195,8 @@ export function AdminPanel() {
         }))
       };
 
-      savePlayer(playerToSave, selectedPlayerId === "new" ? undefined : selectedPlayerId);
+      // 4. Update Database
+      savePlayer(playerToSave, playerId);
       toast({ title: "Stadium Updated", description: `${formData.name} is ready for walk-on.` });
       setIsOpen(false);
     } catch (error: any) {
@@ -371,7 +391,7 @@ export function AdminPanel() {
                 disabled={isSaving}
               >
                 {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-                {isSaving ? `Processing... ${uploadProgress !== null ? uploadProgress + '%' : ''}` : (selectedPlayerId === "new" ? "Add Player" : "Save Changes")}
+                {isSaving ? (uploadProgress !== null ? `Uploading: ${uploadProgress}%` : "Processing...") : (selectedPlayerId === "new" ? "Add Player" : "Save Changes")}
               </Button>
               
               {selectedPlayerId !== "new" && (
