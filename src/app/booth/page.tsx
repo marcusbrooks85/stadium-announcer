@@ -1,6 +1,7 @@
+
 "use client";
 
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { 
   Users, 
@@ -51,6 +52,7 @@ export default function StadiumBoothDashboard() {
   const [volume, setVolume] = useState(0.8);
   const [playerReady, setPlayerReady] = useState(false);
   const [currentAnnouncementUrl, setCurrentAnnouncementUrl] = useState<string | null>(null);
+  const [playbackSessionId, setPlaybackSessionId] = useState<number>(0);
   
   const announcementAudioRef = useRef<HTMLAudioElement | null>(null);
   const ytPlayerRef = useRef<any>(null);
@@ -121,14 +123,21 @@ export default function StadiumBoothDashboard() {
     }
   }, [volume, playerReady]);
 
-  const stopEverything = () => {
+  const stopEverything = useCallback(() => {
     if (fadeIntervalRef.current) { clearInterval(fadeIntervalRef.current); fadeIntervalRef.current = null; }
-    if (announcementAudioRef.current) announcementAudioRef.current.pause();
+    if (announcementAudioRef.current) {
+      announcementAudioRef.current.pause();
+      announcementAudioRef.current.currentTime = 0;
+    }
     setCurrentAnnouncementUrl(null);
-    if (ytPlayerRef.current && playerReady) { try { ytPlayerRef.current.stopVideo(); } catch (e) {} }
+    if (ytPlayerRef.current && playerReady) { 
+      try { 
+        ytPlayerRef.current.stopVideo(); 
+      } catch (e) {} 
+    }
     setActiveTrackName(null);
     setPlaybackPhase('idle');
-  };
+  }, [playerReady]);
 
   const handleFadeOut = () => {
     if (fadeIntervalRef.current) return;
@@ -166,19 +175,29 @@ export default function StadiumBoothDashboard() {
     }
   };
 
-  const triggerWalkonSequence = () => {
-    if (!activePlayer || playbackPhase === 'announcing') return;
+  const triggerWalkonSequence = (overridePlayer?: any, overrideIndex?: number) => {
+    const p = overridePlayer || activePlayer;
+    const idx = overrideIndex !== undefined ? overrideIndex : selectedSongIndex;
+    
+    if (!p) return;
+    
     stopEverything();
-    setVolume(0.8);
-    setPlaybackPhase('announcing');
     
-    if (selectedSongIndex === -1) {
-      setActiveTrackName("Player Announcement ONLY");
-    } else {
-      setActiveTrackName(`Announcing: ${activePlayer.name}`);
-    }
-    
-    setCurrentAnnouncementUrl(activePlayer.announcementAudioUrl);
+    // Slight delay to ensure React state for nulling the URL settles
+    setTimeout(() => {
+      setVolume(0.8);
+      setPlaybackPhase('announcing');
+      setPlaybackSessionId(Date.now());
+      
+      const targetSong = idx === -1 ? null : p.songs[idx];
+      if (idx === -1) {
+        setActiveTrackName("Player Announcement ONLY");
+      } else {
+        setActiveTrackName(`Announcing: ${p.name}`);
+      }
+      
+      setCurrentAnnouncementUrl(p.announcementAudioUrl);
+    }, 50);
   };
 
   const handleAnnouncementEnded = () => {
@@ -196,6 +215,7 @@ export default function StadiumBoothDashboard() {
       <div className="flex flex-col h-screen bg-background text-foreground stadium-gradient overflow-hidden">
         {currentAnnouncementUrl && (
           <audio
+            key={`${currentAnnouncementUrl}-${playbackSessionId}`}
             ref={announcementAudioRef}
             src={currentAnnouncementUrl}
             autoPlay
@@ -225,7 +245,7 @@ export default function StadiumBoothDashboard() {
 
             <div className="flex items-center gap-1 md:gap-3 shrink-0">
               <Link href="/stats"><Button variant="ghost" size="icon" className="h-8 w-8 text-primary hover:text-primary/80"><BarChart3 className="h-4 w-4" /></Button></Link>
-              <Link href="/"><Button variant="ghost" size="icon" className="h-8 w-8 text-primary hover:text-primary/80"><Calendar className="h-4 w-4" /></Button></Link>
+              <Link href="/"><Button variant="ghost" size="icon" className="h-8 w-8 text-primary hover:text-primary/80"><Home className="h-4 w-4" /></Button></Link>
               <AdminPanel />
             </div>
           </div>
@@ -320,7 +340,7 @@ export default function StadiumBoothDashboard() {
                           <Button
                             variant={selectedSongIndex === -1 ? "default" : "outline"}
                             size="sm"
-                            onClick={() => setSelectedSongIndex(-1)}
+                            onClick={() => { setSelectedSongIndex(-1); triggerWalkonSequence(activePlayer, -1); }}
                             className={cn("h-9 md:h-10 text-[8px] md:text-[9px] uppercase font-black", selectedSongIndex === -1 && "bg-secondary text-secondary-foreground")}
                           >
                             NO TRACK
@@ -328,7 +348,7 @@ export default function StadiumBoothDashboard() {
                           {activePlayer.songs.map((song, idx) => (
                             <Button
                               key={idx} variant={selectedSongIndex === idx ? "default" : "outline"} size="sm"
-                              onClick={() => setSelectedSongIndex(idx)}
+                              onClick={() => { setSelectedSongIndex(idx); triggerWalkonSequence(activePlayer, idx); }}
                               className={cn("h-9 md:h-10 text-[8px] md:text-[9px] uppercase font-black", selectedSongIndex === idx && "bg-secondary text-secondary-foreground")}
                             >Track #{idx + 1}</Button>
                           ))}
@@ -345,7 +365,7 @@ export default function StadiumBoothDashboard() {
                     
                     <Button 
                       disabled={!activePlayer || playbackPhase === 'announcing'} 
-                      onClick={triggerWalkonSequence} 
+                      onClick={() => triggerWalkonSequence()} 
                       className="w-full h-14 md:h-16 text-sm md:text-base font-black bg-primary"
                     >
                       {playbackPhase === 'announcing' ? <Activity className="animate-pulse mr-2" /> : <Zap className="mr-2 fill-white" />}
@@ -389,3 +409,4 @@ export default function StadiumBoothDashboard() {
     </TooltipProvider>
   );
 }
+

@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -70,13 +71,17 @@ export function AdminPanel() {
   const [isOpen, setIsOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   
-  // Form States
+  // Form States - Initialize with explicit unique objects to prevent mirroring
   const [selectedPlayerId, setSelectedPlayerId] = useState<string>("new");
   const [playerForm, setPlayerForm] = useState({
     name: "",
     number: 0,
     announcementAudioUrl: "",
-    songs: Array.from({ length: 3 }, () => ({ name: "", videoId: "", startAt: 0 }))
+    songs: [
+      { name: "", videoId: "", startAt: 0 },
+      { name: "", videoId: "", startAt: 0 },
+      { name: "", videoId: "", startAt: 0 }
+    ]
   });
   const [audioFile, setAudioFile] = useState<File | null>(null);
 
@@ -89,13 +94,18 @@ export function AdminPanel() {
           name: "", 
           number: 0, 
           announcementAudioUrl: "", 
-          songs: Array.from({ length: 3 }, () => ({ name: "", videoId: "", startAt: 0 })) 
+          songs: [
+            { name: "", videoId: "", startAt: 0 },
+            { name: "", videoId: "", startAt: 0 },
+            { name: "", videoId: "", startAt: 0 }
+          ]
         });
       } else {
         const p = roster.find(player => player.id === selectedPlayerId);
         if (p) {
-          const existingSongs = p.songs.map(s => ({ ...s }));
-          const padding = Array.from({ length: Math.max(0, 3 - existingSongs.length) }, () => ({ name: "", videoId: "", startAt: 0 }));
+          const existingSongs = (p.songs || []).map(s => ({ ...s }));
+          const paddingCount = Math.max(0, 3 - existingSongs.length);
+          const padding = Array.from({ length: paddingCount }, () => ({ name: "", videoId: "", startAt: 0 }));
           setPlayerForm({ 
             name: p.name, 
             number: p.number, 
@@ -120,6 +130,7 @@ export function AdminPanel() {
   };
 
   const parseYoutubeId = (url: string) => {
+    if (!url) return "";
     const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
     const match = url.match(regExp);
     return (match && match[2].length === 11) ? match[2] : url;
@@ -144,7 +155,11 @@ export function AdminPanel() {
         announcementAudioUrl: audioUrl,
         songs: playerForm.songs
           .filter(s => s.name || s.videoId)
-          .map(s => ({ name: s.name, videoId: parseYoutubeId(s.videoId), startAt: Number(s.startAt) || 0 }))
+          .map(s => ({ 
+            name: s.name, 
+            videoId: parseYoutubeId(s.videoId), 
+            startAt: Number(s.startAt) || 0 
+          }))
       };
 
       savePlayer(data, playerId);
@@ -165,6 +180,19 @@ export function AdminPanel() {
     });
     setSongForm({ title: "", link: "", startTime: 0 });
     toast({ title: "Track Added to Stadium" });
+  };
+
+  const updateTrackField = (idx: number, field: 'name' | 'videoId' | 'startAt', value: string) => {
+    const nextSongs = playerForm.songs.map((song, i) => {
+      if (i === idx) {
+        return {
+          ...song,
+          [field]: field === 'startAt' ? (parseInt(value) || 0) : value
+        };
+      }
+      return song;
+    });
+    setPlayerForm({ ...playerForm, songs: nextSongs });
   };
 
   if (!isAdmin) {
@@ -285,21 +313,25 @@ export function AdminPanel() {
                   </Label>
                   {playerForm.songs.map((song, idx) => (
                     <div key={idx} className="grid grid-cols-12 gap-2 p-3 bg-black/20 rounded-lg border border-white/5">
-                      <Input className="col-span-4 h-9 text-[10px] font-bold" placeholder="Track Name" value={song.name} onChange={e => {
-                        const next = [...playerForm.songs];
-                        next[idx] = { ...next[idx], name: e.target.value };
-                        setPlayerForm({...playerForm, songs: next});
-                      }} />
-                      <Input className="col-span-5 h-9 text-[10px] font-bold" placeholder="YouTube URL/ID" value={song.videoId} onChange={e => {
-                        const next = [...playerForm.songs];
-                        next[idx] = { ...next[idx], videoId: e.target.value };
-                        setPlayerForm({...playerForm, songs: next});
-                      }} />
-                      <Input className="col-span-3 h-9 text-[10px] font-bold" placeholder="Start (s)" type="number" value={song.startAt || ""} onChange={e => {
-                        const next = [...playerForm.songs];
-                        next[idx] = { ...next[idx], startAt: parseInt(e.target.value) || 0 };
-                        setPlayerForm({...playerForm, songs: next});
-                      }} />
+                      <Input 
+                        className="col-span-4 h-9 text-[10px] font-bold" 
+                        placeholder="Track Name" 
+                        value={song.name} 
+                        onChange={e => updateTrackField(idx, 'name', e.target.value)} 
+                      />
+                      <Input 
+                        className="col-span-5 h-9 text-[10px] font-bold" 
+                        placeholder="YouTube URL/ID" 
+                        value={song.videoId} 
+                        onChange={e => updateTrackField(idx, 'videoId', e.target.value)} 
+                      />
+                      <Input 
+                        className="col-span-3 h-9 text-[10px] font-bold" 
+                        placeholder="Start (s)" 
+                        type="number" 
+                        value={song.startAt || ""} 
+                        onChange={e => updateTrackField(idx, 'startAt', e.target.value)} 
+                      />
                     </div>
                   ))}
                 </div>
