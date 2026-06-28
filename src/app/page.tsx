@@ -236,13 +236,13 @@ export default function GameSchedulePage() {
             )}
           </div>
           <div className="flex justify-center sm:justify-start gap-2 md:gap-4">
-            <div className="bg-primary/10 border border-primary/20 px-4 py-2 md:px-6 md:py-3 rounded-xl md:rounded-2xl flex flex-col items-center min-w-[70px] md:min-w-[100px] shadow-lg shadow-primary/5 relative">
-              <span className="text-[7px] md:text-[10px] font-black uppercase tracking-widest text-primary mb-0.5 md:mb-1">Wins</span>
-              <span className="text-xl md:text-3xl font-black digit-font text-primary">{record.w}</span>
+            <div className="bg-primary/10 border border-primary/20 px-3 py-1.5 md:px-6 md:py-3 rounded-xl md:rounded-2xl flex flex-col items-center min-w-[60px] md:min-w-[100px] shadow-lg shadow-primary/5 relative">
+              <span className="text-[6px] md:text-[10px] font-black uppercase tracking-widest text-primary mb-0.5 md:mb-1">Wins</span>
+              <span className="text-lg md:text-3xl font-black digit-font text-primary">{record.w}</span>
             </div>
-            <div className="bg-destructive/10 border border-destructive/20 px-4 py-2 md:px-6 md:py-3 rounded-xl md:rounded-2xl flex flex-col items-center min-w-[70px] md:min-w-[100px] shadow-lg shadow-destructive/5 relative">
-              <span className="text-[7px] md:text-[10px] font-black uppercase tracking-widest text-destructive mb-0.5 md:mb-1">Losses</span>
-              <span className="text-xl md:text-3xl font-black digit-font text-destructive">{record.l}</span>
+            <div className="bg-destructive/10 border border-destructive/20 px-3 py-1.5 md:px-6 md:py-3 rounded-xl md:rounded-2xl flex flex-col items-center min-w-[60px] md:min-w-[100px] shadow-lg shadow-destructive/5 relative">
+              <span className="text-[6px] md:text-[10px] font-black uppercase tracking-widest text-destructive mb-0.5 md:mb-1">Losses</span>
+              <span className="text-lg md:text-3xl font-black digit-font text-destructive">{record.l}</span>
             </div>
           </div>
         </section>
@@ -297,55 +297,61 @@ export default function GameSchedulePage() {
                         </div>
                       </div>
 
-                      <div className="md:col-span-2 flex flex-col items-center justify-center space-y-2 border-b md:border-b-0 md:border-r border-white/5 pb-4 md:pb-0 h-full">
-                        <span className="text-[8px] font-black uppercase tracking-[0.3em] text-muted-foreground">Jersey</span>
-                        <div className="relative w-12 h-12 md:w-16 md:h-16">
-                          <Image 
-                            src={isHome ? "/Blue_Jersey.png" : "/Grey_Jersey.png"} 
-                            alt={isHome ? "Home Jersey" : "Away Jersey"}
-                            fill
-                            className="object-contain"
-                          />
-                        </div>
-                        <span className={cn("text-[9px] font-black uppercase", isHome ? "text-primary" : "text-muted-foreground")}>
-                          {isHome ? "Home Blue" : "Away Grey"}
-                        </span>
-                      </div>
-
-                      <div className="md:col-span-4 flex flex-col space-y-4 h-full justify-center">
-                        <div className="flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-4 p-4 bg-black/30 rounded-xl border border-white/5">
-                          <div className="flex-1 text-center">
-                            <p className="text-[8px] font-black uppercase text-muted-foreground mb-1">Away</p>
-                            <p className={cn("text-xs font-bold whitespace-normal leading-tight", game.away === "Coach Chewy" ? "text-primary" : "text-white")}>{game.away}</p>
+                      {/* Jersey & Teams Section (Inline for Mobile) */}
+                      <div className="md:col-span-6 flex flex-row items-center gap-4 md:grid md:grid-cols-6 md:gap-6 border-b md:border-b-0 md:border-r border-white/5 pb-4 md:pb-0 h-full">
+                        
+                        {/* Jersey Indicator */}
+                        <div className="flex flex-col items-center justify-center space-y-1 md:space-y-2 md:col-span-2 min-w-[70px] md:min-w-0">
+                          <span className="text-[8px] font-black uppercase tracking-[0.3em] text-muted-foreground">Jersey</span>
+                          <div className="relative w-10 h-10 md:w-16 md:h-16">
+                            <Image 
+                              src={isHome ? "/Blue_Jersey.png" : "/Grey_Jersey.png"} 
+                              alt={isHome ? "Home Jersey" : "Away Jersey"}
+                              fill
+                              className="object-contain"
+                            />
                           </div>
-                          <span className="text-[8px] font-black text-muted-foreground shrink-0 py-1 px-2 bg-white/5 rounded-full">VS</span>
-                          <div className="flex-1 text-center">
-                            <p className="text-[8px] font-black uppercase text-muted-foreground mb-1">Home</p>
-                            <p className={cn("text-xs font-bold whitespace-normal leading-tight", game.home === "Coach Chewy" ? "text-primary" : "text-white")}>{game.home}</p>
-                          </div>
+                          <span className={cn("text-[9px] font-black uppercase", isHome ? "text-primary" : "text-muted-foreground")}>
+                            {isHome ? "Home" : "Away"}
+                          </span>
                         </div>
 
-                        <div className="flex flex-col space-y-1.5">
-                          <span className="text-[8px] font-black uppercase tracking-widest text-muted-foreground ml-1">Snack Assignment</span>
-                          {isAdmin ? (
-                            <Select 
-                              value={statusData.snackPlayerId || ""} 
-                              onValueChange={(val) => handleUpdateSnack(game.id, val)}
-                            >
-                              <SelectTrigger className="h-9 bg-background/50 border-white/10 text-[10px] font-bold">
-                                <SelectValue placeholder="Assign Player..." />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {roster.map(p => (
-                                  <SelectItem key={p.id} value={p.id} className="text-xs font-bold">#{p.number} - {p.name}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          ) : (
-                            <div className="flex items-center gap-2 text-[10px] font-black uppercase text-secondary bg-secondary/10 px-3 py-1.5 rounded-lg border border-secondary/20 w-max">
-                              SNACK - {snackPlayer ? snackPlayer.name : "TBD"}
+                        {/* Home vs Away Section */}
+                        <div className="flex-1 md:col-span-4 flex flex-col space-y-2 md:space-y-4 justify-center">
+                          <div className="flex flex-row items-center justify-between gap-2 p-2 md:p-4 bg-black/30 rounded-xl border border-white/5">
+                            <div className="flex-1 text-center">
+                              <p className="text-[7px] md:text-[8px] font-black uppercase text-muted-foreground mb-0.5 md:mb-1">Away</p>
+                              <p className={cn("text-[10px] md:text-xs font-bold whitespace-normal leading-tight", game.away === "Coach Chewy" ? "text-primary" : "text-white")}>{game.away}</p>
                             </div>
-                          )}
+                            <span className="text-[7px] md:text-[8px] font-black text-muted-foreground shrink-0 py-0.5 px-1.5 md:py-1 md:px-2 bg-white/5 rounded-full">VS</span>
+                            <div className="flex-1 text-center">
+                              <p className="text-[7px] md:text-[8px] font-black uppercase text-muted-foreground mb-0.5 md:mb-1">Home</p>
+                              <p className={cn("text-[10px] md:text-xs font-bold whitespace-normal leading-tight", game.home === "Coach Chewy" ? "text-primary" : "text-white")}>{game.home}</p>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-col space-y-1">
+                            <span className="text-[8px] font-black uppercase tracking-widest text-muted-foreground ml-1">Snack Assignment</span>
+                            {isAdmin ? (
+                              <Select 
+                                value={statusData.snackPlayerId || ""} 
+                                onValueChange={(val) => handleUpdateSnack(game.id, val)}
+                              >
+                                <SelectTrigger className="h-8 md:h-9 bg-background/50 border-white/10 text-[9px] md:text-[10px] font-bold">
+                                  <SelectValue placeholder="Assign Player..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {roster.map(p => (
+                                    <SelectItem key={p.id} value={p.id} className="text-xs font-bold">#{p.number} - {p.name}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              <div className="flex items-center gap-2 text-[9px] md:text-[10px] font-black uppercase text-secondary bg-secondary/10 px-2 md:px-3 py-1 md:py-1.5 rounded-lg border border-secondary/20 w-max">
+                                SNACK - {snackPlayer ? snackPlayer.name : "TBD"}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
 
