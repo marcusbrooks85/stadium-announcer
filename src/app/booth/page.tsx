@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
@@ -340,7 +339,7 @@ export default function StadiumBoothDashboard() {
                           <Button
                             variant={selectedSongIndex === -1 ? "default" : "outline"}
                             size="sm"
-                            onClick={() => { setSelectedSongIndex(-1); triggerWalkonSequence(activePlayer, -1); }}
+                            onClick={() => setSelectedSongIndex(-1)}
                             className={cn("h-9 md:h-10 text-[8px] md:text-[9px] uppercase font-black", selectedSongIndex === -1 && "bg-secondary text-secondary-foreground")}
                           >
                             NO TRACK
@@ -348,7 +347,7 @@ export default function StadiumBoothDashboard() {
                           {activePlayer.songs.map((song, idx) => (
                             <Button
                               key={idx} variant={selectedSongIndex === idx ? "default" : "outline"} size="sm"
-                              onClick={() => { setSelectedSongIndex(idx); triggerWalkonSequence(activePlayer, idx); }}
+                              onClick={() => setSelectedSongIndex(idx)}
                               className={cn("h-9 md:h-10 text-[8px] md:text-[9px] uppercase font-black", selectedSongIndex === idx && "bg-secondary text-secondary-foreground")}
                             >Track #{idx + 1}</Button>
                           ))}
@@ -409,4 +408,3 @@ export default function StadiumBoothDashboard() {
     </TooltipProvider>
   );
 }
-
