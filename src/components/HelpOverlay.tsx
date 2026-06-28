@@ -13,6 +13,7 @@ import {
   Info,
   Smartphone,
   Apple,
+  Lock,
   ChevronRight
 } from "lucide-react";
 import {
@@ -70,7 +71,7 @@ export function HelpOverlay() {
           sections: [
             {
               icon: <ShieldCheck className="h-4 w-4 text-primary" />,
-              heading: "Admin Operations",
+              heading: "ADMIN ENABLED",
               text: "Click the 'ADMIN' button to enable admin changes and management tools."
             },
             {
@@ -109,19 +110,27 @@ export function HelpOverlay() {
           title: "Schedule & Logistics Guide",
           sections: [
             {
-              icon: <Utensils className="h-4 w-4 text-secondary" />,
-              heading: "Snack Duty Management",
-              text: "Admins can use the live dropdown on each game card to assign a specific player for snack duty."
-            },
-            {
               icon: <Shirt className="h-4 w-4 text-primary" />,
               heading: "Jersey Indicators",
               text: "The BLUE jersey indicates a HOME game. The GREY jersey indicates an AWAY game."
             },
             {
+              icon: <Utensils className="h-4 w-4 text-secondary" />,
+              heading: (
+                <span className="flex items-center gap-1.5">
+                  Snack Duty (ADMIN <Lock className="h-3 w-3 inline" />)
+                </span>
+              ),
+              text: "Admins can use the live dropdown on each game card to assign a specific player for snack duty."
+            },
+            {
               icon: <Trophy className="h-4 w-4 text-accent" />,
-              heading: "Manual Game Status",
-              text: "Use W (Win), L (Loss), or C (Canceled) buttons to log game results. These toggle on and off when clicked."
+              heading: (
+                <span className="flex items-center gap-1.5">
+                  Game Status (ADMIN <Lock className="h-3 w-3 inline" />)
+                </span>
+              ),
+              text: "Access the Admin to track game results. Click to toggle on an off W (Win), L (Loss), or C (Canceled) buttons."
             }
           ]
         };
