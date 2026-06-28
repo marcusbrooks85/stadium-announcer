@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo } from "react";
@@ -118,7 +117,7 @@ export default function StadiumBoothDashboard() {
               toast({
                 variant: "destructive",
                 title: "Playback Restricted",
-                description: "The owner of this track has restricted embedding. Try a different version (Topic/Lyric) in the Admin Panel.",
+                description: "The owner of this track has restricted embedding. Try a Topic or Lyric version.",
               });
             }
           }
