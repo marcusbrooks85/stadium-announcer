@@ -128,6 +128,7 @@ export function AdminPanel() {
   };
 
   const handleSave = async () => {
+    if (typeof window === 'undefined') return;
     if (!db || !storage) {
       toast({ variant: "destructive", title: "Sync Error", description: "Storage or Database not ready." });
       return;
@@ -144,19 +145,20 @@ export function AdminPanel() {
       let audioUrl = formData.announcementAudioUrl;
 
       if (audioFile) {
-        const fileName = `announcements/${playerId}.mp3`;
+        // Standardize path to /audio/ folder as requested
+        const fileName = `audio/${playerId}.mp3`;
         const storageRef = ref(storage, fileName);
 
-        // Implementation of 15s timeout
-        const uploadPromise = uploadBytes(storageRef, audioFile);
-        const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Upload timed out. Please check your connection.')), 15000)
-        );
+        console.log("Attempting upload to path:", storageRef.fullPath);
+        console.log("File details:", { name: audioFile.name, size: audioFile.size, type: audioFile.type });
 
-        await Promise.race([uploadPromise, timeoutPromise]);
+        // Using simple uploadBytes for stability as requested
+        await uploadBytes(storageRef, audioFile);
         
+        console.log("Upload successful, fetching download URL...");
         const downloadUrl = await getDownloadURL(storageRef);
-        // Force browser to grab the latest version with timestamp
+        
+        // Append a timestamp to the URL to force the browser to grab the latest version
         audioUrl = `${downloadUrl}&t=${new Date().getTime()}`;
       }
 
@@ -175,11 +177,11 @@ export function AdminPanel() {
       toast({ title: "Stadium Updated", description: `${formData.name} is ready for walk-on.` });
       setIsOpen(false);
     } catch (error: any) {
-      console.error("DIAGNOSTIC: Save Failed!", error);
+      console.error("Firebase Storage Error Details:", error);
       toast({ 
         variant: "destructive", 
         title: "Update Failed", 
-        description: error.message || "Could not save player details." 
+        description: error.message || "Could not save player details. Check console for details." 
       });
     } finally {
       setIsSaving(false);
