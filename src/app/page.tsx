@@ -90,7 +90,6 @@ export default function GameSchedulePage() {
     return { w, l };
   }, [gameStatuses]);
 
-  // Logic to find the current active game of the week for auto-scrolling
   const activeGameId = useMemo(() => {
     const now = new Date();
     const convertTimeTo24h = (timeStr: string) => {
@@ -105,7 +104,6 @@ export default function GameSchedulePage() {
     
     const active = sorted.find(g => {
       const gameStart = new Date(`${g.date}T${convertTimeTo24h(g.time)}`);
-      // Game is "active" if it's within 2 hours after start or in the future
       return gameStart.getTime() + (2 * 60 * 60 * 1000) > now.getTime();
     }) || sorted[sorted.length - 1];
 
@@ -114,11 +112,10 @@ export default function GameSchedulePage() {
 
   useEffect(() => {
     if (activeGameId) {
-      // Small delay to ensure layout has stabilized before scrolling
       const timer = setTimeout(() => {
         const element = document.getElementById(activeGameId);
         if (element) {
-          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          element.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
       }, 800);
       return () => clearTimeout(timer);
@@ -221,31 +218,31 @@ export default function GameSchedulePage() {
       </header>
 
       <main className="flex-1 p-4 md:p-8 max-w-5xl mx-auto w-full space-y-6 pb-40">
-        <section className="sticky top-[88px] z-40 bg-background/95 backdrop-blur-md py-4 border-b border-white/5 space-y-4">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-            <div className="flex items-center gap-3 w-full sm:w-auto justify-center sm:justify-start">
-              <Trophy className="h-5 w-5 text-yellow-500" />
-              <h2 className="text-base font-black uppercase tracking-widest text-primary">Season Standings</h2>
+        <section className="sticky top-[69px] md:top-[88px] z-40 bg-background/95 backdrop-blur-md py-3 md:py-4 border-b border-white/5 space-y-2 md:space-y-4">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
+            <div className="flex items-center gap-2 w-full sm:w-auto justify-center sm:justify-start">
+              <Trophy className="h-4 w-4 md:h-5 md:w-5 text-yellow-500" />
+              <h2 className="text-xs md:text-base font-black uppercase tracking-widest text-primary">Season Standings</h2>
             </div>
             {isAdmin && (
               <Button 
                 variant="outline" 
                 size="sm" 
                 onClick={handleResetSeason}
-                className="h-8 border-destructive/20 text-destructive hover:bg-destructive/10 font-black uppercase text-[10px] tracking-widest gap-2 mx-auto sm:mx-0"
+                className="h-7 md:h-8 border-destructive/20 text-destructive hover:bg-destructive/10 font-black uppercase text-[8px] md:text-[10px] tracking-widest gap-2 mx-auto sm:mx-0"
               >
-                <RotateCcw className="h-3 w-3" /> Reset Season
+                <RotateCcw className="h-2.5 w-2.5 md:h-3 md:w-3" /> Reset Season
               </Button>
             )}
           </div>
-          <div className="flex justify-center sm:justify-start gap-4">
-            <div className="bg-primary/10 border border-primary/20 px-6 py-3 rounded-2xl flex flex-col items-center min-w-[100px] shadow-lg shadow-primary/5 relative">
-              <span className="text-[10px] font-black uppercase tracking-widest text-primary mb-1">Wins</span>
-              <span className="text-3xl font-black digit-font text-primary">{record.w}</span>
+          <div className="flex justify-center sm:justify-start gap-2 md:gap-4">
+            <div className="bg-primary/10 border border-primary/20 px-4 py-2 md:px-6 md:py-3 rounded-xl md:rounded-2xl flex flex-col items-center min-w-[70px] md:min-w-[100px] shadow-lg shadow-primary/5 relative">
+              <span className="text-[7px] md:text-[10px] font-black uppercase tracking-widest text-primary mb-0.5 md:mb-1">Wins</span>
+              <span className="text-xl md:text-3xl font-black digit-font text-primary">{record.w}</span>
             </div>
-            <div className="bg-destructive/10 border border-destructive/20 px-6 py-3 rounded-2xl flex flex-col items-center min-w-[100px] shadow-lg shadow-destructive/5 relative">
-              <span className="text-[10px] font-black uppercase tracking-widest text-destructive mb-1">Losses</span>
-              <span className="text-3xl font-black digit-font text-destructive">{record.l}</span>
+            <div className="bg-destructive/10 border border-destructive/20 px-4 py-2 md:px-6 md:py-3 rounded-xl md:rounded-2xl flex flex-col items-center min-w-[70px] md:min-w-[100px] shadow-lg shadow-destructive/5 relative">
+              <span className="text-[7px] md:text-[10px] font-black uppercase tracking-widest text-destructive mb-0.5 md:mb-1">Losses</span>
+              <span className="text-xl md:text-3xl font-black digit-font text-destructive">{record.l}</span>
             </div>
           </div>
         </section>
@@ -270,7 +267,7 @@ export default function GameSchedulePage() {
                   id={game.id}
                   key={game.id} 
                   className={cn(
-                    "transition-all duration-300 relative overflow-hidden",
+                    "transition-all duration-300 relative overflow-hidden scroll-mt-[160px] md:scroll-mt-[220px]",
                     isHome ? "bg-blue-950/40 border-blue-800/60" : "bg-slate-800/50 border-slate-700/60",
                     isCancelled && "opacity-60 border-destructive/40",
                     activeGameId === game.id && "ring-2 ring-primary ring-offset-2 ring-offset-background"
@@ -316,7 +313,6 @@ export default function GameSchedulePage() {
                       </div>
 
                       <div className="md:col-span-4 flex flex-col space-y-4 h-full justify-center">
-                        {/* Team Names - Using whitespace-normal and no fixed width to allow container to adjust */}
                         <div className="flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-4 p-4 bg-black/30 rounded-xl border border-white/5">
                           <div className="flex-1 text-center">
                             <p className="text-[8px] font-black uppercase text-muted-foreground mb-1">Away</p>
