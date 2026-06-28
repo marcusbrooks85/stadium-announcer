@@ -16,7 +16,7 @@ import {
   Ban,
   ShieldCheck,
   XCircle,
-  UtensilsCrossed
+  RotateCcw
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -30,20 +30,22 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { useFirestore } from "@/firebase";
-import { doc, setDoc, onSnapshot, collection } from "firebase/firestore";
+import { doc, setDoc, onSnapshot, collection, deleteDoc } from "firebase/firestore";
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { useGame, FULL_GAME_SCHEDULE } from "@/app/context/game-context";
 import { AdminPanel } from "@/components/AdminPanel";
+import { useToast } from "@/hooks/use-toast";
 
 interface GameStatus {
-  won?: boolean;
+  won?: boolean | null;
   cancelled?: boolean;
   snackPlayerId?: string;
 }
 
 export default function GameSchedulePage() {
   const db = useFirestore();
+  const { toast } = useToast();
   const { isAdmin, roster } = useGame();
   const [gameStatuses, setGameStatuses] = useState<Record<string, GameStatus>>({});
 
@@ -58,7 +60,7 @@ export default function GameSchedulePage() {
         snapshot.forEach((doc) => {
           const data = doc.data();
           statuses[doc.id] = {
-            won: data.won, // Use raw value, not fallback to false
+            won: data.won,
             cancelled: data.cancelled || false,
             snackPlayerId: data.snackPlayerId || ""
           };
@@ -83,18 +85,62 @@ export default function GameSchedulePage() {
     Object.values(gameStatuses).forEach((status) => {
       if (status.cancelled) return;
       if (status.won === true) w++;
-      else if (status.won === false) l++; // Only count explicit manual losses
+      else if (status.won === false) l++; 
     });
     return { w, l };
   }, [gameStatuses]);
 
-  const handleUpdateStatus = async (gameId: string, updates: Partial<GameStatus>) => {
+  const handleUpdateStatus = async (gameId: string, type: 'W' | 'L' | 'C') => {
     if (!isAdmin || !db) return;
+    const current = gameStatuses[gameId] || {};
     const docRef = doc(db, "game_wins", gameId);
-    setDoc(docRef, { 
-      ...updates,
-      updatedAt: new Date().toISOString() 
-    }, { merge: true });
+    
+    let updates: any = { updatedAt: new Date().toISOString() };
+    
+    if (type === 'W') {
+      // Toggle Win: if already Won, set to neutral (null), else set to Won
+      updates.won = current.won === true ? null : true;
+      updates.cancelled = false;
+    } else if (type === 'L') {
+      // Toggle Loss: if already Loss, set to neutral (null), else set to Loss
+      updates.won = current.won === false ? null : false;
+      updates.cancelled = false;
+    } else if (type === 'C') {
+      // Toggle Cancelled: if already cancelled, set to false, else set to true
+      updates.cancelled = !current.cancelled;
+      // If cancelling, we clear the W/L status
+      if (updates.cancelled) updates.won = null;
+    }
+
+    setDoc(docRef, updates, { merge: true }).catch(async (e) => {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: docRef.path,
+        operation: 'write',
+        requestResourceData: updates
+      }));
+    });
+  };
+
+  const handleResetSeason = async () => {
+    if (!isAdmin || !db || !confirm("Are you sure you want to reset all game results and standings? This cannot be undone.")) return;
+    
+    const promises = Object.keys(gameStatuses).map(gameId => 
+      deleteDoc(doc(db, "game_wins", gameId))
+    );
+    
+    try {
+      await Promise.all(promises);
+      toast({
+        title: "Season Reset",
+        description: "All game records and standings have been cleared.",
+      });
+    } catch (e) {
+      toast({
+        variant: "destructive",
+        title: "Reset Failed",
+        description: "Could not clear all records. Please try again.",
+      });
+    }
   };
 
   const handleUpdateSnack = async (gameId: string, playerId: string) => {
@@ -150,9 +196,21 @@ export default function GameSchedulePage() {
 
       <main className="flex-1 p-4 md:p-8 max-w-5xl mx-auto w-full space-y-6 pb-40">
         <section className="sticky top-[88px] z-40 bg-background/95 backdrop-blur-md py-4 border-b border-white/5 space-y-4">
-          <div className="flex items-center gap-3">
-            <Trophy className="h-5 w-5 text-yellow-500" />
-            <h2 className="text-base font-black uppercase tracking-widest text-primary">Season Standings</h2>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Trophy className="h-5 w-5 text-yellow-500" />
+              <h2 className="text-base font-black uppercase tracking-widest text-primary">Season Standings</h2>
+            </div>
+            {isAdmin && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleResetSeason}
+                className="h-8 border-destructive/20 text-destructive hover:bg-destructive/10 font-black uppercase text-[10px] tracking-widest gap-2"
+              >
+                <RotateCcw className="h-3 w-3" /> Reset Season
+              </Button>
+            )}
           </div>
           <div className="flex gap-4">
             <div className="bg-primary/10 border border-primary/20 px-6 py-3 rounded-2xl flex flex-col items-center min-w-[100px] shadow-lg shadow-primary/5 relative">
@@ -278,7 +336,7 @@ export default function GameSchedulePage() {
                               size="sm" 
                               variant={isWon ? "default" : "outline"} 
                               className={cn("flex-1 h-10 text-[10px] font-black", isWon && "bg-yellow-500 hover:bg-yellow-600")}
-                              onClick={() => handleUpdateStatus(game.id, { won: true, cancelled: false })}
+                              onClick={() => handleUpdateStatus(game.id, 'W')}
                             >
                               <Trophy className="h-3 w-3 mr-1" /> W
                             </Button>
@@ -286,7 +344,7 @@ export default function GameSchedulePage() {
                               size="sm" 
                               variant={isLoss ? "default" : "outline"} 
                               className={cn("flex-1 h-10 text-[10px] font-black", isLoss && "bg-destructive hover:bg-destructive/90")}
-                              onClick={() => handleUpdateStatus(game.id, { won: false, cancelled: false })}
+                              onClick={() => handleUpdateStatus(game.id, 'L')}
                             >
                               <XCircle className="h-3 w-3 mr-1" /> L
                             </Button>
@@ -294,7 +352,7 @@ export default function GameSchedulePage() {
                               size="sm" 
                               variant={isCancelled ? "destructive" : "outline"} 
                               className="flex-1 h-10 text-[10px] font-black"
-                              onClick={() => handleUpdateStatus(game.id, { won: undefined, cancelled: true })}
+                              onClick={() => handleUpdateStatus(game.id, 'C')}
                             >
                               <Ban className="h-3 w-3 mr-1" /> C
                             </Button>
