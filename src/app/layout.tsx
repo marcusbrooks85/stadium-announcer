@@ -1,3 +1,4 @@
+
 import type { Metadata } from 'next';
 import './globals.css';
 import { GameProvider } from './context/game-context';
@@ -6,6 +7,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { SplashScreen } from '@/components/SplashScreen';
 import { ServiceWorkerRegistration } from '@/components/ServiceWorkerRegistration';
 import { InstallPrompt } from '@/components/InstallPrompt';
+import { HelpOverlay } from '@/components/HelpOverlay';
 
 export const metadata: Metadata = {
   title: 'On Deck: Baseball Schedule & Announcer',
@@ -45,6 +47,7 @@ export default function RootLayout({
           <InstallPrompt />
           <GameProvider>
             {children}
+            <HelpOverlay />
             <Toaster />
           </GameProvider>
         </FirebaseClientProvider>
