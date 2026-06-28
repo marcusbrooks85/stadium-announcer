@@ -12,6 +12,7 @@ import {
   Shirt,
   Info,
   Smartphone,
+  Apple,
   ChevronRight
 } from "lucide-react";
 import {
@@ -37,7 +38,21 @@ export function HelpOverlay() {
     const installItem = {
       icon: <Smartphone className="h-4 w-4 text-primary" />,
       heading: "Install Web App",
-      text: "This app is NOT available in App Stores. To install: On iOS, tap 'Share' then 'Add to Home Screen'. On Android, tap the 'Install' button in the header or your browser menu."
+      text: (
+        <div className="flex flex-col gap-2 normal-case">
+          <div className="flex items-center gap-2">
+            <Apple className="h-3.5 w-3.5 text-white shrink-0" />
+            <span>tap 'Share' then 'Add to Home Screen'.</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Smartphone className="h-3.5 w-3.5 text-white shrink-0" />
+            <span>tap the 'Install' button in the header or your browser menu.</span>
+          </div>
+          <div className="mt-1 font-black text-primary tracking-widest uppercase text-[9px]">
+            This app is NOT available in App Stores
+          </div>
+        </div>
+      )
     };
 
     let pageSpecific = { title: "", sections: [] as any[] };
@@ -146,9 +161,9 @@ export function HelpOverlay() {
                     {section.heading}
                   </h3>
                 </div>
-                <p className="text-[11px] font-bold text-muted-foreground leading-relaxed uppercase pl-10 border-l-2 border-primary/20 ml-4">
+                <div className="text-[11px] font-bold text-muted-foreground leading-relaxed pl-10 border-l-2 border-primary/20 ml-4">
                   {section.text}
-                </p>
+                </div>
               </div>
             ))}
           </div>
