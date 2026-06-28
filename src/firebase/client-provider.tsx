@@ -17,7 +17,7 @@ export function FirebaseClientProvider({ children }: { children: React.ReactNode
   }, []);
 
   if (!firebase) {
-    return null; // Or a professional stadium loader
+    return null;
   }
 
   return (
@@ -25,6 +25,7 @@ export function FirebaseClientProvider({ children }: { children: React.ReactNode
       firebaseApp={firebase.firebaseApp}
       firestore={firebase.firestore}
       auth={firebase.auth}
+      storage={firebase.storage}
     >
       <FirebaseErrorListener />
       {children}

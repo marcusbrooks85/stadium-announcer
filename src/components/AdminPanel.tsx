@@ -20,8 +20,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { useGame, Player, Song } from "@/app/context/game-context";
-import { initializeFirebase } from "@/firebase";
-import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
+import { useStorage } from "@/firebase";
+import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { 
   Settings, 
   Plus, 
@@ -43,6 +43,7 @@ import { cn } from "@/lib/utils";
 
 export function AdminPanel() {
   const { roster, isAdmin, adminLogin, adminLogout, savePlayer, deletePlayer } = useGame();
+  const storage = useStorage();
   const { toast } = useToast();
   
   // State for Login UI
@@ -129,16 +130,13 @@ export function AdminPanel() {
 
   const handleSave = async () => {
     setIsSaving(true);
-    setUploadProgress(0); // Start progress at 0%
+    setUploadProgress(0);
     
     try {
       let audioUrl = formData.announcementAudioUrl;
 
-      if (audioFile) {
-        const { firebaseApp } = initializeFirebase();
-        const storage = getStorage(firebaseApp);
-        
-        const playerIdentifier = selectedPlayerId === "new" ? `new-${Date.now()}` : selectedPlayerId;
+      if (audioFile && storage) {
+        const playerIdentifier = selectedPlayerId === "new" ? `player_${Date.now()}` : selectedPlayerId;
         const fileName = `announcements/${playerIdentifier}.mp3`;
         const storageRef = ref(storage, fileName);
 
@@ -152,6 +150,7 @@ export function AdminPanel() {
               setUploadProgress(Math.round(progress));
             },
             (error) => {
+              console.error("Upload error:", error);
               reject(error);
             },
             async () => {
@@ -184,7 +183,7 @@ export function AdminPanel() {
       toast({ 
         variant: "destructive", 
         title: "Update Failed", 
-        description: error.message || "Could not sync with stadium database. Please check your connection." 
+        description: error.message || "Could not sync with stadium database." 
       });
     } finally {
       setIsSaving(false);
@@ -206,10 +205,10 @@ export function AdminPanel() {
 
   if (!isAdmin) {
     return (
-      <div className="relative flex flex-col items-center">
+      <div className="relative flex flex-col items-end">
         <Button 
           onClick={() => setShowLoginFields(!showLoginFields)} 
-          className="bg-[#4285FF] hover:bg-[#4285FF]/90 text-white font-black uppercase flex items-center gap-2 h-10 px-6 rounded-lg shadow-lg"
+          className="bg-primary hover:bg-primary/90 text-white font-black uppercase flex items-center gap-2 h-10 px-6 rounded-lg shadow-lg border-2 border-white/10"
         >
           {showLoginFields ? <Unlock className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
           ADMIN
@@ -223,7 +222,7 @@ export function AdminPanel() {
                 <Input 
                   type={showPassword ? "text" : "password"} 
                   placeholder="Password..." 
-                  className="pl-10 pr-10 h-10 text-xs"
+                  className="pl-10 pr-10 h-10 text-xs bg-black/20"
                   value={authPassword}
                   onChange={(e) => {
                     setAuthPassword(e.target.value);
@@ -241,12 +240,12 @@ export function AdminPanel() {
               </div>
               
               {authError && (
-                <div className="flex items-center gap-2 text-[9px] font-black text-destructive uppercase animate-in fade-in duration-300">
-                  <AlertCircle className="h-3 w-3" /> Incorrect Password. Try again.
+                <div className="flex items-center gap-2 text-[9px] font-black text-destructive uppercase">
+                  <AlertCircle className="h-3 w-3" /> Incorrect Password.
                 </div>
               )}
               
-              <Button type="submit" className="w-full h-9 font-black uppercase text-[10px]">Verify</Button>
+              <Button type="submit" className="w-full h-9 font-black uppercase text-[10px]">Verify Session</Button>
             </form>
           </div>
         )}
@@ -258,7 +257,7 @@ export function AdminPanel() {
     <div className="flex items-center gap-2">
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-10 w-10 text-secondary bg-secondary/10 hover:bg-secondary/20 rounded-full border border-secondary/20 shadow-lg">
+          <Button variant="ghost" size="icon" className="h-10 w-10 text-primary bg-primary/10 hover:bg-primary/20 rounded-full border border-primary/20 shadow-lg">
             <Settings className="h-5 w-5" />
           </Button>
         </DialogTrigger>
@@ -321,7 +320,7 @@ export function AdminPanel() {
                   disabled={isSaving}
                 />
                 {formData.announcementAudioUrl && !audioFile && (
-                  <p className="text-[9px] text-muted-foreground truncate">Current: {formData.announcementAudioUrl}</p>
+                  <p className="text-[9px] text-muted-foreground truncate opacity-50">Current: {formData.announcementAudioUrl.split('/').pop()}</p>
                 )}
               </div>
             </div>
@@ -341,7 +340,7 @@ export function AdminPanel() {
                     }} className="h-8 text-[10px] font-bold" placeholder="Track Name" />
                   </div>
                   <div className="col-span-5 space-y-1">
-                    <Label className="text-[8px] uppercase text-muted-foreground">YouTube URL / Video ID</Label>
+                    <Label className="text-[8px] uppercase text-muted-foreground">YouTube URL</Label>
                     <Input value={song.videoId} onChange={(e) => {
                       const newSongs = [...formData.songs];
                       newSongs[idx].videoId = e.target.value;
@@ -349,7 +348,7 @@ export function AdminPanel() {
                     }} className="h-8 text-[10px]" placeholder="https://..." />
                   </div>
                   <div className="col-span-3 space-y-1">
-                    <Label className="text-[8px] uppercase text-muted-foreground">Start (e.g. 1m30s)</Label>
+                    <Label className="text-[8px] uppercase text-muted-foreground">Start Time</Label>
                     <Input 
                       value={song.startAt} 
                       onChange={(e) => {
@@ -358,7 +357,7 @@ export function AdminPanel() {
                         setFormData({...formData, songs: newSongs});
                       }} 
                       className="h-8 text-[10px] digit-font" 
-                      placeholder="0" 
+                      placeholder="e.g. 1m15s" 
                     />
                   </div>
                 </div>
@@ -372,7 +371,7 @@ export function AdminPanel() {
                 disabled={isSaving}
               >
                 {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-                {isSaving ? `Processing... ${uploadProgress !== null ? uploadProgress + '%' : ''}` : (selectedPlayerId === "new" ? "Add to Stadium" : "Update Stadium")}
+                {isSaving ? `Processing... ${uploadProgress !== null ? uploadProgress + '%' : ''}` : (selectedPlayerId === "new" ? "Add Player" : "Save Changes")}
               </Button>
               
               {selectedPlayerId !== "new" && (
@@ -383,14 +382,13 @@ export function AdminPanel() {
             </div>
           </div>
 
-          {/* Delete Confirmation Modal */}
           <Dialog open={isDeleting} onOpenChange={setIsDeleting}>
             <DialogContent className="sm:max-w-md bg-destructive text-white border-none shadow-2xl">
-              <DialogHeader><DialogTitle className="text-white font-black uppercase text-center">Security Confirmation</DialogTitle></DialogHeader>
+              <DialogHeader><DialogTitle className="text-white font-black uppercase text-center">Delete Player?</DialogTitle></DialogHeader>
               <div className="space-y-4 py-4 text-center">
-                <p className="text-xs font-bold opacity-90">Warning: This will permanently remove {formData.name} from the stadium database.</p>
+                <p className="text-xs font-bold opacity-90">Warning: This will permanently remove {formData.name} and their audio files.</p>
                 <div className="space-y-2">
-                  <Label className="text-[9px] font-black uppercase">Type 'Chewy2026' to Confirm</Label>
+                  <Label className="text-[9px] font-black uppercase">Confirm Password ('Chewy2026')</Label>
                   <Input 
                     type="password" 
                     className="bg-white/20 border-white/20 text-white placeholder:text-white/50" 
@@ -410,7 +408,7 @@ export function AdminPanel() {
       <Button 
         variant="ghost" 
         onClick={adminLogout} 
-        className="text-[9px] font-black uppercase text-muted-foreground hover:text-destructive gap-1 px-2"
+        className="text-[9px] font-black uppercase text-muted-foreground hover:text-destructive gap-1 px-3 border border-white/5"
       >
         <LogOut className="h-3 w-3" /> LOGOUT
       </Button>
