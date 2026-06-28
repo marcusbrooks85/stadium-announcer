@@ -41,11 +41,17 @@ export function HelpOverlay() {
       text: (
         <div className="flex flex-col gap-2 normal-case">
           <div className="flex items-center gap-2">
-            <Apple className="h-3.5 w-3.5 text-white shrink-0" />
+            <div className="p-1 rounded bg-white/10">
+              <Apple className="h-3.5 w-3.5 text-white shrink-0 fill-current" />
+            </div>
+            <span className="font-black text-[10px] uppercase tracking-tighter text-white">iOS:</span>
             <span>tap 'Share' then 'Add to Home Screen'.</span>
           </div>
           <div className="flex items-center gap-2">
-            <Smartphone className="h-3.5 w-3.5 text-white shrink-0" />
+            <div className="p-1 rounded bg-white/10">
+              <Smartphone className="h-3.5 w-3.5 text-white shrink-0 fill-current" />
+            </div>
+            <span className="font-black text-[10px] uppercase tracking-tighter text-white">Android:</span>
             <span>tap the 'Install' button in the header or your browser menu.</span>
           </div>
           <div className="mt-1 font-black text-primary tracking-widest uppercase text-[9px]">
