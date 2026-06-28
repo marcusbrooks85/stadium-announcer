@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useMemo, useState, useEffect } from "react";
@@ -13,10 +12,7 @@ import {
   Trophy,
   MessageSquare,
   Ban,
-  CheckCircle2,
-  XCircle,
-  ShieldCheck,
-  Lock
+  ShieldCheck
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -28,6 +24,7 @@ import { doc, setDoc, onSnapshot, collection } from "firebase/firestore";
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { useGame } from "@/app/context/game-context";
+import { AdminPanel } from "@/components/AdminPanel";
 
 const gameSchedule = [
   { week: 1, date: "2026-06-20", time: "2:00 PM", home: "Coach Alexis", away: "Coach Chewy", location: "Jim Thorpe - Cordary Field" },
@@ -198,6 +195,7 @@ export default function GameSchedulePage() {
               <MessageSquare className="h-4 w-4" />
             </Button>
           </a>
+          <AdminPanel />
         </div>
       </header>
 

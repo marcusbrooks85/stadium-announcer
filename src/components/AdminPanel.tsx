@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -158,10 +157,10 @@ export function AdminPanel() {
       <div className="relative z-50">
         <Button 
           onClick={() => { setShowLoginFields(!showLoginFields); setAuthError(false); }} 
-          className="bg-primary hover:bg-primary/90 font-black uppercase h-10 px-6 shadow-lg tracking-widest transition-all transform active:scale-95"
+          className="bg-primary hover:bg-primary/90 font-black uppercase h-9 md:h-10 px-4 md:px-6 shadow-lg tracking-widest transition-all transform active:scale-95 text-[10px] md:text-xs"
         >
-          {showLoginFields ? <Unlock className="h-4 w-4 mr-2" /> : <Lock className="h-4 w-4 mr-2" />} 
-          {showLoginFields ? "CLOSE" : "UNLOCK"}
+          {showLoginFields ? <Unlock className="h-3.5 w-3.5 md:h-4 md:w-4 mr-2" /> : <Lock className="h-3.5 w-3.5 md:h-4 md:w-4 mr-2" />} 
+          {showLoginFields ? "CLOSE" : "ADMIN"}
         </Button>
         
         {showLoginFields && (
@@ -207,11 +206,11 @@ export function AdminPanel() {
 
   // Authenticated View
   return (
-    <div className="flex items-center gap-3 z-50">
+    <div className="flex items-center gap-2 md:gap-3 z-50">
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-10 w-10 text-primary bg-primary/10 border border-primary/20 shadow-lg hover:bg-primary/20 transition-all rounded-full transform hover:rotate-45">
-            <Settings className="h-5 w-5" />
+          <Button variant="ghost" size="icon" className="h-9 w-9 md:h-10 md:w-10 text-primary bg-primary/10 border border-primary/20 shadow-lg hover:bg-primary/20 transition-all rounded-full transform hover:rotate-45">
+            <Settings className="h-4 w-4 md:h-5 md:w-5" />
           </Button>
         </DialogTrigger>
         <DialogContent className="max-w-2xl bg-card border-primary/20 max-h-[90vh] overflow-y-auto">
@@ -342,9 +341,9 @@ export function AdminPanel() {
       <Button 
         variant="outline" 
         onClick={adminLogout} 
-        className="h-10 px-5 border-destructive/20 text-destructive hover:bg-destructive/10 font-black uppercase text-[10px] tracking-[0.2em] shadow-lg transition-all"
+        className="h-9 md:h-10 px-3 md:px-5 border-destructive/20 text-destructive hover:bg-destructive/10 font-black uppercase text-[10px] tracking-[0.2em] shadow-lg transition-all"
       >
-        <LogOut className="h-3.5 w-3.5 mr-2" /> LOGOUT
+        <LogOut className="h-3.5 w-3.5 md:mr-2" /> <span className="hidden md:inline">LOGOUT</span>
       </Button>
     </div>
   );

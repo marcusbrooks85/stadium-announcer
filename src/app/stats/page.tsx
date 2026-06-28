@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useMemo } from "react";
@@ -12,14 +11,7 @@ import {
   Mail,
   Calendar,
   BarChart3,
-  ChevronLeft,
-  Lock,
-  Unlock,
-  LogOut,
-  ShieldCheck,
-  AlertCircle,
-  Eye,
-  EyeOff
+  ChevronLeft
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,11 +30,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Input } from "@/components/ui/input";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useGame, GAME_SCHEDULE_LIST } from "@/app/context/game-context";
 import { cn } from "@/lib/utils";
-import { useToast } from "@/hooks/use-toast";
+import { AdminPanel } from "@/components/AdminPanel";
 
 export default function GameStatsPage() {
   const { 
@@ -54,25 +45,10 @@ export default function GameStatsPage() {
     updateTeamScore, 
     updatePlayerStat, 
     emailStats,
-    isAdmin,
-    adminLogin,
-    adminLogout
+    isAdmin
   } = useGame();
   
   const [activePlayerId, setActivePlayerId] = useState<string | null>(null);
-  const [passwordInput, setPasswordInput] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const { toast } = useToast();
-
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (adminLogin(passwordInput)) {
-      toast({ title: "Booth Access Granted", description: "Admin Mode active for 2 hours." });
-      setPasswordInput("");
-    } else {
-      toast({ variant: "destructive", title: "Access Denied", description: "Incorrect password." });
-    }
-  };
 
   const activePlayer = useMemo(() => 
     roster.find((p) => p.id === activePlayerId),
@@ -103,70 +79,12 @@ export default function GameStatsPage() {
                 <Calendar className="h-4 w-4" />
               </Button>
             </Link>
+            <AdminPanel />
           </div>
         </header>
 
         <main className="flex-1 p-4 md:p-8 space-y-6 md:space-y-10 max-w-7xl mx-auto w-full pb-40">
           
-          {/* ADMIN ACCESS WIDGET */}
-          <section className="flex justify-center">
-            <Card className={cn(
-              "w-full max-w-md transition-all duration-500",
-              isAdmin ? "bg-primary/10 border-primary/40 shadow-[0_0_20px_rgba(66,133,255,0.2)]" : "bg-card/50 border-white/5"
-            )}>
-              <CardContent className="p-4">
-                {isAdmin ? (
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="bg-primary/20 p-2 rounded-full animate-pulse">
-                        <ShieldCheck className="h-5 w-5 text-primary" />
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-black uppercase tracking-widest text-primary">Booth Access Active</p>
-                        <p className="text-[9px] font-bold text-muted-foreground uppercase">Editing Enabled • 2hr Session</p>
-                      </div>
-                    </div>
-                    <Button variant="ghost" size="sm" onClick={adminLogout} className="text-muted-foreground hover:text-destructive gap-2 text-[10px] font-black uppercase">
-                      <LogOut className="h-3.5 w-3.5" /> Logout
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    <form onSubmit={handleLogin} className="flex gap-2">
-                      <div className="relative flex-1">
-                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                        <Input 
-                          type={showPassword ? "text" : "password"} 
-                          placeholder="Enter Booth Password..." 
-                          value={passwordInput}
-                          onChange={(e) => setPasswordInput(e.target.value)}
-                          className="pl-9 pr-10 h-10 text-xs bg-black/20 border-white/10"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white transition-colors"
-                        >
-                          {showPassword ? (
-                            <EyeOff className="h-3.5 w-3.5" />
-                          ) : (
-                            <Eye className="h-3.5 w-3.5" />
-                          )}
-                        </button>
-                      </div>
-                      <Button type="submit" size="sm" className="h-10 px-4 font-black uppercase text-[10px] gap-2">
-                        <Unlock className="h-3.5 w-3.5" /> Unlock
-                      </Button>
-                    </form>
-                    <p className="text-[9px] font-black text-muted-foreground uppercase text-center tracking-[0.2em] animate-pulse">
-                      Read-Only Mode • Login for Booth Access
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </section>
-
           {/* GAME SELECTOR */}
           <section className="flex flex-col items-center justify-center space-y-4">
             <div className="flex items-center gap-3">
