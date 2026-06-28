@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useMemo, useState, useEffect } from "react";
@@ -103,8 +102,7 @@ export default function GameSchedulePage() {
 
   const isGameConcluded = (dateStr: string, timeStr: string) => {
     try {
-      // Create a date object for the game in PST
-      // Simple parse for "2:00 PM"
+      // Create a date object for the game
       const [time, modifier] = timeStr.split(' ');
       let [hours, minutes] = time.split(':').map(Number);
       if (modifier === 'PM' && hours < 12) hours += 12;
@@ -126,7 +124,6 @@ export default function GameSchedulePage() {
       const status = gameStatuses[gameKey];
       if (status?.cancelled) return;
 
-      // Delayed Conclusion Logic: Only count results after 2 hours
       if (isGameConcluded(game.date, game.time)) {
         if (status?.won) {
           w++;
@@ -213,11 +210,6 @@ export default function GameSchedulePage() {
               <span className="text-[10px] font-black uppercase tracking-widest text-destructive mb-1">Losses</span>
               <span className="text-3xl font-black digit-font text-destructive">{record.l}</span>
             </div>
-            <div className="hidden sm:flex items-center pl-4 border-l border-white/5">
-               <span className="text-[9px] font-bold text-muted-foreground uppercase leading-relaxed max-w-[120px]">
-                 * Standings update 2 hours after game start.
-               </span>
-            </div>
           </div>
         </section>
 
@@ -254,8 +246,8 @@ export default function GameSchedulePage() {
                   <CardContent className="p-4 md:p-6">
                     <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
                       
-                      {/* Week & Date */}
-                      <div className="md:col-span-3 flex flex-col border-b md:border-b-0 md:border-r border-white/5 pb-4 md:pb-0">
+                      {/* Week, Date, Time & Location */}
+                      <div className="md:col-span-3 flex flex-col border-b md:border-b-0 md:border-r border-white/5 pb-4 md:pb-0 h-full">
                         <div className="flex items-center gap-2">
                           <Badge variant="outline" className="text-[10px] font-black uppercase">Week {game.week}</Badge>
                           {game.notes && <Badge className="bg-secondary text-secondary-foreground text-[10px] font-black uppercase">{game.notes}</Badge>}
@@ -263,11 +255,16 @@ export default function GameSchedulePage() {
                         <p className="mt-2 text-sm font-black uppercase tracking-wider text-white">
                           {new Date(game.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric' })}
                         </p>
-                        <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground mt-1"><Clock className="h-3 w-3" /> {game.time}</div>
+                        <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground mt-1 mb-2">
+                          <Clock className="h-3 w-3" /> {game.time}
+                        </div>
+                        <div className="flex items-center gap-2 text-[9px] font-bold text-muted-foreground uppercase leading-tight bg-black/20 p-2 rounded-lg border border-white/5 mt-auto">
+                          <MapPin className="h-3 w-3 shrink-0" /> {game.location}
+                        </div>
                       </div>
 
                       {/* Jersey Visual */}
-                      <div className="md:col-span-2 flex flex-col items-center justify-center space-y-2 border-b md:border-b-0 md:border-r border-white/5 pb-4 md:pb-0">
+                      <div className="md:col-span-2 flex flex-col items-center justify-center space-y-2 border-b md:border-b-0 md:border-r border-white/5 pb-4 md:pb-0 h-full">
                         <span className="text-[8px] font-black uppercase tracking-[0.3em] text-muted-foreground">Jersey</span>
                         <div className="relative w-12 h-12 md:w-16 md:h-16">
                           <Image 
@@ -283,7 +280,7 @@ export default function GameSchedulePage() {
                       </div>
 
                       {/* Matchup & Snack */}
-                      <div className="md:col-span-4 flex flex-col space-y-4">
+                      <div className="md:col-span-4 flex flex-col space-y-4 h-full justify-center">
                         <div className="flex items-center justify-between gap-4 p-3 bg-black/30 rounded-xl border border-white/5">
                           <div className="flex-1 text-center">
                             <p className="text-[8px] font-black uppercase text-muted-foreground mb-1">Away</p>
@@ -316,20 +313,16 @@ export default function GameSchedulePage() {
                           ) : (
                             <div className="flex items-center gap-2 text-[10px] font-black uppercase text-secondary bg-secondary/10 px-3 py-1.5 rounded-lg border border-secondary/20 w-max">
                               <UtensilsCrossed className="h-3 w-3" />
-                              🍴 SNACK - {snackPlayer ? snackPlayer.name : "TBD"}
+                              SNACK - {snackPlayer ? snackPlayer.name : "TBD"}
                             </div>
                           )}
                         </div>
                       </div>
 
-                      {/* Location & Admin Controls */}
-                      <div className="md:col-span-3 flex flex-col justify-between h-full space-y-4">
-                        <div className="flex items-center gap-2 text-[9px] font-bold text-muted-foreground uppercase leading-tight bg-black/20 p-2 rounded-lg border border-white/5">
-                          <MapPin className="h-3 w-3 shrink-0" /> {game.location}
-                        </div>
-
+                      {/* Admin Controls */}
+                      <div className="md:col-span-3 flex flex-col justify-center h-full">
                         {isAdmin && (
-                          <div className="flex items-center gap-2 pt-2 border-t border-white/5">
+                          <div className="flex items-center gap-2 pt-2">
                             <Button 
                               size="sm" 
                               variant={isWon ? "default" : "outline"} 
