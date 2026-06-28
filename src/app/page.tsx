@@ -267,7 +267,7 @@ export default function GameSchedulePage() {
                   id={game.id}
                   key={game.id} 
                   className={cn(
-                    "transition-all duration-300 relative overflow-hidden scroll-mt-[160px] md:scroll-mt-[220px]",
+                    "transition-all duration-300 relative overflow-hidden scroll-mt-[180px] md:scroll-mt-[260px]",
                     isHome ? "bg-blue-950/40 border-blue-800/60" : "bg-slate-800/50 border-slate-700/60",
                     isCancelled && "opacity-60 border-destructive/40",
                     activeGameId === game.id && "ring-2 ring-primary ring-offset-2 ring-offset-background"
