@@ -20,6 +20,13 @@ export interface Song {
   startAt: number;
 }
 
+export interface StadiumSong {
+  id: string;
+  title: string;
+  link: string;
+  startTime: number;
+}
+
 export interface PlayerStats {
   ab: number;
   h: number;
@@ -36,10 +43,6 @@ export interface Player {
   stats?: PlayerStats;
 }
 
-/**
- * Professional Roster with stable, embed-friendly YouTube IDs.
- * Swapped restricted music videos for reliable Topic/Lyric versions.
- */
 export const INITIAL_ROSTER: Omit<Player, 'id'>[] = [
   { name: "Dominic Barrera", number: 1, announcementAudioUrl: "/audio/Dominic.mp3", songs: [{ name: "EoO", videoId: "R83_B-T0O6g", startAt: 0 }, { name: "Brasil Com S", videoId: "yk7yVGbcpHE", startAt: 60 }, { name: "Narco", videoId: "Mf-aUJjSneo", startAt: 14 }] },
   { name: "Diomedes Plata", number: 4, announcementAudioUrl: "/audio/Diomedes.mp3", songs: [{ name: "We LA (East LA Remix)", videoId: "l-eMsVOTCY4", startAt: 80 }, { name: "Con Calma", videoId: "8j_Y-5GZ_1U", startAt: 20 }, { name: "Mexico Mundial", videoId: "mDqvPTUuxGY", startAt: 0 }] },
@@ -50,6 +53,24 @@ export const INITIAL_ROSTER: Omit<Player, 'id'>[] = [
   { name: "Jacob Vieyra", number: 11, announcementAudioUrl: "/audio/Jacob.mp3", songs: [{ name: "Tennessee Whiskey", videoId: "4zAThXFOy2c", startAt: 0 }, { name: "Blow the Whistle", videoId: "W_dJPUWdB_A", startAt: 0 }, { name: "Uprising", videoId: "Sk2Qd13GA7g", startAt: 107 }] },
   { name: "Aldrich Munoz", number: 11, announcementAudioUrl: "/audio/Aldrich.mp3", songs: [{ name: "Montagem Supersonic", videoId: "lM4v4sq8ypo", startAt: 0 }] },
   { name: "Jimena Briones", number: 12, announcementAudioUrl: "/audio/Jimena.mp3", songs: [{ name: "Watermelon Sugar", videoId: "KPM_BYl-EaQ", startAt: 0 }] },
+];
+
+export const INITIAL_ORGAN_HITS = [
+  { title: "BULLFIGHTER", link: "melJslO0IJY", startTime: 0 },
+  { title: "JAWS", link: "QPwozG816lk", startTime: 0 },
+  { title: "LET'S GO TEAM", link: "kzTfu6LwbD8", startTime: 0 },
+  { title: "TAKE ME OUT", link: "QamKhi1cxIs", startTime: 0 },
+  { title: "THREE CHARGES", link: "jcylen-X1no", startTime: 0 },
+  { title: "CAVALRY CHARGE", link: "1aQ3nk-W0GI", startTime: 0 },
+];
+
+export const INITIAL_PUMP_UP_SONGS = [
+  { title: "DODGERS", link: "4KwFuGtGU6c", startTime: 10 },
+  { title: "ROCK YOU", link: "TXGbhniTBrU", startTime: 0 },
+  { title: "PUMP IT", link: "fSvPktHcxtg", startTime: 0 },
+  { title: "DANCE NOW", link: "l5Zox5O3jh4", startTime: 0 },
+  { title: "CAN'T STOP", link: "0Ui-QzihJGo", startTime: 0 },
+  { title: "PASSO BEM", link: "KgayxOF4Y7E", startTime: 0 },
 ];
 
 export const GAME_SCHEDULE_LIST = [
@@ -73,6 +94,8 @@ const SESSION_DURATION = 2 * 60 * 60 * 1000;
 
 interface GameContextType {
   roster: Player[];
+  organSongs: StadiumSong[];
+  pumpUpSongs: StadiumSong[];
   selectedGameId: string;
   setSelectedGameId: (id: string) => void;
   homeScore: number;
@@ -85,6 +108,8 @@ interface GameContextType {
   adminLogout: () => void;
   savePlayer: (playerData: Omit<Player, 'id'>, id?: string) => void;
   deletePlayer: (id: string) => void;
+  saveStadiumSong: (category: 'organ' | 'pumpup', song: Omit<StadiumSong, 'id'>, id?: string) => void;
+  deleteStadiumSong: (category: 'organ' | 'pumpup', id: string) => void;
 }
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -92,6 +117,8 @@ const GameContext = createContext<GameContextType | undefined>(undefined);
 export function GameProvider({ children }: { children: ReactNode }) {
   const db = useFirestore();
   const [roster, setRoster] = useState<Player[]>([]);
+  const [organSongs, setOrganSongs] = useState<StadiumSong[]>([]);
+  const [pumpUpSongs, setPumpUpSongs] = useState<StadiumSong[]>([]);
   const [selectedGameId, setSelectedGameId] = useState<string>("game_1");
   const [gameStats, setGameStats] = useState<any>({});
   const [isAdmin, setIsAdmin] = useState(false);
@@ -131,32 +158,51 @@ export function GameProvider({ children }: { children: ReactNode }) {
     return false;
   };
 
+  // Listeners
   useEffect(() => {
     if (!db) return;
-    const playersRef = collection(db, "players");
     
-    const unsubscribe = onSnapshot(playersRef, (snapshot) => {
+    // Players
+    const playersRef = collection(db, "players");
+    const unsubPlayers = onSnapshot(playersRef, (snapshot) => {
       if (snapshot.empty) {
-        // Safe seeding: only triggers once if collection is empty
-        INITIAL_ROSTER.forEach((p, idx) => {
-          setDoc(doc(playersRef, `player_${idx + 1}`), p);
-        });
+        INITIAL_ROSTER.forEach((p, idx) => setDoc(doc(playersRef, `player_${idx + 1}`), p));
       } else {
-        const loadedPlayers = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as Player[];
-        setRoster(loadedPlayers.sort((a, b) => a.number - b.number));
+        const loaded = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Player[];
+        setRoster(loaded.sort((a, b) => a.number - b.number));
       }
     });
 
-    return () => unsubscribe();
+    // Organ Songs
+    const organRef = collection(db, "organ_songs");
+    const unsubOrgan = onSnapshot(organRef, (snapshot) => {
+      if (snapshot.empty) {
+        INITIAL_ORGAN_HITS.forEach((s, idx) => setDoc(doc(organRef, `organ_${idx + 1}`), s));
+      } else {
+        setOrganSongs(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as StadiumSong[]);
+      }
+    });
+
+    // Pump Up Songs
+    const pumpRef = collection(db, "pump_up_songs");
+    const unsubPump = onSnapshot(pumpRef, (snapshot) => {
+      if (snapshot.empty) {
+        INITIAL_PUMP_UP_SONGS.forEach((s, idx) => setDoc(doc(pumpRef, `pump_${idx + 1}`), s));
+      } else {
+        setPumpUpSongs(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as StadiumSong[]);
+      }
+    });
+
+    return () => {
+      unsubPlayers();
+      unsubOrgan();
+      unsubPump();
+    };
   }, [db]);
 
   useEffect(() => {
     if (!db || !selectedGameId) return;
     const statsDocRef = doc(db, "game_stats", selectedGameId);
-
     const unsubscribe = onSnapshot(statsDocRef, (snapshot) => {
       if (snapshot.exists()) {
         setGameStats(snapshot.data());
@@ -164,7 +210,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
         setGameStats({ homeScore: 0, awayScore: 0, playerStats: {} });
       }
     });
-
     return () => unsubscribe();
   }, [db, selectedGameId]);
 
@@ -174,7 +219,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const key = team === 'home' ? 'homeScore' : 'awayScore';
     const current = gameStats[key] || 0;
     const statsDocRef = doc(db, "game_stats", selectedGameId);
-    
     setDoc(statsDocRef, { [key]: Math.max(0, current + delta) }, { merge: true })
       .catch(async () => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
@@ -190,10 +234,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const playerStats = gameStats.playerStats || {};
     const currentStats = playerStats[playerId] || { ab: 0, h: 0, r: 0, rbi: 0 };
     const newValue = Math.max(0, currentStats[statType] + delta);
-    const updatedPlayerStats = {
-      ...playerStats,
-      [playerId]: { ...currentStats, [statType]: newValue }
-    };
+    const updatedPlayerStats = { ...playerStats, [playerId]: { ...currentStats, [statType]: newValue } };
     setDoc(statsDocRef, { playerStats: updatedPlayerStats }, { merge: true })
       .catch(async () => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
@@ -205,9 +246,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const savePlayer = (playerData: Omit<Player, 'id'>, id?: string) => {
     if (!isAdmin || !db) return;
     resetAdminTimer();
-    const playersRef = collection(db, "players");
-    const docRef = id ? doc(playersRef, id) : doc(playersRef);
-    // Non-blocking mutation pattern
+    const docRef = id ? doc(db, "players", id) : doc(collection(db, "players"));
     setDoc(docRef, playerData, { merge: true })
       .catch(async () => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
@@ -220,13 +259,32 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (!isAdmin || !db) return;
     resetAdminTimer();
     const docRef = doc(db, "players", id);
-    // Non-blocking mutation pattern
-    deleteDoc(docRef)
+    deleteDoc(docRef).catch(async () => {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'delete' }));
+    });
+  };
+
+  const saveStadiumSong = (category: 'organ' | 'pumpup', song: Omit<StadiumSong, 'id'>, id?: string) => {
+    if (!isAdmin || !db) return;
+    resetAdminTimer();
+    const collName = category === 'organ' ? "organ_songs" : "pump_up_songs";
+    const docRef = id ? doc(db, collName, id) : doc(collection(db, collName));
+    setDoc(docRef, song, { merge: true })
       .catch(async () => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: docRef.path, operation: 'delete'
+          path: docRef.path, operation: 'write', requestResourceData: song
         }));
       });
+  };
+
+  const deleteStadiumSong = (category: 'organ' | 'pumpup', id: string) => {
+    if (!isAdmin || !db) return;
+    resetAdminTimer();
+    const collName = category === 'organ' ? "organ_songs" : "pump_up_songs";
+    const docRef = doc(db, collName, id);
+    deleteDoc(docRef).catch(async () => {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'delete' }));
+    });
   };
 
   const emailStats = () => {
@@ -237,18 +295,14 @@ export function GameProvider({ children }: { children: ReactNode }) {
       const s = gameStats.playerStats?.[p.id] || { ab: 0, h: 0, r: 0, rbi: 0 };
       return `${p.name} (#${p.number}): AB: ${s.ab}, H: ${s.h}, R: ${s.r}, RBI: ${s.rbi}`;
     }).join('\n');
-    const mailtoUrl = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(scoreText + rosterStatsText)}`;
-    window.location.href = mailtoUrl;
+    window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(scoreText + rosterStatsText)}`;
   };
-
-  const mergedRoster = roster.map(p => ({
-    ...p,
-    stats: gameStats.playerStats?.[p.id] || { ab: 0, h: 0, r: 0, rbi: 0 }
-  }));
 
   return (
     <GameContext.Provider value={{
-      roster: mergedRoster,
+      roster: roster.map(p => ({ ...p, stats: gameStats.playerStats?.[p.id] || { ab: 0, h: 0, r: 0, rbi: 0 } })),
+      organSongs,
+      pumpUpSongs,
       selectedGameId,
       setSelectedGameId,
       homeScore: gameStats.homeScore || 0,
@@ -260,7 +314,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
       adminLogin,
       adminLogout,
       savePlayer,
-      deletePlayer
+      deletePlayer,
+      saveStadiumSong,
+      deleteStadiumSong
     }}>
       {children}
     </GameContext.Provider>

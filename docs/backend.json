@@ -1,4 +1,3 @@
-
 {
   "entities": {
     "Player": {
@@ -22,6 +21,17 @@
         }
       },
       "required": ["name", "number"]
+    },
+    "StadiumSong": {
+      "title": "Stadium Song",
+      "description": "A generic song used for organ hits or crowd pump-ups.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "link": { "type": "string" },
+        "startTime": { "type": "number" }
+      },
+      "required": ["title", "link"]
     },
     "GameWin": {
       "title": "Game Win",
@@ -63,6 +73,14 @@
     "/players/{playerId}": {
       "schema": { "$ref": "#/backend/entities/Player" },
       "description": "Collection of players in the team."
+    },
+    "/organ_songs/{songId}": {
+      "schema": { "$ref": "#/backend/entities/StadiumSong" },
+      "description": "Collection of organ master hits."
+    },
+    "/pump_up_songs/{songId}": {
+      "schema": { "$ref": "#/backend/entities/StadiumSong" },
+      "description": "Collection of crowd pump-up hype songs."
     },
     "/game_wins/{gameId}": {
       "schema": { "$ref": "#/backend/entities/GameWin" },

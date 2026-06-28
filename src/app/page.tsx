@@ -4,23 +4,16 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import Link from "next/link";
 import { 
   Users, 
-  Mic2, 
   Play, 
   Activity, 
-  Music,
   Volume2,
-  Loader2,
-  Music2,
-  Zap,
   VolumeX,
   ChevronRight,
-  FileAudio,
-  Search,
-  ArrowDownWideNarrow,
   Calendar,
   BarChart3,
-  MessageSquare,
-  Settings
+  Music2,
+  Zap,
+  ArrowDownWideNarrow
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -42,32 +35,8 @@ import { useGame } from "./context/game-context";
 import { InstallButton } from "@/components/InstallButton";
 import { AdminPanel } from "@/components/AdminPanel";
 
-const ORGAN_HITS = [
-  { name: "BULLFIGHTER", videoId: "melJslO0IJY" },
-  { name: "JAWS", videoId: "QPwozG816lk" },
-  { name: "LET'S GO TEAM", videoId: "kzTfu6LwbD8" },
-  { name: "TAKE ME OUT", videoId: "QamKhi1cxIs" },
-  { name: "THREE CHARGES", videoId: "jcylen-X1no" },
-  { name: "CAVALRY CHARGE", videoId: "1aQ3nk-W0GI" },
-];
-
-const HYPE_SONGS = [
-  { name: "DODGERS", videoId: "4KwFuGtGU6c", startAt: 10 },
-  { name: "ROCK YOU", videoId: "TXGbhniTBrU" },
-  { name: "PUMP IT", videoId: "fSvPktHcxtg" },
-  { name: "DANCE NOW", videoId: "l5Zox5O3jh4" },
-  { name: "CAN'T STOP", videoId: "0Ui-QzihJGo" },
-  { name: "PASSO BEM", videoId: "KgayxOF4Y7E" },
-  { name: "HEY SONG", videoId: "EBohdltpVUY" },
-  { name: "OOOOOOO SONG", videoId: "IqCwFuHqb0o" },
-  { name: "CLAP YOUR HANDS", videoId: "eekVbkhY4kI" },
-  { name: "START ME UP", videoId: "7JR10AThY8M" },
-  { name: "TROPHIES", videoId: "vkSFh6HMUtQ" },
-  { name: "BRING EM OUT", videoId: "vn7iMXF5R_4" },
-];
-
 export default function StadiumBoothDashboard() {
-  const { roster } = useGame();
+  const { roster, organSongs, pumpUpSongs } = useGame();
   
   const [activePlayerId, setActivePlayerId] = useState<string | null>(null);
   const [selectedSongIndex, setSelectedSongIndex] = useState(0);
@@ -75,7 +44,6 @@ export default function StadiumBoothDashboard() {
   const [activeTrackName, setActiveTrackName] = useState<string | null>(null);
   const [volume, setVolume] = useState(0.8);
   const [searchQuery, setSearchQuery] = useState("");
-  const [isSearching, setIsSearching] = useState(false);
   const [playerReady, setPlayerReady] = useState(false);
   const [currentAnnouncementUrl, setCurrentAnnouncementUrl] = useState<string | null>(null);
   
@@ -118,12 +86,11 @@ export default function StadiumBoothDashboard() {
             event.target.setVolume(volume * 100);
           },
           onError: (event: any) => {
-            const errorCode = event.data;
-            if (errorCode === 101 || errorCode === 150) {
+            if (event.data === 101 || event.data === 150) {
               toast({
                 variant: "destructive",
                 title: "Playback Restricted",
-                description: "The owner of this track has restricted embedding. Try a Topic or Lyric version.",
+                description: "This audio source is restricted by the owner. Try a Topic or Official Audio version.",
               });
             }
           }
@@ -145,26 +112,15 @@ export default function StadiumBoothDashboard() {
   useEffect(() => {
     if (announcementAudioRef.current) announcementAudioRef.current.volume = volume;
     if (ytPlayerRef.current && playerReady) {
-      try {
-        ytPlayerRef.current.setVolume(volume * 100);
-      } catch (e) {}
+      try { ytPlayerRef.current.setVolume(volume * 100); } catch (e) {}
     }
   }, [volume, playerReady]);
 
   const stopEverything = () => {
-    if (fadeIntervalRef.current) {
-      clearInterval(fadeIntervalRef.current);
-      fadeIntervalRef.current = null;
-    }
-    if (announcementAudioRef.current) {
-      announcementAudioRef.current.pause();
-    }
+    if (fadeIntervalRef.current) { clearInterval(fadeIntervalRef.current); fadeIntervalRef.current = null; }
+    if (announcementAudioRef.current) announcementAudioRef.current.pause();
     setCurrentAnnouncementUrl(null);
-    if (ytPlayerRef.current && playerReady) {
-      try {
-        ytPlayerRef.current.stopVideo();
-      } catch (e) {}
-    }
+    if (ytPlayerRef.current && playerReady) { try { ytPlayerRef.current.stopVideo(); } catch (e) {} }
     setActiveTrackName(null);
     setPlaybackPhase('idle');
   };
@@ -175,14 +131,10 @@ export default function StadiumBoothDashboard() {
     const interval = 50;
     const steps = duration / interval;
     const volumeStep = volume / steps;
-
     fadeIntervalRef.current = setInterval(() => {
       setVolume((prev) => {
         const next = prev - volumeStep;
-        if (next <= 0.01) {
-          stopEverything();
-          return 0;
-        }
+        if (next <= 0.01) { stopEverything(); return 0; }
         return next;
       });
     }, interval);
@@ -350,32 +302,32 @@ export default function StadiumBoothDashboard() {
               <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
                 <Card className="bg-card/80 border-white/10">
                   <CardHeader className="py-3 border-b border-white/5"><CardTitle className="text-[9px] font-black uppercase tracking-[0.3em]">🎹 Organ Master</CardTitle></CardHeader>
-                  <CardContent className="grid grid-cols-2 gap-2 pt-4">
-                    {ORGAN_HITS.map((hit) => (
-                      <Button key={hit.name} variant="outline" onClick={() => playYoutubeTrack(hit.videoId, hit.name)} className="h-10 border-secondary/20 text-secondary font-black uppercase text-[9px]">🎹 {hit.name}</Button>
+                  <CardContent className="grid grid-cols-1 gap-2 pt-4">
+                    {organSongs.map((hit) => (
+                      <Button key={hit.id} variant="outline" onClick={() => playYoutubeTrack(hit.link, hit.title, hit.startTime)} className="h-10 border-secondary/20 text-secondary font-black uppercase text-[9px] justify-start px-3">🎹 {hit.title}</Button>
                     ))}
                   </CardContent>
                 </Card>
                 <Card className="bg-card/80 border-white/10">
                   <CardHeader className="py-3 border-b border-white/5"><CardTitle className="text-[9px] font-black uppercase tracking-[0.3em]">📣 Crowd Pump-Up</CardTitle></CardHeader>
-                  <CardContent className="grid grid-cols-2 gap-2 pt-4">
-                    {HYPE_SONGS.map((song) => (
+                  <CardContent className="grid grid-cols-1 gap-2 pt-4">
+                    {pumpUpSongs.map((song) => (
                       <Button 
-                        key={song.name} 
+                        key={song.id} 
                         variant="outline" 
-                        onClick={() => playYoutubeTrack(song.videoId, song.name, (song as any).startAt || 0)} 
-                        className="h-10 border-primary/20 text-primary font-black uppercase text-[9px]"
+                        onClick={() => playYoutubeTrack(song.link, song.title, song.startTime)} 
+                        className="h-10 border-primary/20 text-primary font-black uppercase text-[9px] justify-start px-3"
                       >
-                        📣 {song.name}
+                        📣 {song.title}
                       </Button>
                     ))}
                   </CardContent>
                 </Card>
                 <Card className="bg-card/80 border-white/10">
-                   <CardHeader className="py-3 border-b border-white/5"><CardTitle className="text-[9px] font-black uppercase tracking-[0.3em]">Search Tracks</CardTitle></CardHeader>
+                   <CardHeader className="py-3 border-b border-white/5"><CardTitle className="text-[9px] font-black uppercase tracking-[0.3em]">Quick Search</CardTitle></CardHeader>
                    <CardContent className="pt-4 space-y-2">
                      <Input placeholder="URL or Search..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="h-10 text-xs" />
-                     <Button onClick={() => playYoutubeTrack(searchQuery, "Custom")} className="w-full h-10">Play Now</Button>
+                     <Button onClick={() => playYoutubeTrack(searchQuery, "Custom")} className="w-full h-10 font-black uppercase text-[10px]">Play Now</Button>
                    </CardContent>
                 </Card>
               </section>
@@ -383,29 +335,6 @@ export default function StadiumBoothDashboard() {
           </main>
         </div>
 
-        <footer className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] md:hidden z-50">
-          <div className="flex items-center justify-center gap-3 bg-card/90 backdrop-blur-xl border border-white/10 p-2 rounded-2xl shadow-2xl">
-            <Link href="/stats" className="flex-1"><div className="flex items-center justify-center gap-2 h-11 rounded-xl bg-white/5 text-secondary"><BarChart3 className="h-4 w-4" /><span className="text-[10px] font-black uppercase">Stats</span></div></Link>
-            <Link href="/schedule" className="flex-1"><div className="flex items-center justify-center gap-2 h-11 rounded-xl bg-white/5 text-secondary"><Calendar className="h-4 w-4" /><span className="text-[10px] font-black uppercase">Schedule</span></div></Link>
-          </div>
-        </footer>
-
-        <div className={cn(
-          "fixed bottom-24 left-4 w-64 md:w-80 h-16 md:h-20 bg-card border border-primary/40 rounded-2xl z-[100] transition-all",
-          activeTrackName ? "translate-y-0 opacity-100" : "translate-y-32 opacity-0"
-        )}>
-          <div className="absolute inset-0 flex items-center px-4 bg-background/95 backdrop-blur-xl border-t border-white/5">
-            <div className="flex items-center gap-4 w-full">
-              <div className="flex-1 overflow-hidden">
-                <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em] mb-0.5 animate-pulse">Live Feed Active</p>
-                <p className="text-[9px] font-bold text-white/70 truncate uppercase">{activeTrackName || "Standby..."}</p>
-              </div>
-              <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive" onClick={stopEverything}><VolumeX className="h-4 w-4" /></Button>
-            </div>
-          </div>
-        </div>
-
-        {/* Hidden but non-zero sized YouTube Player to satisfy embedding requirements */}
         <div id="stadium-yt-player" className="fixed -bottom-40 -right-40 opacity-0 pointer-events-none w-40 h-40 overflow-hidden"></div>
       </div>
     </TooltipProvider>

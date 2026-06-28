@@ -7,7 +7,6 @@ import {
   DialogHeader, 
   DialogTitle, 
   DialogTrigger,
-  DialogFooter
 } from "@/components/ui/dialog";
 import { 
   Select, 
@@ -19,7 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { useGame, Player, Song } from "@/app/context/game-context";
+import { useGame, Player, StadiumSong } from "@/app/context/game-context";
 import { useStorage, useFirestore } from "@/firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { collection, doc } from "firebase/firestore";
@@ -37,78 +36,71 @@ import {
   Eye,
   EyeOff,
   LogOut,
-  AlertCircle
+  AlertCircle,
+  Play
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
+type AdminSection = "players" | "organ" | "pumpup";
+
 export function AdminPanel() {
-  const { roster, isAdmin, adminLogin, adminLogout, savePlayer, deletePlayer } = useGame();
+  const { 
+    roster, 
+    organSongs, 
+    pumpUpSongs, 
+    isAdmin, 
+    adminLogin, 
+    adminLogout, 
+    savePlayer, 
+    deletePlayer,
+    saveStadiumSong,
+    deleteStadiumSong 
+  } = useGame();
+  
   const storage = useStorage();
   const db = useFirestore();
   const { toast } = useToast();
   
+  const [activeSection, setActiveSection] = useState<AdminSection>("players");
   const [showLoginFields, setShowLoginFields] = useState(false);
   const [authPassword, setAuthPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState(false);
 
   const [isOpen, setIsOpen] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [deletePassword, setDeletePassword] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  
+  // Form States
   const [selectedPlayerId, setSelectedPlayerId] = useState<string>("new");
-
-  const [formData, setFormData] = useState({
+  const [playerForm, setPlayerForm] = useState({
     name: "",
     number: 0,
     announcementAudioUrl: "",
-    songs: [
-      { name: "", videoId: "", startAt: 0 },
-      { name: "", videoId: "", startAt: 0 },
-      { name: "", videoId: "", startAt: 0 }
-    ]
+    songs: [{ name: "", videoId: "", startAt: 0 }, { name: "", videoId: "", startAt: 0 }, { name: "", videoId: "", startAt: 0 }]
   });
-
   const [audioFile, setAudioFile] = useState<File | null>(null);
 
+  const [songForm, setSongForm] = useState({ title: "", link: "", startTime: 0 });
+
   useEffect(() => {
-    if (selectedPlayerId === "new") {
-      setFormData({
-        name: "",
-        number: 0,
-        announcementAudioUrl: "",
-        songs: [
-          { name: "", videoId: "", startAt: 0 },
-          { name: "", videoId: "", startAt: 0 },
-          { name: "", videoId: "", startAt: 0 }
-        ]
-      });
-      setAudioFile(null);
-    } else {
-      const p = roster.find(player => player.id === selectedPlayerId);
-      if (p) {
-        setFormData({
-          name: p.name,
-          number: p.number,
-          announcementAudioUrl: p.announcementAudioUrl,
-          songs: p.songs.length >= 3 ? p.songs : [...p.songs, ...Array(3 - p.songs.length).fill({ name: "", videoId: "", startAt: 0 })]
-        });
-        setAudioFile(null);
+    if (activeSection === "players") {
+      if (selectedPlayerId === "new") {
+        setPlayerForm({ name: "", number: 0, announcementAudioUrl: "", songs: Array(3).fill({ name: "", videoId: "", startAt: 0 }) });
+      } else {
+        const p = roster.find(player => player.id === selectedPlayerId);
+        if (p) setPlayerForm({ name: p.name, number: p.number, announcementAudioUrl: p.announcementAudioUrl, songs: [...p.songs, ...Array(Math.max(0, 3 - p.songs.length)).fill({ name: "", videoId: "", startAt: 0 })].slice(0,3) });
       }
     }
-  }, [selectedPlayerId, roster]);
+  }, [selectedPlayerId, roster, activeSection]);
 
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setAuthError(false);
     if (adminLogin(authPassword)) {
-      toast({ title: "Booth Access Granted", description: "Admin Mode active for 2 hours." });
+      toast({ title: "Booth Access Granted" });
       setAuthPassword("");
       setShowLoginFields(false);
-    } else {
-      setAuthError(true);
-    }
+    } else setAuthError(true);
   };
 
   const parseYoutubeId = (url: string) => {
@@ -117,133 +109,60 @@ export function AdminPanel() {
     return (match && match[2].length === 11) ? match[2] : url;
   };
 
-  const parseStartTime = (timeStr: string) => {
-    if (!timeStr) return 0;
-    if (typeof timeStr === 'number') return timeStr;
-    const match = timeStr.match(/(?:(\d+)m)?(?:(\d+)s)?/);
-    if (!match) return parseInt(timeStr) || 0;
-    const minutes = parseInt(match[1]) || 0;
-    const seconds = parseInt(match[2]) || 0;
-    return (minutes * 60) + seconds;
-  };
-
-  const handleSave = async () => {
-    if (typeof window === 'undefined') return;
-    if (!db || !storage) {
-      toast({ variant: "destructive", title: "Sync Error", description: "Storage or Database not ready." });
-      return;
-    }
-
+  const handleSavePlayer = async () => {
+    if (!db || !storage) return;
     setIsSaving(true);
-    console.log("Save process initiated...");
-    
     try {
-      let playerId = selectedPlayerId;
-      if (playerId === "new") {
-        playerId = doc(collection(db, "players")).id;
-      }
-
-      let audioUrl = formData.announcementAudioUrl;
+      let playerId = selectedPlayerId === "new" ? doc(collection(db, "players")).id : selectedPlayerId;
+      let audioUrl = playerForm.announcementAudioUrl;
 
       if (audioFile) {
-        // Deterministic path: audio/{playerId}.mp3 ensures overwrite logic
-        const fileName = `audio/${playerId}.mp3`;
-        const storageRef = ref(storage, fileName);
-
-        console.log("Upload initiated for:", audioFile.name);
-        console.log("Attempting upload to path:", storageRef.fullPath);
-
-        // DIRECT UPLOAD METHOD: More stable for small audio files in development environments
+        const storageRef = ref(storage, `audio/${playerId}.mp3`);
         await uploadBytes(storageRef, audioFile);
-        
-        console.log("Upload complete! Fetching download URL...");
-        const downloadUrl = await getDownloadURL(storageRef);
-        
-        // Append a timestamp to the URL to force the browser to grab the latest version (Cache Busting)
-        audioUrl = `${downloadUrl}?t=${new Date().getTime()}`;
+        audioUrl = `${await getDownloadURL(storageRef)}?t=${Date.now()}`;
       }
 
-      const playerToSave = {
-        name: formData.name,
-        number: formData.number,
+      const data = {
+        name: playerForm.name,
+        number: playerForm.number,
         announcementAudioUrl: audioUrl,
-        songs: formData.songs.map(s => ({
-          name: s.name,
-          videoId: parseYoutubeId(s.videoId),
-          startAt: parseStartTime(s.startAt.toString())
-        }))
+        songs: playerForm.songs.map(s => ({ name: s.name, videoId: parseYoutubeId(s.videoId), startAt: Number(s.startAt) || 0 }))
       };
 
-      savePlayer(playerToSave, playerId);
-      toast({ title: "Stadium Updated", description: `${formData.name} is ready for walk-on.` });
-      setIsOpen(false);
-    } catch (error: any) {
-      console.error("Firebase Storage Error Details:", error);
-      toast({ 
-        variant: "destructive", 
-        title: "Update Failed", 
-        description: error.message || "Could not save player details. Check console for details." 
-      });
-    } finally {
-      setIsSaving(false);
-    }
+      savePlayer(data, playerId);
+      toast({ title: "Player Profile Saved" });
+      setSelectedPlayerId("new");
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Save Failed", description: e.message });
+    } finally { setIsSaving(false); }
   };
 
-  const handleDelete = () => {
-    if (deletePassword !== "Chewy2026") {
-      toast({ variant: "destructive", title: "Access Denied", description: "Incorrect master password." });
-      return;
-    }
-    deletePlayer(selectedPlayerId);
-    toast({ title: "Player Removed", description: "Numerical roster updated." });
-    setIsDeleting(false);
-    setSelectedPlayerId("new");
-    setDeletePassword("");
+  const handleSaveStadiumSong = () => {
+    if (!songForm.title || !songForm.link) { toast({ variant: "destructive", title: "Missing Data" }); return; }
+    const category = activeSection === "organ" ? "organ" : "pumpup";
+    saveStadiumSong(category, {
+      title: songForm.title,
+      link: parseYoutubeId(songForm.link),
+      startTime: Number(songForm.startTime) || 0
+    });
+    setSongForm({ title: "", link: "", startTime: 0 });
+    toast({ title: "Track Added to Stadium" });
   };
 
   if (!isAdmin) {
     return (
-      <div className="relative flex flex-col items-end">
-        <Button 
-          onClick={() => setShowLoginFields(!showLoginFields)} 
-          className="bg-primary hover:bg-primary/90 text-white font-black uppercase flex items-center gap-2 h-10 px-6 rounded-lg shadow-lg border-2 border-white/10"
-        >
-          {showLoginFields ? <Unlock className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
-          ADMIN
+      <div className="relative">
+        <Button onClick={() => setShowLoginFields(!showLoginFields)} className="bg-primary hover:bg-primary/90 font-black uppercase h-10 px-6 shadow-lg">
+          {showLoginFields ? <Unlock className="h-4 w-4 mr-2" /> : <Lock className="h-4 w-4 mr-2" />} ADMIN
         </Button>
-        
         {showLoginFields && (
-          <div className="absolute top-12 right-0 w-64 bg-card border border-primary/20 p-4 rounded-xl shadow-2xl z-[60] animate-in slide-in-from-top-2 duration-300">
+          <div className="absolute top-12 right-0 w-64 bg-card border border-primary/20 p-4 rounded-xl shadow-2xl z-[60] animate-in slide-in-from-top-2">
             <form onSubmit={handleLoginSubmit} className="space-y-3">
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input 
-                  type={showPassword ? "text" : "password"} 
-                  placeholder="Password..." 
-                  className="pl-10 pr-10 h-10 text-xs bg-black/20"
-                  value={authPassword}
-                  onChange={(e) => {
-                    setAuthPassword(e.target.value);
-                    setAuthError(false);
-                  }}
-                  autoFocus
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white"
-                >
-                  {showPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                </button>
+                <Input type={showPassword ? "text" : "password"} placeholder="Password..." className="pl-10 h-10 text-xs" value={authPassword} onChange={e => setAuthPassword(e.target.value)} />
               </div>
-              
-              {authError && (
-                <div className="flex items-center gap-2 text-[9px] font-black text-destructive uppercase">
-                  <AlertCircle className="h-3 w-3" /> Incorrect Password.
-                </div>
-              )}
-              
-              <Button type="submit" className="w-full h-9 font-black uppercase text-[10px]">Verify Session</Button>
+              <Button type="submit" className="w-full h-9 font-black uppercase text-[10px]">Verify</Button>
             </form>
           </div>
         )}
@@ -255,153 +174,126 @@ export function AdminPanel() {
     <div className="flex items-center gap-2">
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-10 w-10 text-primary bg-primary/10 hover:bg-primary/20 rounded-full border border-primary/20 shadow-lg">
+          <Button variant="ghost" size="icon" className="h-10 w-10 text-primary bg-primary/10 border border-primary/20 shadow-lg">
             <Settings className="h-5 w-5" />
           </Button>
         </DialogTrigger>
         <DialogContent className="max-w-2xl bg-card border-primary/20 max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-primary uppercase tracking-widest text-sm font-black flex items-center gap-2">
-              <ShieldAlert className="h-4 w-4" /> Stadium Management Panel
+              <ShieldAlert className="h-4 w-4" /> Stadium Management
             </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-6 py-4">
             <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase text-muted-foreground">Select Player to Edit</Label>
-              <Select value={selectedPlayerId} onValueChange={setSelectedPlayerId}>
+              <Label className="text-[10px] font-black uppercase text-muted-foreground">Select Category</Label>
+              <Select value={activeSection} onValueChange={(v) => setActiveSection(v as AdminSection)}>
                 <SelectTrigger className="h-12 bg-black/20 font-bold">
-                  <SelectValue placeholder="Add New Player..." />
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="new" className="font-black text-primary"><Plus className="h-3 w-3 inline mr-2" /> ADD NEW PLAYER</SelectItem>
-                  {roster.map(p => (
-                    <SelectItem key={p.id} value={p.id} className="font-bold">#{p.number} - {p.name}</SelectItem>
-                  ))}
+                  <SelectItem value="players" className="font-bold">Players & Roster</SelectItem>
+                  <SelectItem value="organ" className="font-bold">Organ Master Hits</SelectItem>
+                  <SelectItem value="pumpup" className="font-bold">Crowd Pump-Up Hype</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase text-muted-foreground">Player Name</Label>
-                <Input value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} placeholder="e.g. Mike Trout" className="font-bold" />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase text-muted-foreground">Jersey #</Label>
-                <Input 
-                  type="number" 
-                  value={isNaN(formData.number) ? "" : formData.number} 
-                  onChange={(e) => setFormData({...formData, number: parseInt(e.target.value) || 0})} 
-                  className="font-bold digit-font" 
-                />
-              </div>
-            </div>
-
-            <div className="space-y-4 p-4 bg-primary/5 rounded-xl border border-primary/10">
-              <Label className="text-[10px] font-black uppercase text-primary flex items-center gap-2">
-                <Mic2 className="h-3 w-3" /> Stadium Announcement
-              </Label>
-              <div className="space-y-2">
-                <Input 
-                  type="file" 
-                  accept="audio/*" 
-                  onChange={(e) => setAudioFile(e.target.files?.[0] || null)}
-                  className="bg-black/20 text-[10px] cursor-pointer"
-                  disabled={isSaving}
-                />
-                {formData.announcementAudioUrl && !audioFile && (
-                  <p className="text-[9px] text-muted-foreground truncate opacity-50">Current file linked</p>
-                )}
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <Label className="text-[10px] font-black uppercase text-secondary flex items-center gap-2">
-                <Music className="h-3 w-3" /> Walk-Up Tracks
-              </Label>
-              {formData.songs.map((song, idx) => (
-                <div key={idx} className="grid grid-cols-12 gap-2 p-3 bg-black/20 rounded-lg border border-white/5">
-                  <div className="col-span-4 space-y-1">
-                    <Label className="text-[8px] uppercase text-muted-foreground">Track {idx + 1} Name</Label>
-                    <Input value={song.name} onChange={(e) => {
-                      const newSongs = [...formData.songs];
-                      newSongs[idx].name = e.target.value;
-                      setFormData({...formData, songs: newSongs});
-                    }} className="h-8 text-[10px] font-bold" placeholder="Track Name" />
-                  </div>
-                  <div className="col-span-5 space-y-1">
-                    <Label className="text-[8px] uppercase text-muted-foreground">YouTube URL</Label>
-                    <Input value={song.videoId} onChange={(e) => {
-                      const newSongs = [...formData.songs];
-                      newSongs[idx].videoId = e.target.value;
-                      setFormData({...formData, songs: newSongs});
-                    }} className="h-8 text-[10px]" placeholder="https://..." />
-                  </div>
-                  <div className="col-span-3 space-y-1">
-                    <Label className="text-[8px] uppercase text-muted-foreground">Start Time</Label>
-                    <Input 
-                      value={song.startAt} 
-                      onChange={(e) => {
-                        const newSongs = [...formData.songs];
-                        newSongs[idx].startAt = e.target.value as any;
-                        setFormData({...formData, songs: newSongs});
-                      }} 
-                      className="h-8 text-[10px] digit-font" 
-                      placeholder="e.g. 1m15s" 
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="flex gap-3 pt-4">
-              <Button 
-                className="flex-1 h-12 font-black uppercase bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20" 
-                onClick={handleSave}
-                disabled={isSaving}
-              >
-                {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-                {isSaving ? "Processing..." : (selectedPlayerId === "new" ? "Add Player" : "Save Changes")}
-              </Button>
-              
-              {selectedPlayerId !== "new" && (
-                <Button variant="destructive" className="h-12 px-6" onClick={() => setIsDeleting(true)} disabled={isSaving}>
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
-          </div>
-
-          <Dialog open={isDeleting} onOpenChange={setIsDeleting}>
-            <DialogContent className="sm:max-w-md bg-destructive text-white border-none shadow-2xl">
-              <DialogHeader><DialogTitle className="text-white font-black uppercase text-center">Delete Player?</DialogTitle></DialogHeader>
-              <div className="space-y-4 py-4 text-center">
-                <p className="text-xs font-bold opacity-90">Warning: This will permanently remove {formData.name} and their audio files.</p>
+            {activeSection === "players" ? (
+              <div className="space-y-6">
                 <div className="space-y-2">
-                  <Label className="text-[9px] font-black uppercase">Confirm Password ('Chewy2026')</Label>
-                  <Input 
-                    type="password" 
-                    className="bg-white/20 border-white/20 text-white placeholder:text-white/50" 
-                    value={deletePassword}
-                    onChange={(e) => setDeletePassword(e.target.value)}
-                  />
+                  <Label className="text-[10px] font-black uppercase text-muted-foreground">Select Player</Label>
+                  <Select value={selectedPlayerId} onValueChange={setSelectedPlayerId}>
+                    <SelectTrigger className="h-12 bg-black/20 font-bold">
+                      <SelectValue placeholder="Add New Player..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="new" className="font-black text-primary">+ ADD NEW PLAYER</SelectItem>
+                      {roster.map(p => <SelectItem key={p.id} value={p.id} className="font-bold">#{p.number} - {p.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <Input value={playerForm.name} onChange={e => setPlayerForm({...playerForm, name: e.target.value})} placeholder="Player Name" className="font-bold" />
+                  <Input type="number" value={playerForm.number || ""} onChange={e => setPlayerForm({...playerForm, number: parseInt(e.target.value) || 0})} placeholder="Jersey #" className="font-bold" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase text-primary">Announcement Audio</Label>
+                  <Input type="file" accept="audio/*" onChange={e => setAudioFile(e.target.files?.[0] || null)} className="bg-black/20 cursor-pointer" />
+                </div>
+                <div className="space-y-4">
+                  <Label className="text-[10px] font-black uppercase text-secondary">Walk-Up Tracks (YouTube)</Label>
+                  {playerForm.songs.map((song, idx) => (
+                    <div key={idx} className="grid grid-cols-12 gap-2 p-3 bg-black/20 rounded-lg">
+                      <Input className="col-span-4 h-8 text-[10px]" placeholder="Name" value={song.name} onChange={e => {
+                        const next = [...playerForm.songs]; next[idx].name = e.target.value; setPlayerForm({...playerForm, songs: next});
+                      }} />
+                      <Input className="col-span-5 h-8 text-[10px]" placeholder="YouTube Link" value={song.videoId} onChange={e => {
+                        const next = [...playerForm.songs]; next[idx].videoId = e.target.value; setPlayerForm({...playerForm, songs: next});
+                      }} />
+                      <Input className="col-span-3 h-8 text-[10px]" placeholder="Start (sec)" type="number" value={song.startAt || ""} onChange={e => {
+                        const next = [...playerForm.songs]; next[idx].startAt = parseInt(e.target.value) || 0; setPlayerForm({...playerForm, songs: next});
+                      }} />
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <Button className="flex-1 h-12 font-black uppercase bg-primary" onClick={handleSavePlayer} disabled={isSaving}>
+                    {isSaving ? <Loader2 className="animate-spin h-4 w-4" /> : <Save className="h-4 w-4 mr-2" />} SAVE PLAYER
+                  </Button>
+                  {selectedPlayerId !== "new" && (
+                    <Button variant="destructive" className="h-12 w-12" onClick={() => { deletePlayer(selectedPlayerId); setSelectedPlayerId("new"); }}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
               </div>
-              <DialogFooter className="sm:justify-center">
-                <Button variant="outline" className="text-destructive font-black uppercase h-12 w-full" onClick={handleDelete}>Finalize Deletion</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+            ) : (
+              <div className="space-y-6">
+                <div className="p-4 bg-black/20 rounded-xl space-y-4 border border-white/5">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <Label className="text-[8px] font-black uppercase opacity-50">Title</Label>
+                      <Input placeholder="Track Title" value={songForm.title} onChange={e => setSongForm({...songForm, title: e.target.value})} className="font-bold" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[8px] font-black uppercase opacity-50">Start (sec)</Label>
+                      <Input type="number" placeholder="0" value={songForm.startTime || ""} onChange={e => setSongForm({...songForm, startTime: parseInt(e.target.value) || 0})} className="font-bold" />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[8px] font-black uppercase opacity-50">YouTube Link</Label>
+                    <Input placeholder="https://..." value={songForm.link} onChange={e => setSongForm({...songForm, link: e.target.value})} />
+                  </div>
+                  <Button className="w-full h-10 font-black uppercase bg-secondary text-secondary-foreground" onClick={handleSaveStadiumSong}>
+                    <Plus className="h-4 w-4 mr-2" /> ADD TO STADIUM
+                  </Button>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase text-muted-foreground">Current Tracks</Label>
+                  <div className="space-y-2">
+                    {(activeSection === "organ" ? organSongs : pumpUpSongs).map(song => (
+                      <div key={song.id} className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/5">
+                        <div className="flex flex-col">
+                          <span className="text-xs font-bold">{song.title}</span>
+                          <span className="text-[8px] text-muted-foreground font-mono">Starts @ {song.startTime}s</span>
+                        </div>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => deleteStadiumSong(activeSection === "organ" ? "organ" : "pumpup", song.id)}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
-      
-      <Button 
-        variant="ghost" 
-        onClick={adminLogout} 
-        className="text-[9px] font-black uppercase text-muted-foreground hover:text-destructive gap-1 px-3 border border-white/5"
-      >
-        <LogOut className="h-3 w-3" /> LOGOUT
+      <Button variant="ghost" onClick={adminLogout} className="text-[9px] font-black uppercase text-muted-foreground hover:text-destructive">
+        <LogOut className="h-3 w-3 mr-1" /> LOGOUT
       </Button>
     </div>
   );
