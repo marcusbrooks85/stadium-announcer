@@ -76,7 +76,7 @@ export function AdminPanel() {
     name: "",
     number: 0,
     announcementAudioUrl: "",
-    songs: [{ name: "", videoId: "", startAt: 0 }, { name: "", videoId: "", startAt: 0 }, { name: "", videoId: "", startAt: 0 }]
+    songs: Array.from({ length: 3 }, () => ({ name: "", videoId: "", startAt: 0 }))
   });
   const [audioFile, setAudioFile] = useState<File | null>(null);
 
@@ -85,10 +85,24 @@ export function AdminPanel() {
   useEffect(() => {
     if (activeSection === "players") {
       if (selectedPlayerId === "new") {
-        setPlayerForm({ name: "", number: 0, announcementAudioUrl: "", songs: Array(3).fill({ name: "", videoId: "", startAt: 0 }) });
+        setPlayerForm({ 
+          name: "", 
+          number: 0, 
+          announcementAudioUrl: "", 
+          songs: Array.from({ length: 3 }, () => ({ name: "", videoId: "", startAt: 0 })) 
+        });
       } else {
         const p = roster.find(player => player.id === selectedPlayerId);
-        if (p) setPlayerForm({ name: p.name, number: p.number, announcementAudioUrl: p.announcementAudioUrl, songs: [...p.songs, ...Array(Math.max(0, 3 - p.songs.length)).fill({ name: "", videoId: "", startAt: 0 })].slice(0,3) });
+        if (p) {
+          const existingSongs = p.songs.map(s => ({ ...s }));
+          const padding = Array.from({ length: Math.max(0, 3 - existingSongs.length) }, () => ({ name: "", videoId: "", startAt: 0 }));
+          setPlayerForm({ 
+            name: p.name, 
+            number: p.number, 
+            announcementAudioUrl: p.announcementAudioUrl, 
+            songs: [...existingSongs, ...padding].slice(0, 3) 
+          });
+        }
       }
     }
   }, [selectedPlayerId, roster, activeSection]);
@@ -128,7 +142,9 @@ export function AdminPanel() {
         name: playerForm.name,
         number: playerForm.number,
         announcementAudioUrl: audioUrl,
-        songs: playerForm.songs.map(s => ({ name: s.name, videoId: parseYoutubeId(s.videoId), startAt: Number(s.startAt) || 0 }))
+        songs: playerForm.songs
+          .filter(s => s.name || s.videoId)
+          .map(s => ({ name: s.name, videoId: parseYoutubeId(s.videoId), startAt: Number(s.startAt) || 0 }))
       };
 
       savePlayer(data, playerId);
@@ -151,7 +167,6 @@ export function AdminPanel() {
     toast({ title: "Track Added to Stadium" });
   };
 
-  // Unauthenticated View
   if (!isAdmin) {
     return (
       <div className="relative z-50">
@@ -204,7 +219,6 @@ export function AdminPanel() {
     );
   }
 
-  // Authenticated View
   return (
     <div className="flex items-center gap-2 md:gap-3 z-50">
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -272,13 +286,19 @@ export function AdminPanel() {
                   {playerForm.songs.map((song, idx) => (
                     <div key={idx} className="grid grid-cols-12 gap-2 p-3 bg-black/20 rounded-lg border border-white/5">
                       <Input className="col-span-4 h-9 text-[10px] font-bold" placeholder="Track Name" value={song.name} onChange={e => {
-                        const next = [...playerForm.songs]; next[idx].name = e.target.value; setPlayerForm({...playerForm, songs: next});
+                        const next = [...playerForm.songs];
+                        next[idx] = { ...next[idx], name: e.target.value };
+                        setPlayerForm({...playerForm, songs: next});
                       }} />
                       <Input className="col-span-5 h-9 text-[10px] font-bold" placeholder="YouTube URL/ID" value={song.videoId} onChange={e => {
-                        const next = [...playerForm.songs]; next[idx].videoId = e.target.value; setPlayerForm({...playerForm, songs: next});
+                        const next = [...playerForm.songs];
+                        next[idx] = { ...next[idx], videoId: e.target.value };
+                        setPlayerForm({...playerForm, songs: next});
                       }} />
                       <Input className="col-span-3 h-9 text-[10px] font-bold" placeholder="Start (s)" type="number" value={song.startAt || ""} onChange={e => {
-                        const next = [...playerForm.songs]; next[idx].startAt = parseInt(e.target.value) || 0; setPlayerForm({...playerForm, songs: next});
+                        const next = [...playerForm.songs];
+                        next[idx] = { ...next[idx], startAt: parseInt(e.target.value) || 0 };
+                        setPlayerForm({...playerForm, songs: next});
                       }} />
                     </div>
                   ))}
