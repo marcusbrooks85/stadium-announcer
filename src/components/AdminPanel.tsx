@@ -20,8 +20,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { useGame, Player, Song } from "@/app/context/game-context";
-import { useStorage, useFirestore, useFirebaseApp } from "@/firebase";
-import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
+import { useStorage, useFirestore } from "@/firebase";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { collection, doc } from "firebase/firestore";
 import { 
   Settings, 
@@ -46,7 +46,6 @@ export function AdminPanel() {
   const { roster, isAdmin, adminLogin, adminLogout, savePlayer, deletePlayer } = useGame();
   const storage = useStorage();
   const db = useFirestore();
-  const app = useFirebaseApp();
   const { toast } = useToast();
   
   const [showLoginFields, setShowLoginFields] = useState(false);
@@ -58,7 +57,6 @@ export function AdminPanel() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
   const [isSaving, setIsSaving] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string>("new");
 
   const [formData, setFormData] = useState({
@@ -136,12 +134,8 @@ export function AdminPanel() {
     }
 
     setIsSaving(true);
-    setUploadProgress(0);
     
     try {
-      console.log("DIAGNOSTIC: Starting save operation...");
-      console.log("DIAGNOSTIC: Storage Bucket:", (storage as any).app?.options?.storageBucket);
-      
       let playerId = selectedPlayerId;
       if (playerId === "new") {
         playerId = doc(collection(db, "players")).id;
@@ -153,37 +147,17 @@ export function AdminPanel() {
         const fileName = `announcements/${playerId}.mp3`;
         const storageRef = ref(storage, fileName);
 
-        console.log(`DIAGNOSTIC: Attempting upload to: ${fileName}`);
-        console.log("DIAGNOSTIC: File Details:", { name: audioFile.name, size: audioFile.size, type: audioFile.type });
+        // Implementation of 15s timeout
+        const uploadPromise = uploadBytes(storageRef, audioFile);
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Upload timed out. Please check your connection.')), 15000)
+        );
 
-        const uploadTask = uploadBytesResumable(storageRef, audioFile);
-
-        audioUrl = await new Promise<string>((resolve, reject) => {
-          uploadTask.on(
-            "state_changed",
-            (snapshot) => {
-              const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-              console.log(`DIAGNOSTIC: Progress: ${Math.round(progress)}% - State: ${snapshot.state}`);
-              setUploadProgress(Math.round(progress));
-            },
-            (error: any) => {
-              console.error("DIAGNOSTIC: UPLOAD FAILED!");
-              console.error("DIAGNOSTIC: Error Code:", error.code);
-              console.error("DIAGNOSTIC: Error Message:", error.message);
-              reject(error);
-            },
-            async () => {
-              try {
-                const url = await getDownloadURL(uploadTask.snapshot.ref);
-                console.log("DIAGNOSTIC: Upload Successful. URL:", url);
-                resolve(url);
-              } catch (e: any) {
-                console.error("DIAGNOSTIC: Error getting download URL:", e);
-                reject(e);
-              }
-            }
-          );
-        });
+        await Promise.race([uploadPromise, timeoutPromise]);
+        
+        const downloadUrl = await getDownloadURL(storageRef);
+        // Force browser to grab the latest version with timestamp
+        audioUrl = `${downloadUrl}&t=${new Date().getTime()}`;
       }
 
       const playerToSave = {
@@ -202,14 +176,13 @@ export function AdminPanel() {
       setIsOpen(false);
     } catch (error: any) {
       console.error("DIAGNOSTIC: Save Failed!", error);
-      const errorMsg = error.code === 'storage/unauthorized' 
-        ? "Permission Denied: Please check your Firebase Storage Rules."
-        : `Update failed: ${error.message}`;
-      
-      toast({ variant: "destructive", title: "Update Failed", description: errorMsg });
+      toast({ 
+        variant: "destructive", 
+        title: "Update Failed", 
+        description: error.message || "Could not save player details." 
+      });
     } finally {
       setIsSaving(false);
-      setUploadProgress(null);
     }
   };
 
@@ -323,16 +296,9 @@ export function AdminPanel() {
             </div>
 
             <div className="space-y-4 p-4 bg-primary/5 rounded-xl border border-primary/10">
-              <div className="flex justify-between items-center">
-                <Label className="text-[10px] font-black uppercase text-primary flex items-center gap-2">
-                  <Mic2 className="h-3 w-3" /> Stadium Announcement
-                </Label>
-                {uploadProgress !== null && (
-                  <span className="text-[9px] font-black text-primary uppercase animate-pulse">
-                    Uploading: {uploadProgress}%
-                  </span>
-                )}
-              </div>
+              <Label className="text-[10px] font-black uppercase text-primary flex items-center gap-2">
+                <Mic2 className="h-3 w-3" /> Stadium Announcement
+              </Label>
               <div className="space-y-2">
                 <Input 
                   type="file" 
@@ -342,7 +308,7 @@ export function AdminPanel() {
                   disabled={isSaving}
                 />
                 {formData.announcementAudioUrl && !audioFile && (
-                  <p className="text-[9px] text-muted-foreground truncate opacity-50">Current: {formData.announcementAudioUrl.split('/').pop()}</p>
+                  <p className="text-[9px] text-muted-foreground truncate opacity-50">Current file linked</p>
                 )}
               </div>
             </div>
@@ -393,7 +359,7 @@ export function AdminPanel() {
                 disabled={isSaving}
               >
                 {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-                {isSaving ? (uploadProgress !== null ? `Uploading: ${uploadProgress}%` : "Processing...") : (selectedPlayerId === "new" ? "Add Player" : "Save Changes")}
+                {isSaving ? "Uploading file..." : (selectedPlayerId === "new" ? "Add Player" : "Save Changes")}
               </Button>
               
               {selectedPlayerId !== "new" && (
