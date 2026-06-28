@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo } from "react";
@@ -52,6 +53,12 @@ const ORGAN_HITS = [
 ];
 
 const HYPE_SONGS = [
+  { name: "DODGERS", videoId: "4KwFuGtGU6c", startAt: 10 },
+  { name: "ROCK YOU", videoId: "TXGbhniTBrU" },
+  { name: "PUMP IT", videoId: "fSvPktHcxtg" },
+  { name: "DANCE NOW", videoId: "l5Zox5O3jh4" },
+  { name: "CAN'T STOP", videoId: "0Ui-QzihJGo" },
+  { name: "PASSO BEM", videoId: "KgayxOF4Y7E" },
   { name: "HEY SONG", videoId: "EBohdltpVUY" },
   { name: "OOOOOOO SONG", videoId: "IqCwFuHqb0o" },
   { name: "CLAP YOUR HANDS", videoId: "eekVbkhY4kI" },
@@ -354,7 +361,14 @@ export default function StadiumBoothDashboard() {
                   <CardHeader className="py-3 border-b border-white/5"><CardTitle className="text-[9px] font-black uppercase tracking-[0.3em]">📣 Crowd Pump-Up</CardTitle></CardHeader>
                   <CardContent className="grid grid-cols-2 gap-2 pt-4">
                     {HYPE_SONGS.map((song) => (
-                      <Button key={song.name} variant="outline" onClick={() => playYoutubeTrack(song.videoId, song.name)} className="h-10 border-primary/20 text-primary font-black uppercase text-[9px]">📣 {song.name}</Button>
+                      <Button 
+                        key={song.name} 
+                        variant="outline" 
+                        onClick={() => playYoutubeTrack(song.videoId, song.name, (song as any).startAt || 0)} 
+                        className="h-10 border-primary/20 text-primary font-black uppercase text-[9px]"
+                      >
+                        📣 {song.name}
+                      </Button>
                     ))}
                   </CardContent>
                 </Card>
