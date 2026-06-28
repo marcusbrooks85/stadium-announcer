@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useMemo, useState, useEffect } from "react";
@@ -14,7 +15,6 @@ import {
   MessageSquare,
   Ban,
   ShieldCheck,
-  CheckCircle2,
   XCircle,
   UtensilsCrossed
 } from "lucide-react";
@@ -33,25 +33,8 @@ import { useFirestore } from "@/firebase";
 import { doc, setDoc, onSnapshot, collection } from "firebase/firestore";
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
-import { useGame } from "@/app/context/game-context";
+import { useGame, FULL_GAME_SCHEDULE } from "@/app/context/game-context";
 import { AdminPanel } from "@/components/AdminPanel";
-
-const gameSchedule = [
-  { week: 1, date: "2026-06-20", time: "2:00 PM", home: "Coach Alexis", away: "Coach Chewy", location: "Jim Thorpe - Cordary Field" },
-  { week: 2, date: "2026-06-27", time: "9:00 AM", home: "Coach Matt & Rene", away: "Coach Chewy", location: "Jim Thorpe - Cordary Field" },
-  { week: 3, date: "2026-06-30", time: "6:00 PM", home: "Coach Chewy", away: "Coach Manny", location: "Jim Thorpe - Prairie Field" },
-  { week: 4, date: "2026-07-07", time: "6:00 PM", home: "Coach Chewy", away: "Coach Alexis", location: "Jim Thorpe - Cordary Field" },
-  { week: 5, date: "2026-07-11", time: "11:00 AM", home: "Coach Chewy", away: "Coach Matt & Rene", location: "Jim Thorpe - Cordary Field" },
-  { week: 6, date: "2026-07-14", time: "6:00 PM", home: "Coach Manny", away: "Coach Chewy", location: "Jim Thorpe - Cordary Field" },
-  { week: 7, date: "2026-07-18", time: "9:00 AM", home: "Coach Alexis", away: "Coach Chewy", location: "Jim Thorpe - Cordary Field" },
-  { week: 8, date: "2026-07-21", time: "6:00 PM", home: "Coach Chewy", away: "Coach Matt & Rene", location: "Jim Thorpe - Prairie Field" },
-  { week: 9, date: "2026-07-25", time: "9:00 AM", home: "Coach Manny", away: "Coach Chewy", location: "Jim Thorpe - Cordary Field" },
-  { week: 10, date: "2026-07-28", time: "6:00 PM", home: "Coach Matt & Rene", away: "Coach Chewy", location: "Jim Thorpe - Prairie Field" },
-  { week: 11, date: "2026-08-01", time: "9:00 AM", home: "#1 Seed", away: "#4 Seed", location: "Jim Thorpe - Cordary Field", notes: "Playoffs" },
-  { week: 11, date: "2026-08-01", time: "11:00 AM", home: "#2 Seed", away: "#3 Seed", location: "Jim Thorpe - Cordary Field", notes: "Playoffs" },
-  { week: 12, date: "2026-08-08", time: "9:00 AM", home: "Consolation", away: "Consolation", location: "Jim Thorpe - Cordary Field", notes: "Finals" },
-  { week: 12, date: "2026-08-08", time: "11:00 AM", home: "Championship", away: "Championship", location: "Jim Thorpe - Cordary Field", notes: "Finals" }
-];
 
 interface GameStatus {
   won?: boolean;
@@ -63,12 +46,6 @@ export default function GameSchedulePage() {
   const db = useFirestore();
   const { isAdmin, roster } = useGame();
   const [gameStatuses, setGameStatuses] = useState<Record<string, GameStatus>>({});
-  const [now, setNow] = useState(new Date());
-
-  useEffect(() => {
-    const timer = setInterval(() => setNow(new Date()), 60000);
-    return () => clearInterval(timer);
-  }, []);
 
   useEffect(() => {
     if (!db) return;
@@ -81,7 +58,7 @@ export default function GameSchedulePage() {
         snapshot.forEach((doc) => {
           const data = doc.data();
           statuses[doc.id] = {
-            won: data.won || false,
+            won: data.won, // Use raw value, not fallback to false
             cancelled: data.cancelled || false,
             snackPlayerId: data.snackPlayerId || ""
           };
@@ -100,53 +77,29 @@ export default function GameSchedulePage() {
     return () => unsubscribe();
   }, [db]);
 
-  const isGameConcluded = (dateStr: string, timeStr: string) => {
-    try {
-      // Create a date object for the game
-      const [time, modifier] = timeStr.split(' ');
-      let [hours, minutes] = time.split(':').map(Number);
-      if (modifier === 'PM' && hours < 12) hours += 12;
-      if (modifier === 'AM' && hours === 12) hours = 0;
-      
-      const gameDate = new Date(`${dateStr}T${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`);
-      const conclusionTime = new Date(gameDate.getTime() + 2 * 60 * 60 * 1000);
-      return now >= conclusionTime;
-    } catch (e) {
-      return false;
-    }
-  };
-
   const record = useMemo(() => {
     let w = 0;
     let l = 0;
-    gameSchedule.forEach((game, index) => {
-      const gameKey = `game_${game.week}_${game.date}_${index}`;
-      const status = gameStatuses[gameKey];
-      if (status?.cancelled) return;
-
-      if (isGameConcluded(game.date, game.time)) {
-        if (status?.won) {
-          w++;
-        } else {
-          l++;
-        }
-      }
+    Object.values(gameStatuses).forEach((status) => {
+      if (status.cancelled) return;
+      if (status.won === true) w++;
+      else if (status.won === false) l++; // Only count explicit manual losses
     });
     return { w, l };
-  }, [gameStatuses, now]);
+  }, [gameStatuses]);
 
-  const handleUpdateStatus = async (gameKey: string, updates: Partial<GameStatus>) => {
+  const handleUpdateStatus = async (gameId: string, updates: Partial<GameStatus>) => {
     if (!isAdmin || !db) return;
-    const docRef = doc(db, "game_wins", gameKey);
+    const docRef = doc(db, "game_wins", gameId);
     setDoc(docRef, { 
       ...updates,
       updatedAt: new Date().toISOString() 
     }, { merge: true });
   };
 
-  const handleUpdateSnack = async (gameKey: string, playerId: string) => {
+  const handleUpdateSnack = async (gameId: string, playerId: string) => {
     if (!isAdmin || !db) return;
-    const docRef = doc(db, "game_wins", gameKey);
+    const docRef = doc(db, "game_wins", gameId);
     setDoc(docRef, { 
       snackPlayerId: playerId,
       updatedAt: new Date().toISOString() 
@@ -196,7 +149,7 @@ export default function GameSchedulePage() {
       </header>
 
       <main className="flex-1 p-4 md:p-8 max-w-5xl mx-auto w-full space-y-6 pb-40">
-        <section className="flex flex-col items-center md:items-start space-y-4">
+        <section className="sticky top-[88px] z-40 bg-background/95 backdrop-blur-md py-4 border-b border-white/5 space-y-4">
           <div className="flex items-center gap-3">
             <Trophy className="h-5 w-5 text-yellow-500" />
             <h2 className="text-base font-black uppercase tracking-widest text-primary">Season Standings</h2>
@@ -220,18 +173,17 @@ export default function GameSchedulePage() {
           </div>
 
           <div className="grid gap-4">
-            {gameSchedule.map((game, index) => {
-              const gameKey = `game_${game.week}_${game.date}_${index}`;
-              const statusData = gameStatuses[gameKey] || {};
-              const isWon = statusData.won || false;
+            {FULL_GAME_SCHEDULE.map((game) => {
+              const statusData = gameStatuses[game.id] || {};
+              const isWon = statusData.won === true;
+              const isLoss = statusData.won === false;
               const isCancelled = statusData.cancelled || false;
-              const isLoss = !isWon && !isCancelled && isGameConcluded(game.date, game.time);
               const isHome = game.home === "Coach Chewy" || game.notes === "Playoffs" || game.notes === "Finals";
               const snackPlayer = roster.find(p => p.id === statusData.snackPlayerId);
               
               return (
                 <Card 
-                  key={gameKey} 
+                  key={game.id} 
                   className={cn(
                     "transition-all duration-300 relative overflow-hidden",
                     isHome ? "bg-blue-950/40 border-blue-800/60" : "bg-slate-800/50 border-slate-700/60",
@@ -241,6 +193,7 @@ export default function GameSchedulePage() {
                   <div className="absolute top-2 right-2 z-20 flex flex-col items-end gap-2">
                     {isCancelled && <Badge variant="destructive" className="font-black uppercase text-[8px] tracking-widest">Cancelled</Badge>}
                     {isWon && !isCancelled && <span className="text-2xl md:text-3xl animate-trophy-breathe">🏆</span>}
+                    {isLoss && !isCancelled && <XCircle className="h-6 w-6 md:h-8 md:w-8 text-destructive animate-in zoom-in duration-300" />}
                   </div>
 
                   <CardContent className="p-4 md:p-6">
@@ -249,8 +202,7 @@ export default function GameSchedulePage() {
                       {/* Week, Date, Time & Location */}
                       <div className="md:col-span-3 flex flex-col border-b md:border-b-0 md:border-r border-white/5 pb-4 md:pb-0 h-full">
                         <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="text-[10px] font-black uppercase">Week {game.week}</Badge>
-                          {game.notes && <Badge className="bg-secondary text-secondary-foreground text-[10px] font-black uppercase">{game.notes}</Badge>}
+                          <Badge variant="outline" className="text-[10px] font-black uppercase">{game.notes || `Week ${game.week}`}</Badge>
                         </div>
                         <p className="mt-2 text-sm font-black uppercase tracking-wider text-white">
                           {new Date(game.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric' })}
@@ -299,7 +251,7 @@ export default function GameSchedulePage() {
                           {isAdmin ? (
                             <Select 
                               value={statusData.snackPlayerId || ""} 
-                              onValueChange={(val) => handleUpdateSnack(gameKey, val)}
+                              onValueChange={(val) => handleUpdateSnack(game.id, val)}
                             >
                               <SelectTrigger className="h-9 bg-background/50 border-white/10 text-[10px] font-bold">
                                 <SelectValue placeholder="Assign Player..." />
@@ -312,7 +264,6 @@ export default function GameSchedulePage() {
                             </Select>
                           ) : (
                             <div className="flex items-center gap-2 text-[10px] font-black uppercase text-secondary bg-secondary/10 px-3 py-1.5 rounded-lg border border-secondary/20 w-max">
-                              <UtensilsCrossed className="h-3 w-3" />
                               SNACK - {snackPlayer ? snackPlayer.name : "TBD"}
                             </div>
                           )}
@@ -327,7 +278,7 @@ export default function GameSchedulePage() {
                               size="sm" 
                               variant={isWon ? "default" : "outline"} 
                               className={cn("flex-1 h-10 text-[10px] font-black", isWon && "bg-yellow-500 hover:bg-yellow-600")}
-                              onClick={() => handleUpdateStatus(gameKey, { won: true, cancelled: false })}
+                              onClick={() => handleUpdateStatus(game.id, { won: true, cancelled: false })}
                             >
                               <Trophy className="h-3 w-3 mr-1" /> W
                             </Button>
@@ -335,7 +286,7 @@ export default function GameSchedulePage() {
                               size="sm" 
                               variant={isLoss ? "default" : "outline"} 
                               className={cn("flex-1 h-10 text-[10px] font-black", isLoss && "bg-destructive hover:bg-destructive/90")}
-                              onClick={() => handleUpdateStatus(gameKey, { won: false, cancelled: false })}
+                              onClick={() => handleUpdateStatus(game.id, { won: false, cancelled: false })}
                             >
                               <XCircle className="h-3 w-3 mr-1" /> L
                             </Button>
@@ -343,7 +294,7 @@ export default function GameSchedulePage() {
                               size="sm" 
                               variant={isCancelled ? "destructive" : "outline"} 
                               className="flex-1 h-10 text-[10px] font-black"
-                              onClick={() => handleUpdateStatus(gameKey, { won: false, cancelled: true })}
+                              onClick={() => handleUpdateStatus(game.id, { won: undefined, cancelled: true })}
                             >
                               <Ban className="h-3 w-3 mr-1" /> C
                             </Button>

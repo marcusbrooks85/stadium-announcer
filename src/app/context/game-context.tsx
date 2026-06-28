@@ -74,22 +74,27 @@ export const INITIAL_PUMP_UP_SONGS = [
   { title: "PASSO BEM", link: "KgayxOF4Y7E", startTime: 0 },
 ];
 
-export const GAME_SCHEDULE_LIST = [
-  { id: "game_1", label: "Week 1 - 06/20" },
-  { id: "game_2", label: "Week 2 - 06/27" },
-  { id: "game_3", label: "Week 3 - 06/30" },
-  { id: "game_4", label: "Week 4 - 07/07" },
-  { id: "game_5", label: "Week 5 - 07/11" },
-  { id: "game_6", label: "Week 6 - 07/14" },
-  { id: "game_7", label: "Week 7 - 07/18" },
-  { id: "game_8", label: "Week 8 - 07/21" },
-  { id: "game_9", label: "Week 9 - 07/25" },
-  { id: "game_10", label: "Week 10 - 07/28" },
-  { id: "playoff_1", label: "Playoffs - Semi 1" },
-  { id: "playoff_2", label: "Playoffs - Semi 2" },
-  { id: "finals_1", label: "Finals - Consolation" },
-  { id: "finals_2", label: "Finals - Championship" },
+export const FULL_GAME_SCHEDULE = [
+  { id: "game_1", week: 1, date: "2026-06-20", time: "2:00 PM", home: "Coach Alexis", away: "Coach Chewy", location: "Jim Thorpe - Cordary Field" },
+  { id: "game_2", week: 2, date: "2026-06-27", time: "9:00 AM", home: "Coach Matt & Rene", away: "Coach Chewy", location: "Jim Thorpe - Cordary Field" },
+  { id: "game_3", week: 3, date: "2026-06-30", time: "6:00 PM", home: "Coach Chewy", away: "Coach Manny", location: "Jim Thorpe - Prairie Field" },
+  { id: "game_4", week: 4, date: "2026-07-07", time: "6:00 PM", home: "Coach Chewy", away: "Coach Alexis", location: "Jim Thorpe - Cordary Field" },
+  { id: "game_5", week: 5, date: "2026-07-11", time: "11:00 AM", home: "Coach Chewy", away: "Coach Matt & Rene", location: "Jim Thorpe - Cordary Field" },
+  { id: "game_6", week: 6, date: "2026-07-14", time: "6:00 PM", home: "Coach Manny", away: "Coach Chewy", location: "Jim Thorpe - Cordary Field" },
+  { id: "game_7", week: 7, date: "2026-07-18", time: "9:00 AM", home: "Coach Alexis", away: "Coach Chewy", location: "Jim Thorpe - Cordary Field" },
+  { id: "game_8", week: 8, date: "2026-07-21", time: "6:00 PM", home: "Coach Chewy", away: "Coach Matt & Rene", location: "Jim Thorpe - Prairie Field" },
+  { id: "game_9", week: 9, date: "2026-07-25", time: "9:00 AM", home: "Coach Manny", away: "Coach Chewy", location: "Jim Thorpe - Cordary Field" },
+  { id: "game_10", week: 10, date: "2026-07-28", time: "6:00 PM", home: "Coach Matt & Rene", away: "Coach Chewy", location: "Jim Thorpe - Prairie Field" },
+  { id: "playoff_1", week: 11, date: "2026-08-01", time: "9:00 AM", home: "#1 Seed", away: "#4 Seed", location: "Jim Thorpe - Cordary Field", notes: "Playoffs" },
+  { id: "playoff_2", week: 11, date: "2026-08-01", time: "11:00 AM", home: "#2 Seed", away: "#3 Seed", location: "Jim Thorpe - Cordary Field", notes: "Playoffs" },
+  { id: "finals_1", week: 12, date: "2026-08-08", time: "9:00 AM", home: "Consolation", away: "Consolation", location: "Jim Thorpe - Cordary Field", notes: "Finals" },
+  { id: "finals_2", week: 12, date: "2026-08-08", time: "11:00 AM", home: "Championship", away: "Championship", location: "Jim Thorpe - Cordary Field", notes: "Finals" }
 ];
+
+export const GAME_SCHEDULE_LIST = FULL_GAME_SCHEDULE.map(g => ({
+  id: g.id,
+  label: `${g.notes || `Week ${g.week}`} - ${new Date(g.date + 'T00:00:00').toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })}`
+}));
 
 const SESSION_DURATION = 2 * 60 * 60 * 1000; // 2 hours
 
@@ -120,9 +125,33 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [roster, setRoster] = useState<Player[]>([]);
   const [organSongs, setOrganSongs] = useState<StadiumSong[]>([]);
   const [pumpUpSongs, setPumpUpSongs] = useState<StadiumSong[]>([]);
-  const [selectedGameId, setSelectedGameId] = useState<string>("game_1");
+  const [selectedGameId, setSelectedGameId] = useState<string>("");
   const [gameStats, setGameStats] = useState<any>({});
   const [isAdmin, setIsAdmin] = useState(false);
+
+  // Initial Game ID selection based on date
+  useEffect(() => {
+    const now = new Date();
+    const convertTimeTo24h = (timeStr: string) => {
+      const [time, modifier] = timeStr.split(' ');
+      let [hours, minutes] = time.split(':').map(Number);
+      if (modifier === 'PM' && hours < 12) hours += 12;
+      if (modifier === 'AM' && hours === 12) hours = 0;
+      return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`;
+    };
+
+    const sorted = [...FULL_GAME_SCHEDULE].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    
+    // Find first game that hasn't finished (start + 2h)
+    const active = sorted.find(g => {
+      const gameStart = new Date(`${g.date}T${convertTimeTo24h(g.time)}`);
+      return gameStart.getTime() + (2 * 60 * 60 * 1000) > now.getTime();
+    }) || sorted[sorted.length - 1];
+
+    if (active && !selectedGameId) {
+      setSelectedGameId(active.id);
+    }
+  }, [selectedGameId]);
 
   const resetAdminTimer = useCallback(() => {
     const expiry = Date.now() + SESSION_DURATION;
