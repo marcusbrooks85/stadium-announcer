@@ -161,7 +161,7 @@ export default function StadiumBoothDashboard() {
   };
 
   const playYoutubeTrack = (videoId: string, songName: string, startAt: number = 0) => {
-    if (playbackPhase !== 'announcing') stopEverything();
+    stopEverything();
     setVolume(0.8);
     setActiveTrackName(songName);
     if (ytPlayerRef.current && playerReady) {
@@ -174,11 +174,8 @@ export default function StadiumBoothDashboard() {
     }
   };
 
-  const triggerWalkonSequence = (overridePlayer?: any, overrideIndex?: number) => {
-    const p = overridePlayer || activePlayer;
-    const idx = overrideIndex !== undefined ? overrideIndex : selectedSongIndex;
-    
-    if (!p) return;
+  const triggerWalkonSequence = () => {
+    if (!activePlayer) return;
     
     stopEverything();
     
@@ -188,21 +185,31 @@ export default function StadiumBoothDashboard() {
       setPlaybackPhase('announcing');
       setPlaybackSessionId(Date.now());
       
-      const targetSong = idx === -1 ? null : p.songs[idx];
-      if (idx === -1) {
+      if (selectedSongIndex === -1) {
         setActiveTrackName("Player Announcement ONLY");
       } else {
-        setActiveTrackName(`Announcing: ${p.name}`);
+        setActiveTrackName(`Announcing: ${activePlayer.name}`);
       }
       
-      setCurrentAnnouncementUrl(p.announcementAudioUrl);
+      setCurrentAnnouncementUrl(activePlayer.announcementAudioUrl);
     }, 50);
   };
 
   const handleAnnouncementEnded = () => {
     if (playbackPhase === 'announcing' && activePlayer && selectedSongIndex !== -1 && selectedSong) {
       setPlaybackPhase('walkup');
-      playYoutubeTrack(selectedSong.videoId, selectedSong.name, selectedSong.startAt);
+      setActiveTrackName(selectedSong.name);
+      if (ytPlayerRef.current && playerReady) {
+        try {
+          ytPlayerRef.current.unMute();
+          ytPlayerRef.current.setVolume(80);
+          ytPlayerRef.current.loadVideoById({ 
+            videoId: selectedSong.videoId, 
+            startSeconds: selectedSong.startAt 
+          });
+          ytPlayerRef.current.playVideo();
+        } catch (e) {}
+      }
     } else {
       setPlaybackPhase('idle');
       setActiveTrackName(null);
@@ -364,7 +371,7 @@ export default function StadiumBoothDashboard() {
                     
                     <Button 
                       disabled={!activePlayer || playbackPhase === 'announcing'} 
-                      onClick={() => triggerWalkonSequence()} 
+                      onClick={triggerWalkonSequence} 
                       className="w-full h-14 md:h-16 text-sm md:text-base font-black bg-primary"
                     >
                       {playbackPhase === 'announcing' ? <Activity className="animate-pulse mr-2" /> : <Zap className="mr-2 fill-white" />}

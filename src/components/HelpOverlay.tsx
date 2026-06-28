@@ -99,7 +99,7 @@ export function HelpOverlay() {
             {
               icon: <Trophy className="h-4 w-4 text-secondary" />,
               heading: "Outcome Calculation",
-              text: "Game outcome metrics and standing records are calculated on a 2-hour offset window from the scheduled start time."
+              text: "Game outcome metrics and standing records are calculated on a 2-hour offset window from the scheduled game start time."
             }
           ]
         };
