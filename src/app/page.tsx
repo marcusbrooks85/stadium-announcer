@@ -28,7 +28,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useGame } from "./context/game-context";
@@ -43,7 +42,6 @@ export default function StadiumBoothDashboard() {
   const [playbackPhase, setPlaybackPhase] = useState<'idle' | 'announcing' | 'walkup'>('idle');
   const [activeTrackName, setActiveTrackName] = useState<string | null>(null);
   const [volume, setVolume] = useState(0.8);
-  const [searchQuery, setSearchQuery] = useState("");
   const [playerReady, setPlayerReady] = useState(false);
   const [currentAnnouncementUrl, setCurrentAnnouncementUrl] = useState<string | null>(null);
   
@@ -299,36 +297,29 @@ export default function StadiumBoothDashboard() {
                 </Card>
               </section>
 
-              <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
+              <section className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-8">
                 <Card className="bg-card/80 border-white/10">
                   <CardHeader className="py-3 border-b border-white/5"><CardTitle className="text-[9px] font-black uppercase tracking-[0.3em]">🎹 Organ Master</CardTitle></CardHeader>
-                  <CardContent className="grid grid-cols-1 gap-2 pt-4">
+                  <CardContent className="grid grid-cols-2 gap-2 pt-4">
                     {organSongs.map((hit) => (
-                      <Button key={hit.id} variant="outline" onClick={() => playYoutubeTrack(hit.link, hit.title, hit.startTime)} className="h-10 border-secondary/20 text-secondary font-black uppercase text-[9px] justify-start px-3">🎹 {hit.title}</Button>
+                      <Button key={hit.id} variant="outline" onClick={() => playYoutubeTrack(hit.link, hit.title, hit.startTime)} className="h-10 border-secondary/20 text-secondary font-black uppercase text-[8px] md:text-[9px] justify-start px-2 md:px-3 truncate">🎹 {hit.title}</Button>
                     ))}
                   </CardContent>
                 </Card>
                 <Card className="bg-card/80 border-white/10">
                   <CardHeader className="py-3 border-b border-white/5"><CardTitle className="text-[9px] font-black uppercase tracking-[0.3em]">📣 Crowd Pump-Up</CardTitle></CardHeader>
-                  <CardContent className="grid grid-cols-1 gap-2 pt-4">
+                  <CardContent className="grid grid-cols-3 gap-2 pt-4">
                     {pumpUpSongs.map((song) => (
                       <Button 
                         key={song.id} 
                         variant="outline" 
                         onClick={() => playYoutubeTrack(song.link, song.title, song.startTime)} 
-                        className="h-10 border-primary/20 text-primary font-black uppercase text-[9px] justify-start px-3"
+                        className="h-10 border-primary/20 text-primary font-black uppercase text-[7px] md:text-[8px] justify-start px-1.5 md:px-2 truncate"
                       >
                         📣 {song.title}
                       </Button>
                     ))}
                   </CardContent>
-                </Card>
-                <Card className="bg-card/80 border-white/10">
-                   <CardHeader className="py-3 border-b border-white/5"><CardTitle className="text-[9px] font-black uppercase tracking-[0.3em]">Quick Search</CardTitle></CardHeader>
-                   <CardContent className="pt-4 space-y-2">
-                     <Input placeholder="URL or Search..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="h-10 text-xs" />
-                     <Button onClick={() => playYoutubeTrack(searchQuery, "Custom")} className="w-full h-10 font-black uppercase text-[10px]">Play Now</Button>
-                   </CardContent>
                 </Card>
               </section>
             </div>
