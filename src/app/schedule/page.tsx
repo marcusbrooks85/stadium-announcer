@@ -196,7 +196,7 @@ export default function GameSchedulePage() {
 
       <main className="flex-1 p-4 md:p-8 max-w-5xl mx-auto w-full space-y-6 pb-40">
         <section className="sticky top-[88px] z-40 bg-background/95 backdrop-blur-md py-4 border-b border-white/5 space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <Trophy className="h-5 w-5 text-yellow-500" />
               <h2 className="text-base font-black uppercase tracking-widest text-primary">Season Standings</h2>
@@ -212,7 +212,7 @@ export default function GameSchedulePage() {
               </Button>
             )}
           </div>
-          <div className="flex gap-4">
+          <div className="flex justify-center sm:justify-start gap-4">
             <div className="bg-primary/10 border border-primary/20 px-6 py-3 rounded-2xl flex flex-col items-center min-w-[100px] shadow-lg shadow-primary/5 relative">
               <span className="text-[10px] font-black uppercase tracking-widest text-primary mb-1">Wins</span>
               <span className="text-3xl font-black digit-font text-primary">{record.w}</span>
@@ -265,10 +265,10 @@ export default function GameSchedulePage() {
                         <p className="mt-2 text-sm font-black uppercase tracking-wider text-white">
                           {new Date(game.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric' })}
                         </p>
-                        <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground mt-1 mb-2">
+                        <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground mt-1 mb-1">
                           <Clock className="h-3 w-3" /> {game.time}
                         </div>
-                        <div className="flex items-center gap-2 text-[9px] font-bold text-muted-foreground uppercase leading-tight bg-black/20 p-2 rounded-lg border border-white/5 mt-auto">
+                        <div className="flex items-center gap-2 text-[9px] font-bold text-muted-foreground uppercase leading-tight bg-black/20 p-2 rounded-lg border border-white/5">
                           <MapPin className="h-3 w-3 shrink-0" /> {game.location}
                         </div>
                       </div>
