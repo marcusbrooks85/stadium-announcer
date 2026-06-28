@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
@@ -90,7 +91,7 @@ export const GAME_SCHEDULE_LIST = [
   { id: "finals_2", label: "Finals - Championship" },
 ];
 
-const SESSION_DURATION = 2 * 60 * 60 * 1000;
+const SESSION_DURATION = 2 * 60 * 60 * 1000; // 2 hours
 
 interface GameContextType {
   roster: Player[];
@@ -133,6 +134,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem("admin_session_expiry");
   }, []);
 
+  // Sync admin state on mount and monitor session
   useEffect(() => {
     const checkSession = () => {
       const expiry = localStorage.getItem("admin_session_expiry");
@@ -145,9 +147,22 @@ export function GameProvider({ children }: { children: ReactNode }) {
       }
     };
     checkSession();
-    const interval = setInterval(checkSession, 60000);
+    const interval = setInterval(checkSession, 60000); // Check every minute
     return () => clearInterval(interval);
   }, [adminLogout]);
+
+  // Global inactivity listeners
+  useEffect(() => {
+    if (!isAdmin) return;
+
+    const resetOnActivity = () => resetAdminTimer();
+    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
+    events.forEach(name => document.addEventListener(name, resetOnActivity));
+    
+    return () => {
+      events.forEach(name => document.removeEventListener(name, resetOnActivity));
+    };
+  }, [isAdmin, resetAdminTimer]);
 
   const adminLogin = (password: string) => {
     if (password === "Chewy2026") {

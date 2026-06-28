@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -36,8 +37,7 @@ import {
   Eye,
   EyeOff,
   LogOut,
-  AlertCircle,
-  Play
+  AlertCircle
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -100,7 +100,10 @@ export function AdminPanel() {
       toast({ title: "Booth Access Granted" });
       setAuthPassword("");
       setShowLoginFields(false);
-    } else setAuthError(true);
+      setAuthError(false);
+    } else {
+      setAuthError(true);
+    }
   };
 
   const parseYoutubeId = (url: string) => {
@@ -149,20 +152,52 @@ export function AdminPanel() {
     toast({ title: "Track Added to Stadium" });
   };
 
+  // Unauthenticated View
   if (!isAdmin) {
     return (
-      <div className="relative">
-        <Button onClick={() => setShowLoginFields(!showLoginFields)} className="bg-primary hover:bg-primary/90 font-black uppercase h-10 px-6 shadow-lg">
-          {showLoginFields ? <Unlock className="h-4 w-4 mr-2" /> : <Lock className="h-4 w-4 mr-2" />} ADMIN
+      <div className="relative z-50">
+        <Button 
+          onClick={() => { setShowLoginFields(!showLoginFields); setAuthError(false); }} 
+          className="bg-primary hover:bg-primary/90 font-black uppercase h-10 px-6 shadow-lg tracking-widest transition-all transform active:scale-95"
+        >
+          {showLoginFields ? <Unlock className="h-4 w-4 mr-2" /> : <Lock className="h-4 w-4 mr-2" />} 
+          {showLoginFields ? "CLOSE" : "UNLOCK"}
         </Button>
+        
         {showLoginFields && (
-          <div className="absolute top-12 right-0 w-64 bg-card border border-primary/20 p-4 rounded-xl shadow-2xl z-[60] animate-in slide-in-from-top-2">
-            <form onSubmit={handleLoginSubmit} className="space-y-3">
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input type={showPassword ? "text" : "password"} placeholder="Password..." className="pl-10 h-10 text-xs" value={authPassword} onChange={e => setAuthPassword(e.target.value)} />
+          <div className="absolute top-12 right-0 w-72 bg-card border-2 border-primary/20 p-5 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-[60] animate-in slide-in-from-top-4 fade-in duration-300">
+            <form onSubmit={handleLoginSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-primary ml-1">Booth Password</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input 
+                    type={showPassword ? "text" : "password"} 
+                    placeholder="Enter password..." 
+                    className={cn(
+                      "pl-10 pr-12 h-12 text-xs bg-black/40 border-white/10 transition-colors",
+                      authError && "border-destructive/50 bg-destructive/5"
+                    )}
+                    value={authPassword} 
+                    onChange={e => { setAuthPassword(e.target.value); setAuthError(false); }} 
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                {authError && (
+                  <div className="flex items-center gap-1.5 text-destructive animate-in fade-in slide-in-from-top-1">
+                    <AlertCircle className="h-3 w-3" />
+                    <span className="text-[9px] font-black uppercase">Incorrect Password. Please try again.</span>
+                  </div>
+                )}
               </div>
-              <Button type="submit" className="w-full h-9 font-black uppercase text-[10px]">Verify</Button>
+              <Button type="submit" className="w-full h-11 font-black uppercase text-xs tracking-widest shadow-lg">Verify Access</Button>
             </form>
           </div>
         )}
@@ -170,11 +205,12 @@ export function AdminPanel() {
     );
   }
 
+  // Authenticated View
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-3 z-50">
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-10 w-10 text-primary bg-primary/10 border border-primary/20 shadow-lg">
+          <Button variant="ghost" size="icon" className="h-10 w-10 text-primary bg-primary/10 border border-primary/20 shadow-lg hover:bg-primary/20 transition-all rounded-full transform hover:rotate-45">
             <Settings className="h-5 w-5" />
           </Button>
         </DialogTrigger>
@@ -187,9 +223,9 @@ export function AdminPanel() {
 
           <div className="space-y-6 py-4">
             <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase text-muted-foreground">Select Category</Label>
+              <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Select Category</Label>
               <Select value={activeSection} onValueChange={(v) => setActiveSection(v as AdminSection)}>
-                <SelectTrigger className="h-12 bg-black/20 font-bold">
+                <SelectTrigger className="h-12 bg-black/20 font-bold border-white/5">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -203,9 +239,9 @@ export function AdminPanel() {
             {activeSection === "players" ? (
               <div className="space-y-6">
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-muted-foreground">Select Player</Label>
+                  <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Select Player</Label>
                   <Select value={selectedPlayerId} onValueChange={setSelectedPlayerId}>
-                    <SelectTrigger className="h-12 bg-black/20 font-bold">
+                    <SelectTrigger className="h-12 bg-black/20 font-bold border-white/5">
                       <SelectValue placeholder="Add New Player..." />
                     </SelectTrigger>
                     <SelectContent>
@@ -215,73 +251,83 @@ export function AdminPanel() {
                   </Select>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <Input value={playerForm.name} onChange={e => setPlayerForm({...playerForm, name: e.target.value})} placeholder="Player Name" className="font-bold" />
-                  <Input type="number" value={playerForm.number || ""} onChange={e => setPlayerForm({...playerForm, number: parseInt(e.target.value) || 0})} placeholder="Jersey #" className="font-bold" />
+                  <div className="space-y-1.5">
+                    <Label className="text-[9px] font-black uppercase text-muted-foreground tracking-tighter">Full Name</Label>
+                    <Input value={playerForm.name} onChange={e => setPlayerForm({...playerForm, name: e.target.value})} placeholder="Player Name" className="font-bold" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-[9px] font-black uppercase text-muted-foreground tracking-tighter">Jersey Number</Label>
+                    <Input type="number" value={playerForm.number || ""} onChange={e => setPlayerForm({...playerForm, number: parseInt(e.target.value) || 0})} placeholder="Jersey #" className="font-bold" />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-primary">Announcement Audio</Label>
-                  <Input type="file" accept="audio/*" onChange={e => setAudioFile(e.target.files?.[0] || null)} className="bg-black/20 cursor-pointer" />
+                <div className="space-y-2 p-4 bg-primary/5 rounded-xl border border-primary/10">
+                  <Label className="text-[10px] font-black uppercase text-primary tracking-widest flex items-center gap-2">
+                    <Mic2 className="h-3 w-3" /> Announcement Audio
+                  </Label>
+                  <Input type="file" accept="audio/*" onChange={e => setAudioFile(e.target.files?.[0] || null)} className="bg-black/20 cursor-pointer border-dashed border-white/10" />
                 </div>
                 <div className="space-y-4">
-                  <Label className="text-[10px] font-black uppercase text-secondary">Walk-Up Tracks (YouTube)</Label>
+                  <Label className="text-[10px] font-black uppercase text-secondary tracking-widest flex items-center gap-2">
+                    <Music className="h-3 w-3" /> Walk-Up Tracks (YouTube)
+                  </Label>
                   {playerForm.songs.map((song, idx) => (
-                    <div key={idx} className="grid grid-cols-12 gap-2 p-3 bg-black/20 rounded-lg">
-                      <Input className="col-span-4 h-8 text-[10px]" placeholder="Name" value={song.name} onChange={e => {
+                    <div key={idx} className="grid grid-cols-12 gap-2 p-3 bg-black/20 rounded-lg border border-white/5">
+                      <Input className="col-span-4 h-9 text-[10px] font-bold" placeholder="Track Name" value={song.name} onChange={e => {
                         const next = [...playerForm.songs]; next[idx].name = e.target.value; setPlayerForm({...playerForm, songs: next});
                       }} />
-                      <Input className="col-span-5 h-8 text-[10px]" placeholder="YouTube Link" value={song.videoId} onChange={e => {
+                      <Input className="col-span-5 h-9 text-[10px] font-bold" placeholder="YouTube URL/ID" value={song.videoId} onChange={e => {
                         const next = [...playerForm.songs]; next[idx].videoId = e.target.value; setPlayerForm({...playerForm, songs: next});
                       }} />
-                      <Input className="col-span-3 h-8 text-[10px]" placeholder="Start (sec)" type="number" value={song.startAt || ""} onChange={e => {
+                      <Input className="col-span-3 h-9 text-[10px] font-bold" placeholder="Start (s)" type="number" value={song.startAt || ""} onChange={e => {
                         const next = [...playerForm.songs]; next[idx].startAt = parseInt(e.target.value) || 0; setPlayerForm({...playerForm, songs: next});
                       }} />
                     </div>
                   ))}
                 </div>
-                <div className="flex gap-2">
-                  <Button className="flex-1 h-12 font-black uppercase bg-primary" onClick={handleSavePlayer} disabled={isSaving}>
-                    {isSaving ? <Loader2 className="animate-spin h-4 w-4" /> : <Save className="h-4 w-4 mr-2" />} SAVE PLAYER
+                <div className="flex gap-3">
+                  <Button className="flex-1 h-14 font-black uppercase tracking-widest bg-primary shadow-lg shadow-primary/20" onClick={handleSavePlayer} disabled={isSaving}>
+                    {isSaving ? <Loader2 className="animate-spin h-5 w-5" /> : <Save className="h-5 w-5 mr-2" />} SAVE PLAYER
                   </Button>
                   {selectedPlayerId !== "new" && (
-                    <Button variant="destructive" className="h-12 w-12" onClick={() => { deletePlayer(selectedPlayerId); setSelectedPlayerId("new"); }}>
-                      <Trash2 className="h-4 w-4" />
+                    <Button variant="destructive" className="h-14 w-14 shadow-lg shadow-destructive/20" onClick={() => { if(confirm("Delete this player?")) { deletePlayer(selectedPlayerId); setSelectedPlayerId("new"); } }}>
+                      <Trash2 className="h-5 w-5" />
                     </Button>
                   )}
                 </div>
               </div>
             ) : (
               <div className="space-y-6">
-                <div className="p-4 bg-black/20 rounded-xl space-y-4 border border-white/5">
+                <div className="p-5 bg-black/20 rounded-2xl space-y-4 border border-white/5">
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <Label className="text-[8px] font-black uppercase opacity-50">Title</Label>
-                      <Input placeholder="Track Title" value={songForm.title} onChange={e => setSongForm({...songForm, title: e.target.value})} className="font-bold" />
+                    <div className="space-y-1.5">
+                      <Label className="text-[9px] font-black uppercase opacity-50 tracking-tighter">Track Title</Label>
+                      <Input placeholder="Enter title..." value={songForm.title} onChange={e => setSongForm({...songForm, title: e.target.value})} className="font-bold" />
                     </div>
-                    <div className="space-y-1">
-                      <Label className="text-[8px] font-black uppercase opacity-50">Start (sec)</Label>
+                    <div className="space-y-1.5">
+                      <Label className="text-[9px] font-black uppercase opacity-50 tracking-tighter">Start Offset (s)</Label>
                       <Input type="number" placeholder="0" value={songForm.startTime || ""} onChange={e => setSongForm({...songForm, startTime: parseInt(e.target.value) || 0})} className="font-bold" />
                     </div>
                   </div>
-                  <div className="space-y-1">
-                    <Label className="text-[8px] font-black uppercase opacity-50">YouTube Link</Label>
-                    <Input placeholder="https://..." value={songForm.link} onChange={e => setSongForm({...songForm, link: e.target.value})} />
+                  <div className="space-y-1.5">
+                    <Label className="text-[9px] font-black uppercase opacity-50 tracking-tighter">YouTube Link or ID</Label>
+                    <Input placeholder="https://www.youtube.com/watch?v=..." value={songForm.link} onChange={e => setSongForm({...songForm, link: e.target.value})} />
                   </div>
-                  <Button className="w-full h-10 font-black uppercase bg-secondary text-secondary-foreground" onClick={handleSaveStadiumSong}>
-                    <Plus className="h-4 w-4 mr-2" /> ADD TO STADIUM
+                  <Button className="w-full h-12 font-black uppercase tracking-widest bg-secondary text-secondary-foreground shadow-lg shadow-secondary/10" onClick={handleSaveStadiumSong}>
+                    <Plus className="h-5 w-5 mr-2" /> ADD TO STADIUM
                   </Button>
                 </div>
 
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-muted-foreground">Current Tracks</Label>
-                  <div className="space-y-2">
+                <div className="space-y-3">
+                  <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-1">Current Stadium Tracks</Label>
+                  <div className="grid gap-2">
                     {(activeSection === "organ" ? organSongs : pumpUpSongs).map(song => (
-                      <div key={song.id} className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/5">
+                      <div key={song.id} className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5 group hover:bg-white/10 transition-colors">
                         <div className="flex flex-col">
-                          <span className="text-xs font-bold">{song.title}</span>
-                          <span className="text-[8px] text-muted-foreground font-mono">Starts @ {song.startTime}s</span>
+                          <span className="text-sm font-black uppercase tracking-wider">{song.title}</span>
+                          <span className="text-[9px] text-muted-foreground font-bold tracking-widest uppercase">Starts @ {song.startTime}s</span>
                         </div>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => deleteStadiumSong(activeSection === "organ" ? "organ" : "pumpup", song.id)}>
-                          <Trash2 className="h-3.5 w-3.5" />
+                        <Button variant="ghost" size="icon" className="h-9 w-9 text-destructive opacity-40 group-hover:opacity-100 transition-opacity hover:bg-destructive/10" onClick={() => { if(confirm("Remove this track?")) deleteStadiumSong(activeSection === "organ" ? "organ" : "pumpup", song.id); }}>
+                          <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
                     ))}
@@ -292,8 +338,13 @@ export function AdminPanel() {
           </div>
         </DialogContent>
       </Dialog>
-      <Button variant="ghost" onClick={adminLogout} className="text-[9px] font-black uppercase text-muted-foreground hover:text-destructive">
-        <LogOut className="h-3 w-3 mr-1" /> LOGOUT
+      
+      <Button 
+        variant="outline" 
+        onClick={adminLogout} 
+        className="h-10 px-5 border-destructive/20 text-destructive hover:bg-destructive/10 font-black uppercase text-[10px] tracking-[0.2em] shadow-lg transition-all"
+      >
+        <LogOut className="h-3.5 w-3.5 mr-2" /> LOGOUT
       </Button>
     </div>
   );
