@@ -22,7 +22,8 @@ import {
   Trash2,
   Save,
   X,
-  MessageSquare
+  MessageSquare,
+  ShieldCheck
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -351,10 +352,16 @@ export default function StadiumBoothDashboard() {
           />
         )}
 
-        <header className="sticky top-0 z-50 flex flex-col gap-2 p-2 md:p-4 border-b border-border shadow-2xl bg-card/95 backdrop-blur-md">
-          <div className="flex items-center justify-between max-w-7xl mx-auto w-full relative h-10 md:h-16 gap-2">
-            <div className="flex items-center gap-2 md:gap-4 shrink-0">
+        <header className="sticky top-0 z-50 flex flex-col p-4 border-b border-border shadow-2xl bg-card/95 backdrop-blur-md gap-4">
+          <div className="flex items-center justify-between w-full relative gap-2">
+            <div className="flex flex-col shrink-0">
               <h1 className="font-headline font-black uppercase tracking-[0.2em] text-[10px] md:text-sm">BOOTH ANNOUNCER</h1>
+              {isAdmin && (
+                <div className="flex items-center gap-1.5 animate-in fade-in slide-in-from-left-2 duration-500">
+                  <ShieldCheck className="h-3 w-3 text-primary" />
+                  <span className="text-[8px] font-black uppercase text-primary tracking-tighter">Booth Operations Mode</span>
+                </div>
+              )}
             </div>
             
             <div className="flex items-center justify-center gap-1.5 md:gap-8 flex-1">
@@ -395,7 +402,7 @@ export default function StadiumBoothDashboard() {
             </div>
           </div>
 
-          <div className="max-w-7xl mx-auto w-full flex items-center gap-2 md:gap-4 bg-primary/5 p-1.5 md:p-2 rounded-lg border border-primary/10">
+          <div className="w-full flex items-center gap-2 md:gap-4 bg-primary/5 p-1.5 md:p-2 rounded-lg border border-primary/10">
             <div className="flex items-center gap-2 min-w-max">
               {volume === 0 ? <VolumeX className="h-3.5 w-3.5 text-muted-foreground" /> : <Volume2 className="h-3.5 w-3.5 text-primary" />}
             </div>
