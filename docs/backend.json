@@ -30,7 +30,8 @@
       "properties": {
         "title": { "type": "string" },
         "link": { "type": "string" },
-        "startTime": { "type": "number" }
+        "startTime": { "type": "number" },
+        "order": { "type": "number" }
       },
       "required": ["title", "link"]
     },

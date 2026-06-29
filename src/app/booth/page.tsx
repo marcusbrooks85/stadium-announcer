@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
@@ -15,7 +16,8 @@ import {
   Zap,
   ArrowDownWideNarrow,
   Ban,
-  Home
+  Home,
+  GripVertical
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,12 +39,12 @@ import {
 } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { useGame } from "@/app/context/game-context";
+import { useGame, StadiumSong } from "@/app/context/game-context";
 import { InstallButton } from "@/components/InstallButton";
 import { AdminPanel } from "@/components/AdminPanel";
 
 export default function StadiumBoothDashboard() {
-  const { roster, organSongs, pumpUpSongs } = useGame();
+  const { roster, organSongs, pumpUpSongs, isAdmin, reorderStadiumSongs } = useGame();
   
   const [activePlayerId, setActivePlayerId] = useState<string | null>(null);
   const [selectedSongIndex, setSelectedSongIndex] = useState(0);
@@ -53,6 +55,10 @@ export default function StadiumBoothDashboard() {
   const [currentAnnouncementUrl, setCurrentAnnouncementUrl] = useState<string | null>(null);
   const [playbackSessionId, setPlaybackSessionId] = useState<number>(0);
   
+  // Drag and Drop state
+  const [draggedItemIndex, setDraggedItemIndex] = useState<number | null>(null);
+  const [draggedCategory, setDraggedCategory] = useState<'organ' | 'pumpup' | null>(null);
+
   const announcementAudioRef = useRef<HTMLAudioElement | null>(null);
   const ytPlayerRef = useRef<any>(null);
   const fadeIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -179,7 +185,6 @@ export default function StadiumBoothDashboard() {
     
     stopEverything();
     
-    // Slight delay to ensure React state for nulling the URL settles
     setTimeout(() => {
       setVolume(0.8);
       setPlaybackPhase('announcing');
@@ -214,6 +219,58 @@ export default function StadiumBoothDashboard() {
       setPlaybackPhase('idle');
       setActiveTrackName(null);
     }
+  };
+
+  // Drag and Drop Handlers
+  const handleDragStart = (index: number, category: 'organ' | 'pumpup') => {
+    if (!isAdmin) return;
+    setDraggedItemIndex(index);
+    setDraggedCategory(category);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = (index: number, category: 'organ' | 'pumpup') => {
+    if (!isAdmin || draggedItemIndex === null || draggedCategory !== category) return;
+    
+    const songs = category === 'organ' ? [...organSongs] : [...pumpUpSongs];
+    const sourceIndex = draggedItemIndex;
+    const targetIndex = index;
+    
+    if (sourceIndex === targetIndex) return;
+    
+    const [reorderedItem] = songs.splice(sourceIndex, 1);
+    songs.splice(targetIndex, 0, reorderedItem);
+    
+    reorderStadiumSongs(category, songs);
+    setDraggedItemIndex(null);
+    setDraggedCategory(null);
+  };
+
+  const renderSongButton = (song: StadiumSong, index: number, category: 'organ' | 'pumpup') => {
+    const isDodgers = song.title.toUpperCase().includes('DODGERS');
+    
+    return (
+      <Button 
+        key={song.id} 
+        variant={isDodgers ? "default" : "outline"} 
+        draggable={isAdmin}
+        onDragStart={() => handleDragStart(index, category)}
+        onDragOver={handleDragOver}
+        onDrop={() => handleDrop(index, category)}
+        onClick={() => playYoutubeTrack(song.link, song.title, song.startTime)} 
+        className={cn(
+          "h-12 border-secondary/20 font-black uppercase text-[8px] md:text-[9px] justify-start px-2 md:px-3 whitespace-normal break-words text-left leading-tight transition-all",
+          isDodgers ? "bg-blue-600 hover:bg-blue-700 text-white shadow-[0_0_15px_rgba(37,99,235,0.4)] border-none" : "text-secondary",
+          isAdmin && "cursor-grab active:cursor-grabbing hover:border-primary/50"
+        )}
+      >
+        {isAdmin && <GripVertical className="h-3 w-3 mr-1.5 shrink-0 opacity-40" />}
+        {category === 'organ' ? '🎹 ' : '📣 '} {song.title}
+      </Button>
+    );
   };
 
   return (
@@ -383,26 +440,25 @@ export default function StadiumBoothDashboard() {
 
               <section className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-8">
                 <Card className="bg-card/80 border-white/10">
-                  <CardHeader className="py-3 border-b border-white/5"><CardTitle className="text-[9px] font-black uppercase tracking-[0.3em]">🎹 Organ Master</CardTitle></CardHeader>
+                  <CardHeader className="py-3 border-b border-white/5">
+                    <CardTitle className="text-[9px] font-black uppercase tracking-[0.3em] flex items-center justify-between">
+                      <span>🎹 Organ Master</span>
+                      {isAdmin && <span className="text-[7px] font-normal tracking-normal normal-case opacity-50">Drag to reorder</span>}
+                    </CardTitle>
+                  </CardHeader>
                   <CardContent className="grid grid-cols-2 gap-2 pt-4">
-                    {organSongs.map((hit) => (
-                      <Button key={hit.id} variant="outline" onClick={() => playYoutubeTrack(hit.link, hit.title, hit.startTime)} className="h-10 border-secondary/20 text-secondary font-black uppercase text-[8px] md:text-[9px] justify-start px-2 md:px-3 truncate">🎹 {hit.title}</Button>
-                    ))}
+                    {organSongs.map((hit, idx) => renderSongButton(hit, idx, 'organ'))}
                   </CardContent>
                 </Card>
                 <Card className="bg-card/80 border-white/10">
-                  <CardHeader className="py-3 border-b border-white/5"><CardTitle className="text-[9px] font-black uppercase tracking-[0.3em]">📣 Crowd Pump-Up</CardTitle></CardHeader>
-                  <CardContent className="grid grid-cols-3 gap-2 pt-4">
-                    {pumpUpSongs.map((song) => (
-                      <Button 
-                        key={song.id} 
-                        variant="outline" 
-                        onClick={() => playYoutubeTrack(song.link, song.title, song.startTime)} 
-                        className="h-10 border-primary/20 text-primary font-black uppercase text-[7px] md:text-[8px] justify-start px-1.5 md:px-2 truncate"
-                      >
-                        📣 {song.title}
-                      </Button>
-                    ))}
+                  <CardHeader className="py-3 border-b border-white/5">
+                    <CardTitle className="text-[9px] font-black uppercase tracking-[0.3em] flex items-center justify-between">
+                      <span>📣 Crowd Pump-Up</span>
+                      {isAdmin && <span className="text-[7px] font-normal tracking-normal normal-case opacity-50">Drag to reorder</span>}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-2 pt-4">
+                    {pumpUpSongs.map((song, idx) => renderSongButton(song, idx, 'pumpup'))}
                   </CardContent>
                 </Card>
               </section>

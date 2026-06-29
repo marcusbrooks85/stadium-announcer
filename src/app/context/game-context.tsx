@@ -10,7 +10,8 @@ import {
   setDoc, 
   deleteDoc,
   query, 
-  orderBy 
+  orderBy,
+  writeBatch
 } from "firebase/firestore";
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -26,6 +27,7 @@ export interface StadiumSong {
   title: string;
   link: string;
   startTime: number;
+  order?: number;
 }
 
 export interface PlayerStats {
@@ -57,21 +59,21 @@ export const INITIAL_ROSTER: Omit<Player, 'id'>[] = [
 ];
 
 export const INITIAL_ORGAN_HITS = [
-  { title: "BULLFIGHTER", link: "melJslO0IJY", startTime: 0 },
-  { title: "JAWS", link: "QPwozG816lk", startTime: 0 },
-  { title: "LET'S GO TEAM", link: "kzTfu6LwbD8", startTime: 0 },
-  { title: "TAKE ME OUT", link: "QamKhi1cxIs", startTime: 0 },
-  { title: "THREE CHARGES", link: "jcylen-X1no", startTime: 0 },
-  { title: "CAVALRY CHARGE", link: "1aQ3nk-W0GI", startTime: 0 },
+  { title: "BULLFIGHTER", link: "melJslO0IJY", startTime: 0, order: 0 },
+  { title: "JAWS", link: "QPwozG816lk", startTime: 0, order: 1 },
+  { title: "LET'S GO TEAM", link: "kzTfu6LwbD8", startTime: 0, order: 2 },
+  { title: "TAKE ME OUT", link: "QamKhi1cxIs", startTime: 0, order: 3 },
+  { title: "THREE CHARGES", link: "jcylen-X1no", startTime: 0, order: 4 },
+  { title: "CAVALRY CHARGE", link: "1aQ3nk-W0GI", startTime: 0, order: 5 },
 ];
 
 export const INITIAL_PUMP_UP_SONGS = [
-  { title: "DODGERS", link: "4KwFuGtGU6c", startTime: 10 },
-  { title: "ROCK YOU", link: "TXGbhniTBrU", startTime: 0 },
-  { title: "PUMP IT", link: "fSvPktHcxtg", startTime: 0 },
-  { title: "DANCE NOW", link: "l5Zox5O3jh4", startTime: 0 },
-  { title: "CAN'T STOP", link: "0Ui-QzihJGo", startTime: 0 },
-  { title: "PASSO BEM", link: "KgayxOF4Y7E", startTime: 0 },
+  { title: "DODGERS", link: "4KwFuGtGU6c", startTime: 10, order: 0 },
+  { title: "ROCK YOU", link: "TXGbhniTBrU", startTime: 0, order: 1 },
+  { title: "PUMP IT", link: "fSvPktHcxtg", startTime: 0, order: 2 },
+  { title: "DANCE NOW", link: "l5Zox5O3jh4", startTime: 0, order: 3 },
+  { title: "CAN'T STOP", link: "0Ui-QzihJGo", startTime: 0, order: 4 },
+  { title: "PASSO BEM", link: "KgayxOF4Y7E", startTime: 0, order: 5 },
 ];
 
 export const FULL_GAME_SCHEDULE = [
@@ -116,6 +118,7 @@ interface GameContextType {
   deletePlayer: (id: string) => void;
   saveStadiumSong: (category: 'organ' | 'pumpup', song: Omit<StadiumSong, 'id'>, id?: string) => void;
   deleteStadiumSong: (category: 'organ' | 'pumpup', id: string) => void;
+  reorderStadiumSongs: (category: 'organ' | 'pumpup', songs: StadiumSong[]) => void;
 }
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -223,7 +226,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       if (snapshot.empty) {
         INITIAL_ORGAN_HITS.forEach((s, idx) => setDoc(doc(organRef, `organ_${idx + 1}`), s));
       } else {
-        setOrganSongs(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as StadiumSong[]);
+        const loaded = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as StadiumSong[];
+        setOrganSongs(loaded.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)));
       }
     });
 
@@ -233,7 +237,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       if (snapshot.empty) {
         INITIAL_PUMP_UP_SONGS.forEach((s, idx) => setDoc(doc(pumpRef, `pump_${idx + 1}`), s));
       } else {
-        setPumpUpSongs(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as StadiumSong[]);
+        const loaded = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as StadiumSong[];
+        setPumpUpSongs(loaded.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)));
       }
     });
 
@@ -331,6 +336,22 @@ export function GameProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  const reorderStadiumSongs = (category: 'organ' | 'pumpup', updatedSongs: StadiumSong[]) => {
+    if (!isAdmin || !db) return;
+    resetAdminTimer();
+    const collName = category === 'organ' ? "organ_songs" : "pump_up_songs";
+    const batch = writeBatch(db);
+    
+    updatedSongs.forEach((song, index) => {
+      const docRef = doc(db, collName, song.id);
+      batch.update(docRef, { order: index });
+    });
+    
+    batch.commit().catch(async (error) => {
+       console.error("Batch update failed", error);
+    });
+  };
+
   const emailStats = () => {
     const gameLabel = GAME_SCHEDULE_LIST.find(g => g.id === selectedGameId)?.label || selectedGameId;
     const subject = `Game Report: ${gameLabel}`;
@@ -360,7 +381,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       savePlayer,
       deletePlayer,
       saveStadiumSong,
-      deleteStadiumSong
+      deleteStadiumSong,
+      reorderStadiumSongs
     }}>
       {children}
     </GameContext.Provider>
