@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useMemo } from "react";
@@ -61,25 +62,27 @@ export default function GameStatsPage() {
       <div className="flex flex-col min-h-screen bg-background text-foreground stadium-gradient overflow-y-auto">
         <header className="sticky top-0 z-50 flex items-center justify-between p-4 border-b border-border shadow-2xl bg-card/95 backdrop-blur-md">
           <div className="flex items-center gap-4">
-             <Link href="/">
-               <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-primary/20 bg-primary/5 text-primary transition-colors hover:bg-primary/10">
-                 <Home className="h-5 w-5" />
-               </div>
-             </Link>
              <h1 className="font-headline font-black uppercase tracking-[0.2em] text-xs md:text-sm">Stats Center</h1>
           </div>
           
           <div className="flex items-center gap-1 md:gap-3">
-            <Link href="/booth">
-              <Button variant="ghost" size="icon" className="h-9 w-9 text-primary hover:text-primary/80">
-                <Zap className="h-4 w-4" />
-              </Button>
-            </Link>
-            <Link href="/">
-              <Button variant="ghost" size="icon" className="h-9 w-9 text-primary hover:text-primary/80">
-                <Calendar className="h-4 w-4" />
-              </Button>
-            </Link>
+            <div className="flex items-center bg-black/20 rounded-full p-1 border border-white/5 mr-1 md:mr-2">
+              <Link href="/">
+                <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 text-muted-foreground hover:text-primary/80">
+                  <Home className="h-4 w-4" />
+                </Button>
+              </Link>
+              <Link href="/booth">
+                <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 text-muted-foreground hover:text-primary/80">
+                  <Zap className="h-4 w-4" />
+                </Button>
+              </Link>
+              <Link href="/stats">
+                <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 text-primary">
+                  <BarChart3 className="h-4 w-4" />
+                </Button>
+              </Link>
+            </div>
             <AdminPanel />
           </div>
         </header>
@@ -227,7 +230,7 @@ export default function GameStatsPage() {
             </Link>
             <Link href="/" className="flex-1">
               <div className="flex items-center justify-center gap-2 h-11 border border-white/10 rounded-xl bg-white/5 text-secondary hover:bg-white/10 transition-all">
-                <Calendar className="h-4 w-4" />
+                <Home className="h-4 w-4" />
                 <span className="text-[10px] font-black uppercase tracking-widest">Schedule</span>
               </div>
             </Link>

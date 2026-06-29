@@ -370,8 +370,23 @@ export default function StadiumBoothDashboard() {
             </div>
 
             <div className="flex items-center gap-1 md:gap-3 shrink-0">
-              <Link href="/stats"><Button variant="ghost" size="icon" className="h-8 w-8 text-primary hover:text-primary/80"><BarChart3 className="h-4 w-4" /></Button></Link>
-              <Link href="/"><Button variant="ghost" size="icon" className="h-8 w-8 text-primary hover:text-primary/80"><Home className="h-4 w-4" /></Button></Link>
+              <div className="flex items-center bg-black/20 rounded-full p-1 border border-white/5 mr-1 md:mr-2">
+                <Link href="/">
+                  <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 text-muted-foreground hover:text-primary/80">
+                    <Home className="h-4 w-4" />
+                  </Button>
+                </Link>
+                <Link href="/booth">
+                  <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 text-primary">
+                    <Zap className="h-4 w-4" />
+                  </Button>
+                </Link>
+                <Link href="/stats">
+                  <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 text-muted-foreground hover:text-primary/80">
+                    <BarChart3 className="h-4 w-4" />
+                  </Button>
+                </Link>
+              </div>
               <AdminPanel />
             </div>
           </div>

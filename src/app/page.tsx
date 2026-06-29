@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useMemo, useState, useEffect } from "react";
@@ -198,18 +199,25 @@ export default function GameSchedulePage() {
         </div>
 
         <div className="flex items-center gap-1 md:gap-3">
-          <Link href="/booth">
-            <Button variant="ghost" size="icon" className="h-9 w-9 text-primary hover:text-primary/80">
-              <Zap className="h-4 w-4" />
-            </Button>
-          </Link>
-          <Link href="/stats">
-            <Button variant="ghost" size="icon" className="h-9 w-9 text-primary hover:text-primary/80">
-              <BarChart3 className="h-4 w-4" />
-            </Button>
-          </Link>
+          <div className="flex items-center bg-black/20 rounded-full p-1 border border-white/5 mr-1 md:mr-2">
+            <Link href="/">
+              <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 text-primary">
+                <Home className="h-4 w-4" />
+              </Button>
+            </Link>
+            <Link href="/booth">
+              <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 text-muted-foreground hover:text-primary/80">
+                <Zap className="h-4 w-4" />
+              </Button>
+            </Link>
+            <Link href="/stats">
+              <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 text-muted-foreground hover:text-primary/80">
+                <BarChart3 className="h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
           <a href="https://groupme.com/join_group/115533519/bxlMSOlb" target="_blank" rel="noopener noreferrer">
-            <Button variant="ghost" size="icon" className="h-9 w-9 text-primary hover:text-primary/80">
+            <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 text-primary hover:text-primary/80">
               <MessageSquare className="h-4 w-4" />
             </Button>
           </a>
