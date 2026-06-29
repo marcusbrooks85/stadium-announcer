@@ -37,7 +37,9 @@ import {
   Eye,
   EyeOff,
   LogOut,
-  AlertCircle
+  AlertCircle,
+  Pencil,
+  X
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -71,7 +73,7 @@ export function AdminPanel() {
   const [isOpen, setIsOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   
-  // Form States - Initialize with explicit unique objects to prevent mirroring
+  // Form States
   const [selectedPlayerId, setSelectedPlayerId] = useState<string>("new");
   const [playerForm, setPlayerForm] = useState({
     name: "",
@@ -85,7 +87,9 @@ export function AdminPanel() {
   });
   const [audioFile, setAudioFile] = useState<File | null>(null);
 
-  const [songForm, setSongForm] = useState({ title: "", link: "", startTime: 0 });
+  // Stadium Song Form State
+  const [editingSongId, setEditingSongId] = useState<string | null>(null);
+  const [songForm, setSongForm] = useState({ title: "", link: "", startTime: 0, order: 0 });
 
   useEffect(() => {
     if (activeSection === "players") {
@@ -170,16 +174,34 @@ export function AdminPanel() {
     } finally { setIsSaving(false); }
   };
 
+  const startEditingStadiumSong = (song: StadiumSong) => {
+    setEditingSongId(song.id);
+    setSongForm({
+      title: song.title,
+      link: song.link,
+      startTime: song.startTime,
+      order: song.order || 0
+    });
+  };
+
+  const resetStadiumSongForm = () => {
+    setEditingSongId(null);
+    setSongForm({ title: "", link: "", startTime: 0, order: 0 });
+  };
+
   const handleSaveStadiumSong = () => {
     if (!songForm.title || !songForm.link) { toast({ variant: "destructive", title: "Missing Data" }); return; }
     const category = activeSection === "organ" ? "organ" : "pumpup";
+    
     saveStadiumSong(category, {
       title: songForm.title,
       link: parseYoutubeId(songForm.link),
-      startTime: Number(songForm.startTime) || 0
-    });
-    setSongForm({ title: "", link: "", startTime: 0 });
-    toast({ title: "Track Added to Stadium" });
+      startTime: Number(songForm.startTime) || 0,
+      order: songForm.order
+    }, editingSongId || undefined);
+    
+    resetStadiumSongForm();
+    toast({ title: editingSongId ? "Track Updated" : "Track Added to Stadium" });
   };
 
   const updateTrackField = (idx: number, field: 'name' | 'videoId' | 'startAt', value: string) => {
@@ -249,7 +271,7 @@ export function AdminPanel() {
 
   return (
     <div className="flex items-center gap-2 md:gap-3 z-50">
-      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <Dialog open={isOpen} onOpenChange={(val) => { setIsOpen(val); if (!val) resetStadiumSongForm(); }}>
         <DialogTrigger asChild>
           <Button variant="ghost" size="icon" className="h-9 w-9 md:h-10 md:w-10 text-primary bg-primary/10 border border-primary/20 shadow-lg hover:bg-primary/20 transition-all rounded-full transform hover:rotate-45">
             <Settings className="h-4 w-4 md:h-5 md:w-5" />
@@ -257,15 +279,15 @@ export function AdminPanel() {
         </DialogTrigger>
         <DialogContent className="max-w-2xl bg-card border-primary/20 max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-primary uppercase tracking-widest text-sm font-black flex items-center gap-2">
-              <ShieldAlert className="h-4 w-4" /> Stadium Management
+            <DialogTitle className="text-primary uppercase tracking-widest text-sm font-black flex items-center justify-between">
+              <div className="flex items-center gap-2"><ShieldAlert className="h-4 w-4" /> Stadium Management</div>
             </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-6 py-4">
             <div className="space-y-2">
               <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Select Category</Label>
-              <Select value={activeSection} onValueChange={(v) => setActiveSection(v as AdminSection)}>
+              <Select value={activeSection} onValueChange={(v) => { setActiveSection(v as AdminSection); resetStadiumSongForm(); }}>
                 <SelectTrigger className="h-12 bg-black/20 font-bold border-white/5">
                   <SelectValue />
                 </SelectTrigger>
@@ -348,7 +370,12 @@ export function AdminPanel() {
               </div>
             ) : (
               <div className="space-y-6">
-                <div className="p-5 bg-black/20 rounded-2xl space-y-4 border border-white/5">
+                <div className="p-5 bg-black/20 rounded-2xl space-y-4 border border-white/5 relative">
+                  {editingSongId && (
+                    <button onClick={resetStadiumSongForm} className="absolute top-2 right-2 p-1 text-muted-foreground hover:text-white">
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                       <Label className="text-[9px] font-black uppercase opacity-50 tracking-tighter">Track Title</Label>
@@ -364,7 +391,8 @@ export function AdminPanel() {
                     <Input placeholder="https://www.youtube.com/watch?v=..." value={songForm.link} onChange={e => setSongForm({...songForm, link: e.target.value})} />
                   </div>
                   <Button className="w-full h-12 font-black uppercase tracking-widest bg-secondary text-secondary-foreground shadow-lg shadow-secondary/10" onClick={handleSaveStadiumSong}>
-                    <Plus className="h-5 w-5 mr-2" /> ADD TO STADIUM
+                    {editingSongId ? <Save className="h-5 w-5 mr-2" /> : <Plus className="h-5 w-5 mr-2" />} 
+                    {editingSongId ? "UPDATE TRACK" : "ADD TO STADIUM"}
                   </Button>
                 </div>
 
@@ -377,9 +405,24 @@ export function AdminPanel() {
                           <span className="text-sm font-black uppercase tracking-wider">{song.title}</span>
                           <span className="text-[9px] text-muted-foreground font-bold tracking-widest uppercase">Starts @ {song.startTime}s</span>
                         </div>
-                        <Button variant="ghost" size="icon" className="h-9 w-9 text-destructive opacity-40 group-hover:opacity-100 transition-opacity hover:bg-destructive/10" onClick={() => { if(confirm("Remove this track?")) deleteStadiumSong(activeSection === "organ" ? "organ" : "pumpup", song.id); }}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-9 w-9 text-primary opacity-40 group-hover:opacity-100 transition-opacity hover:bg-primary/10" 
+                            onClick={() => startEditingStadiumSong(song)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-9 w-9 text-destructive opacity-40 group-hover:opacity-100 transition-opacity hover:bg-destructive/10" 
+                            onClick={() => { if(confirm("Remove this track?")) deleteStadiumSong(activeSection === "organ" ? "organ" : "pumpup", song.id); }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
                     ))}
                   </div>

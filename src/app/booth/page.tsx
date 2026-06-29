@@ -17,7 +17,11 @@ import {
   ArrowDownWideNarrow,
   Ban,
   Home,
-  GripVertical
+  GripVertical,
+  Pencil,
+  Trash2,
+  Save,
+  X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,6 +41,15 @@ import {
   TooltipProvider, 
   TooltipTrigger 
 } from "@/components/ui/tooltip";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useGame, StadiumSong } from "@/app/context/game-context";
@@ -44,7 +57,15 @@ import { InstallButton } from "@/components/InstallButton";
 import { AdminPanel } from "@/components/AdminPanel";
 
 export default function StadiumBoothDashboard() {
-  const { roster, organSongs, pumpUpSongs, isAdmin, reorderStadiumSongs } = useGame();
+  const { 
+    roster, 
+    organSongs, 
+    pumpUpSongs, 
+    isAdmin, 
+    reorderStadiumSongs,
+    saveStadiumSong,
+    deleteStadiumSong 
+  } = useGame();
   
   const [activePlayerId, setActivePlayerId] = useState<string | null>(null);
   const [selectedSongIndex, setSelectedSongIndex] = useState(0);
@@ -58,6 +79,10 @@ export default function StadiumBoothDashboard() {
   // Drag and Drop state
   const [draggedItemIndex, setDraggedItemIndex] = useState<number | null>(null);
   const [draggedCategory, setDraggedCategory] = useState<'organ' | 'pumpup' | null>(null);
+
+  // Song Editing state
+  const [editingSong, setEditingSong] = useState<{ category: 'organ' | 'pumpup', song: StadiumSong } | null>(null);
+  const [editForm, setEditForm] = useState({ title: "", link: "", startTime: 0 });
 
   const announcementAudioRef = useRef<HTMLAudioElement | null>(null);
   const ytPlayerRef = useRef<any>(null);
@@ -249,27 +274,65 @@ export default function StadiumBoothDashboard() {
     setDraggedCategory(null);
   };
 
+  // Song Editing Handlers
+  const startEditingSong = (category: 'organ' | 'pumpup', song: StadiumSong) => {
+    setEditingSong({ category, song });
+    setEditForm({ 
+      title: song.title, 
+      link: song.link, 
+      startTime: song.startTime 
+    });
+  };
+
+  const handleSaveEdit = () => {
+    if (!editingSong) return;
+    saveStadiumSong(editingSong.category, {
+      title: editForm.title,
+      link: editForm.link,
+      startTime: editForm.startTime,
+      order: editingSong.song.order
+    }, editingSong.song.id);
+    setEditingSong(null);
+    toast({ title: "Track updated successfully" });
+  };
+
+  const handleDeleteEdit = () => {
+    if (!editingSong || !confirm("Delete this track from the stadium?")) return;
+    deleteStadiumSong(editingSong.category, editingSong.song.id);
+    setEditingSong(null);
+    toast({ variant: "destructive", title: "Track removed" });
+  };
+
   const renderSongButton = (song: StadiumSong, index: number, category: 'organ' | 'pumpup') => {
     const isDodgers = song.title.toUpperCase().includes('DODGERS');
     
     return (
-      <Button 
-        key={song.id} 
-        variant={isDodgers ? "default" : "outline"} 
-        draggable={isAdmin}
-        onDragStart={() => handleDragStart(index, category)}
-        onDragOver={handleDragOver}
-        onDrop={() => handleDrop(index, category)}
-        onClick={() => playYoutubeTrack(song.link, song.title, song.startTime)} 
-        className={cn(
-          "h-12 border-secondary/20 font-black uppercase text-[8px] md:text-[9px] justify-start px-2 md:px-3 whitespace-normal break-words text-left leading-tight transition-all",
-          isDodgers ? "bg-blue-600 hover:bg-blue-700 text-white shadow-[0_0_15px_rgba(37,99,235,0.4)] border-none" : "text-secondary",
-          isAdmin && "cursor-grab active:cursor-grabbing hover:border-primary/50"
+      <div key={song.id} className="relative group">
+        <Button 
+          variant="outline" 
+          draggable={isAdmin}
+          onDragStart={() => handleDragStart(index, category)}
+          onDragOver={handleDragOver}
+          onDrop={() => handleDrop(index, category)}
+          onClick={() => playYoutubeTrack(song.link, song.title, song.startTime)} 
+          className={cn(
+            "w-full h-12 border-secondary/20 font-black uppercase text-[8px] md:text-[9px] justify-start px-2 md:px-3 whitespace-normal break-words text-left leading-tight transition-all",
+            isDodgers && "border-2 border-blue-600 ring-2 ring-blue-600/20",
+            isAdmin && "cursor-grab active:cursor-grabbing hover:border-primary/50"
+          )}
+        >
+          {isAdmin && <GripVertical className="h-3 w-3 mr-1.5 shrink-0 opacity-40" />}
+          {category === 'organ' ? '🎹 ' : '📣 '} {song.title}
+        </Button>
+        {isAdmin && (
+          <button 
+            onClick={(e) => { e.stopPropagation(); startEditingSong(category, song); }}
+            className="absolute top-0 right-0 p-1 opacity-0 group-hover:opacity-100 transition-opacity bg-background/80 rounded-bl-lg border-l border-b border-white/10 text-primary hover:text-white"
+          >
+            <Pencil className="h-3 w-3" />
+          </button>
         )}
-      >
-        {isAdmin && <GripVertical className="h-3 w-3 mr-1.5 shrink-0 opacity-40" />}
-        {category === 'organ' ? '🎹 ' : '📣 '} {song.title}
-      </Button>
+      </div>
     );
   };
 
@@ -465,6 +528,38 @@ export default function StadiumBoothDashboard() {
             </div>
           </main>
         </div>
+
+        <Dialog open={!!editingSong} onOpenChange={() => setEditingSong(null)}>
+          <DialogContent className="max-w-md bg-card border-primary/20">
+            <DialogHeader>
+              <DialogTitle className="text-primary font-black uppercase tracking-widest text-sm flex items-center gap-2">
+                <Pencil className="h-4 w-4" /> Edit Detail
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Title</Label>
+                <Input value={editForm.title} onChange={e => setEditForm({ ...editForm, title: e.target.value })} className="font-bold" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">YouTube Link/ID</Label>
+                <Input value={editForm.link} onChange={e => setEditForm({ ...editForm, link: e.target.value })} className="font-bold" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Start Time (seconds)</Label>
+                <Input type="number" value={editForm.startTime} onChange={e => setEditForm({ ...editForm, startTime: parseInt(e.target.value) || 0 })} className="font-bold" />
+              </div>
+            </div>
+            <DialogFooter className="flex gap-2">
+              <Button variant="destructive" onClick={handleDeleteEdit} className="flex-1 font-black uppercase tracking-widest">
+                <Trash2 className="h-4 w-4 mr-2" /> Delete
+              </Button>
+              <Button onClick={handleSaveEdit} className="flex-1 font-black uppercase tracking-widest bg-primary">
+                <Save className="h-4 w-4 mr-2" /> Save Changes
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <div id="stadium-yt-player" className="fixed -bottom-40 -right-40 opacity-0 pointer-events-none w-40 h-40 overflow-hidden"></div>
       </div>
