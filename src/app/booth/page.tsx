@@ -21,7 +21,8 @@ import {
   Pencil,
   Trash2,
   Save,
-  X
+  X,
+  MessageSquare
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -53,7 +54,6 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useGame, StadiumSong } from "@/app/context/game-context";
-import { InstallButton } from "@/components/InstallButton";
 import { AdminPanel } from "@/components/AdminPanel";
 
 export default function StadiumBoothDashboard() {
@@ -354,8 +354,7 @@ export default function StadiumBoothDashboard() {
         <header className="sticky top-0 z-50 flex flex-col gap-2 p-2 md:p-4 border-b border-border shadow-2xl bg-card/95 backdrop-blur-md">
           <div className="flex items-center justify-between max-w-7xl mx-auto w-full relative h-10 md:h-16 gap-2">
             <div className="flex items-center gap-2 md:gap-4 shrink-0">
-              <h1 className="font-headline font-black uppercase tracking-[0.2em] text-xs md:text-sm text-primary">ON DECK</h1>
-              <InstallButton />
+              <h1 className="font-headline font-black uppercase tracking-[0.2em] text-[10px] md:text-sm">BOOTH ANNOUNCER</h1>
             </div>
             
             <div className="flex items-center justify-center gap-1.5 md:gap-8 flex-1">
@@ -386,6 +385,11 @@ export default function StadiumBoothDashboard() {
                     <BarChart3 className="h-4 w-4" />
                   </Button>
                 </Link>
+                <a href="https://groupme.com/join_group/115533519/bxlMSOlb" target="_blank" rel="noopener noreferrer">
+                  <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 text-muted-foreground hover:text-primary/80">
+                    <MessageSquare className="h-4 w-4" />
+                  </Button>
+                </a>
               </div>
               <AdminPanel />
             </div>

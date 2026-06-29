@@ -37,6 +37,7 @@ import { FirestorePermissionError } from '@/firebase/errors';
 import { useGame, FULL_GAME_SCHEDULE } from "@/app/context/game-context";
 import { AdminPanel } from "@/components/AdminPanel";
 import { useToast } from "@/hooks/use-toast";
+import { InstallButton } from "@/components/InstallButton";
 
 interface GameStatus {
   won?: boolean | null;
@@ -187,7 +188,7 @@ export default function GameSchedulePage() {
         <div className="flex items-center gap-4">
           <div className="flex flex-col">
             <h1 className="font-headline font-black uppercase tracking-[0.2em] text-[10px] md:text-sm">
-              2026 Schedule
+              2026 SCHEDULE
             </h1>
             {isAdmin && (
               <div className="flex items-center gap-1.5 animate-in fade-in slide-in-from-left-2 duration-500">
@@ -195,6 +196,9 @@ export default function GameSchedulePage() {
                 <span className="text-[8px] font-black uppercase text-primary tracking-tighter">Booth Operations Mode</span>
               </div>
             )}
+          </div>
+          <div className="hidden sm:block">
+            <InstallButton />
           </div>
         </div>
 
@@ -215,12 +219,12 @@ export default function GameSchedulePage() {
                 <BarChart3 className="h-4 w-4" />
               </Button>
             </Link>
+            <a href="https://groupme.com/join_group/115533519/bxlMSOlb" target="_blank" rel="noopener noreferrer">
+              <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 text-muted-foreground hover:text-primary/80">
+                <MessageSquare className="h-4 w-4" />
+              </Button>
+            </a>
           </div>
-          <a href="https://groupme.com/join_group/115533519/bxlMSOlb" target="_blank" rel="noopener noreferrer">
-            <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 text-primary hover:text-primary/80">
-              <MessageSquare className="h-4 w-4" />
-            </Button>
-          </a>
           <AdminPanel />
         </div>
       </header>
@@ -305,10 +309,8 @@ export default function GameSchedulePage() {
                         </div>
                       </div>
 
-                      {/* Jersey & Teams Section (Inline for Mobile) */}
                       <div className="md:col-span-6 flex flex-row items-center gap-4 md:grid md:grid-cols-6 md:gap-6 border-b md:border-b-0 md:border-r border-white/5 pb-4 md:pb-0 h-full">
                         
-                        {/* Jersey Indicator */}
                         <div className="flex flex-col items-center justify-center space-y-1 md:space-y-2 md:col-span-2 min-w-[70px] md:min-w-0">
                           <span className="text-[8px] font-black uppercase tracking-[0.3em] text-muted-foreground">Jersey</span>
                           <div className="relative w-10 h-10 md:w-16 md:h-16">
@@ -324,7 +326,6 @@ export default function GameSchedulePage() {
                           </span>
                         </div>
 
-                        {/* Home vs Away Section */}
                         <div className="flex-1 md:col-span-4 flex flex-col space-y-2 md:space-y-4 justify-center">
                           <div className="flex flex-row items-center justify-between gap-2 p-2 md:p-4 bg-black/30 rounded-xl border border-white/5">
                             <div className="flex-1 text-center">
