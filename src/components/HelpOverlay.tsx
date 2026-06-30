@@ -28,7 +28,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 /**
- * A global context-aware help system that explains Admin operations and Installation.
+ * A global context-aware help system that explains Admin operations, Installation, and Legal Terms.
  */
 export function HelpOverlay() {
   const pathname = usePathname();
@@ -137,7 +137,6 @@ export function HelpOverlay() {
         break;
     }
 
-    // Return combined content with Install instructions first
     return {
       title: pageSpecific.title,
       sections: [installItem, ...pageSpecific.sections]
@@ -183,7 +182,36 @@ export function HelpOverlay() {
             ))}
           </div>
 
-          <div className="mt-8 flex justify-center">
+          {/* Legal Disclaimer & Terms Section */}
+          <div className="mt-12 pt-8 border-t border-white/5 text-[9px] leading-relaxed text-muted-foreground/50 space-y-4 pb-8">
+            <div className="space-y-1">
+              <p className="font-black uppercase tracking-[0.1em] text-white/40">Disclaimer & Terms of Use</p>
+              <p>This application is intended strictly for recreational, stadium-entertainment, and personal organization purposes.</p>
+            </div>
+
+            <div className="space-y-1">
+              <p className="font-bold text-white/30 uppercase tracking-tighter text-[8px]">Media Integration Disclaimer:</p>
+              <p>
+                This platform utilizes content streaming links and video player embed elements provided by third-party services, including YouTube. This application does not download, host, modify, or distribute copyrighted digital audio or video files on its servers. All media content remains the exclusive property of its respective copyright owners, publishers, and creators. Content playback is subject to the terms, licensing agreements, and regional availability set by the original hosting platform.
+              </p>
+            </div>
+
+            <div className="space-y-1">
+              <p className="font-bold text-white/30 uppercase tracking-tighter text-[8px]">Limitation of Liability:</p>
+              <p>
+                The developers and operators of this app assume no liability for any temporary service interruptions, network connectivity issues, third-party content removal, or automated account sign-outs resulting from inactivity timers. Use of this application constitutes acceptance of these terms.
+              </p>
+            </div>
+
+            <div className="space-y-1">
+              <p className="font-bold text-white/30 uppercase tracking-tighter text-[8px]">Indemnification:</p>
+              <p>
+                By utilizing this application, the user agrees to indemnify, defend, and hold harmless the creators, developers, and publishers of this application from and against any and all claims, damages, obligations, losses, liabilities, costs, or debt, and expenses (including but not limited to attorney's fees) arising from your use of the platform, playback of media in public settings, or violation of any third-party copyright or privacy rights.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 flex justify-center pb-6">
             <DialogClose asChild>
               <Button 
                 variant="outline" 
