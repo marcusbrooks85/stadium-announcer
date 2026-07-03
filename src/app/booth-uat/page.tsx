@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
@@ -34,6 +33,8 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useUATGame, UATGameProvider } from "@/app/context/uat-game-context";
 import { UATNavbar } from "@/components/UATNavbar";
+import { useFirestore, useAuth } from "@/firebase";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
 function UATBoothContent() {
   const { 
@@ -41,10 +42,14 @@ function UATBoothContent() {
     organSongs, 
     pumpUpSongs, 
     userRole,
+    userTeamId,
     isLoaded,
-    teamBranding
+    teamBranding,
+    selectedGameId
   } = useUATGame();
   
+  const db = useFirestore();
+  const auth = useAuth();
   const [activePlayerId, setActivePlayerId] = useState<string | null>(null);
   const [selectedSongIndex, setSelectedSongIndex] = useState(0);
   const [playbackPhase, setPlaybackPhase] = useState<'idle' | 'announcing' | 'walkup'>('idle');
@@ -67,6 +72,23 @@ function UATBoothContent() {
     if (!activePlayer || selectedSongIndex === -1) return null;
     return activePlayer.songs[selectedSongIndex] || activePlayer.songs[0];
   }, [activePlayer, selectedSongIndex]);
+
+  const logAudioTrigger = useCallback(async (audioId: string, category: string, playerId?: string) => {
+    if (!db || !userTeamId || !auth.currentUser) return;
+    try {
+      await addDoc(collection(db, "analytics_UAT"), {
+        timestamp: serverTimestamp(),
+        teamId: userTeamId,
+        gameId: selectedGameId,
+        playerId: playerId || null,
+        audioId: audioId,
+        category: category,
+        triggeredBy: auth.currentUser.uid
+      });
+    } catch (e) {
+      console.error("Analytics log failed", e);
+    }
+  }, [db, userTeamId, auth.currentUser, selectedGameId]);
 
   useEffect(() => {
     const onYouTubeIframeAPIReady = () => {
@@ -113,7 +135,7 @@ function UATBoothContent() {
     setPlaybackPhase('idle');
   }, [playerReady, isReadOnly]);
 
-  const playYoutubeTrack = (videoId: string, songName: string, startAt: number = 0) => {
+  const playYoutubeTrack = (videoId: string, songName: string, category: string, startAt: number = 0) => {
     if (isReadOnly) {
       toast({ variant: "destructive", title: "Access Denied", description: "Read-only accounts cannot trigger audio." });
       return;
@@ -121,6 +143,7 @@ function UATBoothContent() {
     stopEverything();
     setVolume(0.8);
     setActiveTrackName(songName);
+    logAudioTrigger(videoId, category);
     if (ytPlayerRef.current && playerReady) {
       try {
         ytPlayerRef.current.unMute();
@@ -142,6 +165,7 @@ function UATBoothContent() {
     setPlaybackPhase('walkup');
     if (selectedSong) {
       setActiveTrackName(selectedSong.name);
+      logAudioTrigger(selectedSong.videoId, "Walk-up", activePlayer.id);
       if (ytPlayerRef.current && playerReady) {
         ytPlayerRef.current.loadVideoById({ 
           videoId: selectedSong.videoId, 
@@ -305,7 +329,7 @@ function UATBoothContent() {
                         key={song.id}
                         variant="outline" 
                         disabled={isReadOnly}
-                        onClick={() => playYoutubeTrack(song.link, song.title, song.startTime)} 
+                        onClick={() => playYoutubeTrack(song.link, song.title, "Organ", song.startTime)} 
                         className="w-full h-12 border-[var(--tenant-secondary)]/20 font-black uppercase text-[8px] justify-start px-3"
                       >
                         🎹 {song.title}
@@ -324,7 +348,7 @@ function UATBoothContent() {
                         key={song.id}
                         variant="outline" 
                         disabled={isReadOnly}
-                        onClick={() => playYoutubeTrack(song.link, song.title, song.startTime)} 
+                        onClick={() => playYoutubeTrack(song.link, song.title, "Hype", song.startTime)} 
                         className="w-full h-12 border-[var(--tenant-secondary)]/20 font-black uppercase text-[8px] justify-start px-3"
                       >
                         📣 {song.title}

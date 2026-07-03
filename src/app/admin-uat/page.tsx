@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState } from "react";
@@ -17,7 +16,9 @@ import {
   Lock,
   Trash,
   Palette,
-  Save
+  Save,
+  CheckCircle2,
+  AlertCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -65,8 +66,21 @@ function UATAdminContent() {
   const [gameForm, setGameForm] = useState({ home: "", away: "", time: "", location: "" });
   const [brandForm, setBrandForm] = useState({ primary: teamBranding.primary, secondary: teamBranding.secondary });
 
+  const validateRosterEntry = (name: string, number: number) => {
+    if (!name || name.trim().length < 2) {
+      toast({ variant: "destructive", title: "Validation Error", description: "Player Name must be at least 2 characters." });
+      return false;
+    }
+    if (number < 0 || number > 99) {
+      toast({ variant: "destructive", title: "Validation Error", description: "Jersey Number must be between 0 and 99." });
+      return false;
+    }
+    return true;
+  };
+
   const handleAddPlayer = async () => {
-    if (!playerForm.name) return;
+    if (!validateRosterEntry(playerForm.name, playerForm.number)) return;
+    
     if (userRole === "user") {
       toast({ variant: "destructive", title: "Access Denied", description: "Read-only accounts cannot add players." });
       return;
@@ -81,7 +95,7 @@ function UATAdminContent() {
         teamId: userTeamId!
       });
       setPlayerForm({ name: "", number: 0 });
-      toast({ title: "Test Player Added" });
+      toast({ title: "Test Player Added", description: "Profile schema validated successfully." });
     } finally { setIsSaving(false); }
   };
 
@@ -174,9 +188,14 @@ function UATAdminContent() {
             <h1 className="font-headline font-black uppercase tracking-[0.2em] text-lg flex items-center gap-3">
               <ShieldAlert className="h-6 w-6 text-[var(--tenant-primary)]" /> UAT MANAGEMENT
             </h1>
-            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-              Isolated Test Configuration • Role: {userRole.replace('_', ' ').toUpperCase()}
-            </p>
+            <div className="flex items-center gap-2 mt-1">
+               <Badge variant="outline" className="text-[9px] font-black uppercase border-[var(--tenant-primary)]/30 text-[var(--tenant-primary)]">
+                Role: {userRole.replace('_', ' ').toUpperCase()}
+               </Badge>
+               <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                Isolated Test Configuration
+               </span>
+            </div>
           </div>
           <UATNavbar />
         </header>
@@ -214,21 +233,37 @@ function UATAdminContent() {
           <Card className="bg-card/50 border-white/10">
             <CardHeader>
               <CardTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-2">
-                <Users className="h-4 w-4" /> Add Test Player
+                <Users className="h-4 w-4" /> Roster Configuration
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label className="text-[10px] uppercase font-black">Player Name</Label>
+                <Label className="text-[10px] uppercase font-black">Player Full Name</Label>
                 <Input value={playerForm.name} onChange={e => setPlayerForm({...playerForm, name: e.target.value})} className="h-10" />
               </div>
               <div className="space-y-2">
-                <Label className="text-[10px] uppercase font-black">Jersey Number</Label>
-                <Input type="number" value={playerForm.number || ""} onChange={e => setPlayerForm({...playerForm, number: parseInt(e.target.value) || 0})} className="h-10" />
+                <Label className="text-[10px] uppercase font-black">Jersey Number (0-99)</Label>
+                <Input type="number" min="0" max="99" value={playerForm.number || ""} onChange={e => setPlayerForm({...playerForm, number: parseInt(e.target.value) || 0})} className="h-10" />
               </div>
               <Button onClick={handleAddPlayer} className="w-full bg-[var(--tenant-primary)] text-white font-black uppercase" disabled={isSaving}>
-                {isSaving ? <Loader2 className="animate-spin h-4 w-4" /> : <Plus className="h-4 w-4 mr-2" />} Add Player
+                {isSaving ? <Loader2 className="animate-spin h-4 w-4" /> : <Plus className="h-4 w-4 mr-2" />} Validate & Add Player
               </Button>
+
+              <div className="mt-6 space-y-2">
+                <Label className="text-[10px] uppercase font-black opacity-50">Current UAT Roster</Label>
+                <div className="max-h-40 overflow-y-auto space-y-2 pr-2">
+                  {roster.map(p => (
+                    <div key={p.id} className="flex items-center justify-between p-3 bg-black/20 rounded-lg border border-white/5 group">
+                      <div className="flex flex-col">
+                        <span className="text-xs font-bold text-white">#{p.number} - {p.name}</span>
+                        <span className="text-[8px] uppercase font-black text-muted-foreground">Validated Profile</span>
+                      </div>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => deletePlayer(p.id)}><Trash2 className="h-4 w-4" /></Button>
+                    </div>
+                  ))}
+                  {roster.length === 0 && <p className="text-[8px] text-center opacity-40 py-4 uppercase font-black">No test players found</p>}
+                </div>
+              </div>
             </CardContent>
           </Card>
 
