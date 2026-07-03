@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import Link from "next/image";
+import Link from "next/link";
 import { 
   Users, 
   Activity, 
