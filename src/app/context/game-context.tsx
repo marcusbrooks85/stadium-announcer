@@ -220,27 +220,28 @@ export function GameProvider({ children }: { children: ReactNode }) {
       const gameStart = new Date(`${game.date}T${convertTimeTo24h(game.time)}`);
       const syncThreshold = new Date(gameStart.getTime() + 2 * 60 * 60 * 1000);
 
-      // Check if game is past the 2h window and not synced
+      // Check if game is past the 2h window
       if (now >= syncThreshold) {
         const stats = allGameStats[game.id];
         const winStatus = gameWins[game.id];
 
-        if (stats && !stats.statsSynced && !winStatus?.cancelled) {
+        // Force sync if stats exist and (not synced OR result missing from game_wins)
+        if (stats && (!stats.statsSynced || !winStatus) && !winStatus?.cancelled) {
           const homeScore = stats.homeScore || 0;
           const awayScore = stats.awayScore || 0;
           
-          // Determine W/L based on Coach Chewy's position
-          const chewyIsHome = game.home === "Coach Chewy";
-          const won = chewyIsHome ? (homeScore > awayScore) : (awayScore > homeScore);
-          const tie = homeScore === awayScore;
-
           if (homeScore > 0 || awayScore > 0) {
+            // Determine W/L based on Coach Chewy's position
+            const chewyIsHome = game.home === "Coach Chewy";
+            const won = homeScore === awayScore ? null : (chewyIsHome ? (homeScore > awayScore) : (awayScore > homeScore));
+            const tie = homeScore === awayScore;
+
             const batch = writeBatch(db);
             
             // 1. Update/Create Game Win
             const winRef = doc(db, "game_wins", game.id);
             batch.set(winRef, {
-              won: tie ? null : won,
+              won: won,
               updatedAt: new Date().toISOString(),
               autoSynced: true
             }, { merge: true });
@@ -253,8 +254,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
             const standingsRef = doc(db, "standings", "chewy_team_2026");
             const updateData: any = { updatedAt: new Date().toISOString() };
             if (tie) updateData.ties = increment(1);
-            else if (won) updateData.wins = increment(1);
-            else updateData.losses = increment(1);
+            else if (won === true) updateData.wins = increment(1);
+            else if (won === false) updateData.losses = increment(1);
             
             batch.set(standingsRef, updateData, { merge: true });
 

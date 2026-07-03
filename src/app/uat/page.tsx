@@ -111,7 +111,7 @@ export default function UATOnboardingPage() {
       setFormData({ email: "", password: "", confirmPassword: "", teamName: "" });
 
     } catch (error: any) {
-      console.error("UAT Registration Error:", error);
+      console.error("UAT Registration Error:", error.message);
       toast({
         variant: "destructive",
         title: "Registration Failed",
