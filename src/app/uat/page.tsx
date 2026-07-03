@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState } from "react";
@@ -17,7 +18,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth, useFirestore } from "@/firebase";
+
+import { useAuth, useFirestore } from "@/firebase"; 
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, setDoc, collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { cn } from "@/lib/utils";
@@ -25,6 +27,8 @@ import { cn } from "@/lib/utils";
 type Step = "acknowledgement" | "setup";
 
 export default function UATOnboardingPage() {
+  const auth = useAuth();
+  const db = useFirestore();
   const [step, setStep] = useState<Step>("acknowledgement");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -39,8 +43,6 @@ export default function UATOnboardingPage() {
   });
 
   const { toast } = useToast();
-  const auth = useAuth();
-  const db = useFirestore();
 
   const generateTeamCode = () => {
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -54,6 +56,16 @@ export default function UATOnboardingPage() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Safety check ensuring Firebase Auth client has mounted correctly
+    if (!auth) {
+      toast({
+        variant: "destructive",
+        title: "Configuration Error",
+        description: "Firebase Auth instance is not ready. Check your config file keys."
+      });
+      return;
+    }
+
     if (formData.password !== formData.confirmPassword) {
       toast({
         variant: "destructive",
@@ -74,7 +86,7 @@ export default function UATOnboardingPage() {
 
     setLoading(true);
     try {
-      // 1. Create User
+      // 1. Create User using direct singleton instance
       const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
       const user = userCredential.user;
 
@@ -89,12 +101,13 @@ export default function UATOnboardingPage() {
         createdAt: serverTimestamp()
       });
 
-      // 4. Create User Profile
+      // 4. Create User Profile with assigned roles
       await setDoc(doc(db, "users", user.uid), {
         email: formData.email,
         role: "admin",
         teamId: teamRef.id,
-        teamCode: teamCode
+        teamCode: teamCode,
+        createdAt: serverTimestamp()
       });
 
       toast({
@@ -102,12 +115,12 @@ export default function UATOnboardingPage() {
         description: `Team created successfully. Your code is: ${teamCode}`
       });
       
-      // Redirect or show success state
-      setStep("acknowledgement"); // Simple reset for demo, ideally push to dashboard
+      // Clean up & advance state
+      setStep("acknowledgement");
       setFormData({ email: "", password: "", confirmPassword: "", teamName: "" });
 
     } catch (error: any) {
-      console.error(error);
+      console.error("UAT Registration Crash Error:", error);
       toast({
         variant: "destructive",
         title: "Registration Failed",
