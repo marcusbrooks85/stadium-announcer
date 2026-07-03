@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useMemo, useState, useEffect } from "react";
@@ -17,7 +16,8 @@ import {
   ShieldCheck,
   XCircle,
   RotateCcw,
-  Zap
+  Zap,
+  RefreshCw
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -43,13 +43,15 @@ interface GameStatus {
   won?: boolean | null;
   cancelled?: boolean;
   snackPlayerId?: string;
+  autoSynced?: boolean;
 }
 
 export default function GameSchedulePage() {
   const db = useFirestore();
   const { toast } = useToast();
-  const { isAdmin, roster } = useGame();
+  const { isAdmin, roster, triggerSync } = useGame();
   const [gameStatuses, setGameStatuses] = useState<Record<string, GameStatus>>({});
+  const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
     if (!db) return;
@@ -64,7 +66,8 @@ export default function GameSchedulePage() {
           statuses[doc.id] = {
             won: data.won,
             cancelled: data.cancelled || false,
-            snackPlayerId: data.snackPlayerId || ""
+            snackPlayerId: data.snackPlayerId || "",
+            autoSynced: data.autoSynced || false
           };
         });
         setGameStatuses(statuses);
@@ -124,12 +127,19 @@ export default function GameSchedulePage() {
     }
   }, [activeGameId]);
 
+  const handleManualSync = async () => {
+    setIsSyncing(true);
+    await triggerSync();
+    setIsSyncing(false);
+    toast({ title: "Standings Synced", description: "Season records have been updated based on latest game stats." });
+  };
+
   const handleUpdateStatus = async (gameId: string, type: 'W' | 'L' | 'C') => {
     if (!isAdmin || !db) return;
     const current = gameStatuses[gameId] || {};
     const docRef = doc(db, "game_wins", gameId);
     
-    let updates: any = { updatedAt: new Date().toISOString() };
+    let updates: any = { updatedAt: new Date().toISOString(), autoSynced: false };
     
     if (type === 'W') {
       updates.won = current.won === true ? null : true;
@@ -236,16 +246,29 @@ export default function GameSchedulePage() {
               <Trophy className="h-4 w-4 md:h-5 md:w-5 text-yellow-500" />
               <h2 className="text-xs md:text-base font-black uppercase tracking-widest text-primary">Season Standings</h2>
             </div>
-            {isAdmin && (
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={handleResetSeason}
-                className="h-7 md:h-8 border-destructive/20 text-destructive hover:bg-destructive/10 font-black uppercase text-[8px] md:text-[10px] tracking-widest gap-2 mx-auto sm:mx-0"
-              >
-                <RotateCcw className="h-2.5 w-2.5 md:h-3 md:w-3" /> Reset Season
-              </Button>
-            )}
+            <div className="flex items-center gap-2">
+              {isAdmin && (
+                <>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={handleManualSync}
+                    disabled={isSyncing}
+                    className="h-7 md:h-8 border-primary/20 text-primary hover:bg-primary/10 font-black uppercase text-[8px] md:text-[10px] tracking-widest gap-2"
+                  >
+                    <RefreshCw className={cn("h-2.5 w-2.5 md:h-3 md:w-3", isSyncing && "animate-spin")} /> {isSyncing ? "Syncing..." : "Sync Stats"}
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={handleResetSeason}
+                    className="h-7 md:h-8 border-destructive/20 text-destructive hover:bg-destructive/10 font-black uppercase text-[8px] md:text-[10px] tracking-widest gap-2"
+                  >
+                    <RotateCcw className="h-2.5 w-2.5 md:h-3 md:w-3" /> Reset Season
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
           <div className="flex justify-center sm:justify-start gap-2 md:gap-4">
             <div className="bg-primary/10 border border-primary/20 px-3 py-1.5 md:px-6 md:py-3 rounded-xl md:rounded-2xl flex flex-col items-center min-w-[60px] md:min-w-[100px] shadow-lg shadow-primary/5 relative">
@@ -271,6 +294,7 @@ export default function GameSchedulePage() {
               const isWon = statusData.won === true;
               const isLoss = statusData.won === false;
               const isCancelled = statusData.cancelled || false;
+              const isAutoSynced = statusData.autoSynced || false;
               const isHome = game.home === "Coach Chewy" || game.notes === "Playoffs" || game.notes === "Finals";
               const snackPlayer = roster.find(p => p.id === statusData.snackPlayerId);
               
@@ -287,6 +311,7 @@ export default function GameSchedulePage() {
                 >
                   <div className="absolute top-2 right-2 z-20 flex flex-col items-end gap-2">
                     {isCancelled && <Badge variant="destructive" className="font-black uppercase text-[8px] tracking-widest">Cancelled</Badge>}
+                    {isAutoSynced && !isCancelled && <Badge variant="secondary" className="font-black uppercase text-[7px] tracking-tighter opacity-70">Auto-Synced</Badge>}
                     {isWon && !isCancelled && <span className="text-2xl md:text-3xl animate-trophy-breathe">🏆</span>}
                     {isLoss && !isCancelled && <XCircle className="h-6 w-6 md:h-8 md:w-8 text-destructive animate-in zoom-in duration-300" />}
                   </div>

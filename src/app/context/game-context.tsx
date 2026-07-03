@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
@@ -11,7 +10,9 @@ import {
   deleteDoc,
   query, 
   orderBy,
-  writeBatch
+  writeBatch,
+  increment,
+  getDoc
 } from "firebase/firestore";
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -119,6 +120,7 @@ interface GameContextType {
   saveStadiumSong: (category: 'organ' | 'pumpup', song: Omit<StadiumSong, 'id'>, id?: string) => void;
   deleteStadiumSong: (category: 'organ' | 'pumpup', id: string) => void;
   reorderStadiumSongs: (category: 'organ' | 'pumpup', songs: StadiumSong[]) => void;
+  triggerSync: () => void;
 }
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -130,6 +132,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [pumpUpSongs, setPumpUpSongs] = useState<StadiumSong[]>([]);
   const [selectedGameId, setSelectedGameId] = useState<string>("");
   const [gameStats, setGameStats] = useState<any>({});
+  const [allGameStats, setAllGameStats] = useState<Record<string, any>>({});
+  const [gameWins, setGameWins] = useState<Record<string, any>>({});
   const [isAdmin, setIsAdmin] = useState(false);
 
   // Initial Game ID selection based on date
@@ -145,7 +149,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
     const sorted = [...FULL_GAME_SCHEDULE].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     
-    // Find first game that hasn't finished (start + 2h)
     const active = sorted.find(g => {
       const gameStart = new Date(`${g.date}T${convertTimeTo24h(g.time)}`);
       return gameStart.getTime() + (2 * 60 * 60 * 1000) > now.getTime();
@@ -166,7 +169,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem("admin_session_expiry");
   }, []);
 
-  // Sync admin state on mount and monitor session
   useEffect(() => {
     const checkSession = () => {
       const expiry = localStorage.getItem("admin_session_expiry");
@@ -179,21 +181,16 @@ export function GameProvider({ children }: { children: ReactNode }) {
       }
     };
     checkSession();
-    const interval = setInterval(checkSession, 60000); // Check every minute
+    const interval = setInterval(checkSession, 60000); 
     return () => clearInterval(interval);
   }, [adminLogout]);
 
-  // Global inactivity listeners
   useEffect(() => {
     if (!isAdmin) return;
-
     const resetOnActivity = () => resetAdminTimer();
     const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
     events.forEach(name => document.addEventListener(name, resetOnActivity));
-    
-    return () => {
-      events.forEach(name => document.removeEventListener(name, resetOnActivity));
-    };
+    return () => events.forEach(name => document.removeEventListener(name, resetOnActivity));
   }, [isAdmin, resetAdminTimer]);
 
   const adminLogin = (password: string) => {
@@ -205,11 +202,73 @@ export function GameProvider({ children }: { children: ReactNode }) {
     return false;
   };
 
+  // Automated Sync Logic
+  const triggerSync = useCallback(async () => {
+    if (!db || !isAdmin) return;
+
+    const convertTimeTo24h = (timeStr: string) => {
+      const [time, modifier] = timeStr.split(' ');
+      let [hours, minutes] = time.split(':').map(Number);
+      if (modifier === 'PM' && hours < 12) hours += 12;
+      if (modifier === 'AM' && hours === 12) hours = 0;
+      return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`;
+    };
+
+    const now = new Date();
+    
+    for (const game of FULL_GAME_SCHEDULE) {
+      const gameStart = new Date(`${game.date}T${convertTimeTo24h(game.time)}`);
+      const syncThreshold = new Date(gameStart.getTime() + 2 * 60 * 60 * 1000);
+
+      // Check if game is past the 2h window and not synced
+      if (now >= syncThreshold) {
+        const stats = allGameStats[game.id];
+        const winStatus = gameWins[game.id];
+
+        if (stats && !stats.statsSynced && !winStatus?.cancelled) {
+          const homeScore = stats.homeScore || 0;
+          const awayScore = stats.awayScore || 0;
+          
+          // Determine W/L based on Coach Chewy's position
+          const chewyIsHome = game.home === "Coach Chewy";
+          const won = chewyIsHome ? (homeScore > awayScore) : (awayScore > homeScore);
+          const tie = homeScore === awayScore;
+
+          if (homeScore > 0 || awayScore > 0) {
+            const batch = writeBatch(db);
+            
+            // 1. Update/Create Game Win
+            const winRef = doc(db, "game_wins", game.id);
+            batch.set(winRef, {
+              won: tie ? null : won,
+              updatedAt: new Date().toISOString(),
+              autoSynced: true
+            }, { merge: true });
+
+            // 2. Mark Stats as Synced
+            const statsRef = doc(db, "game_stats", game.id);
+            batch.update(statsRef, { statsSynced: true });
+
+            // 3. Update Standings
+            const standingsRef = doc(db, "standings", "chewy_team_2026");
+            const updateData: any = { updatedAt: new Date().toISOString() };
+            if (tie) updateData.ties = increment(1);
+            else if (won) updateData.wins = increment(1);
+            else updateData.losses = increment(1);
+            
+            batch.set(standingsRef, updateData, { merge: true });
+
+            await batch.commit().catch(e => console.error("Sync batch failed", e));
+          }
+        }
+      }
+    }
+  }, [db, isAdmin, allGameStats, gameWins]);
+
   // Listeners
   useEffect(() => {
     if (!db) return;
     
-    // Players
     const playersRef = collection(db, "players");
     const unsubPlayers = onSnapshot(playersRef, (snapshot) => {
       if (snapshot.empty) {
@@ -220,7 +279,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
       }
     });
 
-    // Organ Songs
     const organRef = collection(db, "organ_songs");
     const unsubOrgan = onSnapshot(organRef, (snapshot) => {
       if (snapshot.empty) {
@@ -231,7 +289,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
       }
     });
 
-    // Pump Up Songs
     const pumpRef = collection(db, "pump_up_songs");
     const unsubPump = onSnapshot(pumpRef, (snapshot) => {
       if (snapshot.empty) {
@@ -242,10 +299,26 @@ export function GameProvider({ children }: { children: ReactNode }) {
       }
     });
 
+    const winsRef = collection(db, "game_wins");
+    const unsubWins = onSnapshot(winsRef, (snapshot) => {
+      const wins: Record<string, any> = {};
+      snapshot.forEach(d => wins[d.id] = d.data());
+      setGameWins(wins);
+    });
+
+    const allStatsRef = collection(db, "game_stats");
+    const unsubAllStats = onSnapshot(allStatsRef, (snapshot) => {
+      const stats: Record<string, any> = {};
+      snapshot.forEach(d => stats[d.id] = d.data());
+      setAllGameStats(stats);
+    });
+
     return () => {
       unsubPlayers();
       unsubOrgan();
       unsubPump();
+      unsubWins();
+      unsubAllStats();
     };
   }, [db]);
 
@@ -262,13 +335,20 @@ export function GameProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe();
   }, [db, selectedGameId]);
 
+  // Run sync when admin is active
+  useEffect(() => {
+    if (isAdmin) {
+      triggerSync();
+    }
+  }, [isAdmin, triggerSync]);
+
   const updateTeamScore = (team: 'home' | 'away', delta: number) => {
     if (!isAdmin) return;
     resetAdminTimer();
     const key = team === 'home' ? 'homeScore' : 'awayScore';
     const current = gameStats[key] || 0;
     const statsDocRef = doc(db, "game_stats", selectedGameId);
-    setDoc(statsDocRef, { [key]: Math.max(0, current + delta) }, { merge: true })
+    setDoc(statsDocRef, { [key]: Math.max(0, current + delta), statsSynced: false }, { merge: true })
       .catch(async () => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
           path: statsDocRef.path, operation: 'write', requestResourceData: { [key]: current + delta }
@@ -284,7 +364,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const currentStats = playerStats[playerId] || { ab: 0, h: 0, r: 0, rbi: 0 };
     const newValue = Math.max(0, currentStats[statType] + delta);
     const updatedPlayerStats = { ...playerStats, [playerId]: { ...currentStats, [statType]: newValue } };
-    setDoc(statsDocRef, { playerStats: updatedPlayerStats }, { merge: true })
+    setDoc(statsDocRef, { playerStats: updatedPlayerStats, statsSynced: false }, { merge: true })
       .catch(async () => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
           path: statsDocRef.path, operation: 'write', requestResourceData: { playerStats: updatedPlayerStats }
@@ -341,12 +421,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
     resetAdminTimer();
     const collName = category === 'organ' ? "organ_songs" : "pump_up_songs";
     const batch = writeBatch(db);
-    
     updatedSongs.forEach((song, index) => {
       const docRef = doc(db, collName, song.id);
       batch.update(docRef, { order: index });
     });
-    
     batch.commit().catch(async (error) => {
        console.error("Batch update failed", error);
     });
@@ -382,7 +460,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       deletePlayer,
       saveStadiumSong,
       deleteStadiumSong,
-      reorderStadiumSongs
+      reorderStadiumSongs,
+      triggerSync
     }}>
       {children}
     </GameContext.Provider>
