@@ -110,6 +110,7 @@ interface GameContextType {
   deleteStadiumSong: (category: 'organ' | 'pumpup', id: string) => void;
   reorderStadiumSongs: (category: 'organ' | 'pumpup', songs: StadiumSong[]) => void;
   triggerSync: () => void;
+  emailStats: () => void;
 }
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -209,12 +210,36 @@ export function GameProvider({ children }: { children: ReactNode }) {
       setAllGameStats(stats);
     });
 
-    return () => { unsubPlayers(); unsubWins(); unsubAllStats(); };
+    const unsubOrgan = onSnapshot(collection(db, "organ_songs"), (snap) => {
+      if (snap.empty) {
+        INITIAL_ORGAN_HITS.forEach((s, idx) => setDoc(doc(db, "organ_songs", `organ_${idx}`), s));
+      } else {
+        setOrganSongs(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a: any, b: any) => (a.order || 0) - (b.order || 0)) as StadiumSong[]);
+      }
+    });
+
+    const unsubPump = onSnapshot(collection(db, "pump_up_songs"), (snap) => {
+      if (snap.empty) {
+        INITIAL_PUMP_UP_SONGS.forEach((s, idx) => setDoc(doc(db, "pump_up_songs", `pump_${idx}`), s));
+      } else {
+        setPumpUpSongs(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a: any, b: any) => (a.order || 0) - (b.order || 0)) as StadiumSong[]);
+      }
+    });
+
+    return () => { unsubPlayers(); unsubWins(); unsubAllStats(); unsubOrgan(); unsubPump(); };
   }, [db]);
 
   useEffect(() => {
     if (Object.keys(allGameStats).length > 0) triggerSync();
   }, [allGameStats, triggerSync]);
+
+  useEffect(() => {
+    if (selectedGameId && allGameStats[selectedGameId]) {
+      setGameStats(allGameStats[selectedGameId]);
+    } else {
+      setGameStats({});
+    }
+  }, [selectedGameId, allGameStats]);
 
   const adminLogin = (password: string) => {
     if (password === "Chewy2026") {
@@ -272,11 +297,17 @@ export function GameProvider({ children }: { children: ReactNode }) {
     batch.commit();
   };
 
+  const emailStats = () => {
+    const report = roster.map(p => `${p.name} (#${p.number}): AB:${p.stats?.ab} H:${p.stats?.h} R:${p.stats?.r} RBI:${p.stats?.rbi}`).join('\n');
+    const mailto = `mailto:?subject=Game Stats - ${selectedGameId}&body=${encodeURIComponent(report)}`;
+    window.location.href = mailto;
+  };
+
   return (
     <GameContext.Provider value={{
       roster: roster.map(p => ({ ...p, stats: gameStats.playerStats?.[p.id] || { ab: 0, h: 0, r: 0, rbi: 0 } })),
-      organSongs: [],
-      pumpUpSongs: [],
+      organSongs,
+      pumpUpSongs,
       selectedGameId,
       setSelectedGameId,
       homeScore: gameStats.homeScore || 0,
@@ -291,7 +322,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       saveStadiumSong,
       deleteStadiumSong,
       reorderStadiumSongs,
-      triggerSync
+      triggerSync,
+      emailStats
     }}>
       {children}
     </GameContext.Provider>

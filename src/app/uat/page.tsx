@@ -10,7 +10,8 @@ import {
   Trophy, 
   ShieldAlert,
   Lock,
-  Loader2
+  Loader2,
+  CheckCircle2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,7 +23,7 @@ import { createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, setDoc, collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { cn } from "@/lib/utils";
 
-type Step = "acknowledgement" | "setup";
+type Step = "acknowledgement" | "setup" | "success";
 
 export default function UATOnboardingPage() {
   const router = useRouter();
@@ -88,13 +89,11 @@ export default function UATOnboardingPage() {
         createdAt: serverTimestamp()
       });
 
+      setStep("success");
       toast({
         title: "Success!",
-        description: `Account created. Welcome to the ${formData.teamName} workspace.`
+        description: `Account created for ${formData.teamName}.`
       });
-      
-      // 4. Redirect to Dashboard
-      router.push("/booth");
 
     } catch (error: any) {
       console.error("UAT Registration Error:", error.code, error.message);
@@ -104,7 +103,7 @@ export default function UATOnboardingPage() {
 
       if (error.code === 'auth/configuration-not-found' || error.message.includes('configuration-not-found')) {
         errorTitle = "Provider Not Enabled";
-        errorMessage = "Email/Password authentication is not enabled in your Firebase Console. Please go to Authentication > Sign-in method and enable it.";
+        errorMessage = "Email/Password authentication is not enabled in your Firebase Console. Go to Authentication > Sign-in method to enable it.";
       } else if (error.code === 'auth/email-already-in-use') {
         errorMessage = "This email is already registered.";
       }
@@ -206,9 +205,30 @@ export default function UATOnboardingPage() {
     </Card>
   );
 
+  const renderSuccess = () => (
+    <Card className="w-full max-w-lg border-2 border-green-500/20 bg-card/50 backdrop-blur-xl">
+      <CardHeader className="text-center space-y-4">
+        <div className="mx-auto w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center">
+          <CheckCircle2 className="w-8 h-8 text-green-500" />
+        </div>
+        <CardTitle className="text-2xl font-black uppercase tracking-widest">Provisioned</CardTitle>
+        <CardDescription className="text-sm font-bold text-muted-foreground uppercase">
+          Your team workspace is ready for logistics operations.
+        </CardDescription>
+      </CardHeader>
+      <CardFooter>
+        <Button onClick={() => router.push("/booth")} className="w-full h-12 font-black uppercase tracking-widest bg-primary">
+          Enter Booth Dashboard <ArrowRight className="ml-2 w-4 h-4" />
+        </Button>
+      </CardFooter>
+    </Card>
+  );
+
   return (
     <div className="min-h-screen bg-background stadium-gradient flex items-center justify-center p-4">
-      {step === "acknowledgement" ? renderAcknowledgement() : renderSetup()}
+      {step === "acknowledgement" && renderAcknowledgement()}
+      {step === "setup" && renderSetup()}
+      {step === "success" && renderSuccess()}
     </div>
   );
 }
