@@ -12,7 +12,9 @@ import {
   Music2,
   Zap,
   Home,
-  ShieldCheck
+  ShieldCheck,
+  Lock,
+  Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,6 +40,8 @@ function UATBoothContent() {
     roster, 
     organSongs, 
     pumpUpSongs, 
+    userRole,
+    isLoaded
   } = useUATGame();
   
   const [activePlayerId, setActivePlayerId] = useState<string | null>(null);
@@ -50,6 +54,8 @@ function UATBoothContent() {
   const ytPlayerRef = useRef<any>(null);
   const fadeIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
+
+  const isReadOnly = userRole === "user";
 
   const activePlayer = useMemo(() => 
     roster.find((p) => p.id === activePlayerId),
@@ -97,15 +103,20 @@ function UATBoothContent() {
   }, [volume]);
 
   const stopEverything = useCallback(() => {
+    if (isReadOnly) return;
     if (fadeIntervalRef.current) { clearInterval(fadeIntervalRef.current); fadeIntervalRef.current = null; }
     if (ytPlayerRef.current && playerReady) { 
       try { ytPlayerRef.current.stopVideo(); } catch (e) {} 
     }
     setActiveTrackName(null);
     setPlaybackPhase('idle');
-  }, [playerReady]);
+  }, [playerReady, isReadOnly]);
 
   const playYoutubeTrack = (videoId: string, songName: string, startAt: number = 0) => {
+    if (isReadOnly) {
+      toast({ variant: "destructive", title: "Access Denied", description: "Read-only accounts cannot trigger audio." });
+      return;
+    }
     stopEverything();
     setVolume(0.8);
     setActiveTrackName(songName);
@@ -120,10 +131,13 @@ function UATBoothContent() {
   };
 
   const triggerWalkonSequence = () => {
+    if (isReadOnly) {
+      toast({ variant: "destructive", title: "Access Denied", description: "Read-only accounts cannot trigger audio." });
+      return;
+    }
     if (!activePlayer) return;
     stopEverything();
     
-    // UAT Simulates announcement phase immediately since voice clips might be missing initially
     setPlaybackPhase('walkup');
     if (selectedSong) {
       setActiveTrackName(selectedSong.name);
@@ -136,6 +150,8 @@ function UATBoothContent() {
     }
   };
 
+  if (!isLoaded) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin" /></div>;
+
   return (
     <TooltipProvider>
       <div className="flex flex-col h-screen bg-background text-foreground stadium-gradient overflow-hidden">
@@ -145,7 +161,9 @@ function UATBoothContent() {
               <h1 className="font-headline font-black uppercase tracking-[0.2em] text-[10px] md:text-sm">UAT BOOTH</h1>
               <div className="flex items-center gap-1.5">
                 <ShieldCheck className="h-3 w-3 text-primary" />
-                <span className="text-[8px] font-black uppercase text-primary tracking-tighter">Isolated Test Environment</span>
+                <span className="text-[8px] font-black uppercase text-primary tracking-tighter">
+                  Role: {userRole.replace('_', ' ').toUpperCase()}
+                </span>
               </div>
             </div>
             
@@ -161,9 +179,14 @@ function UATBoothContent() {
             </div>
 
             <div className="flex items-center gap-1 md:gap-3 shrink-0">
+              <Link href="/admin-uat">
+                <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 text-muted-foreground hover:text-primary/80">
+                  <Lock className="h-4 w-4" />
+                </Button>
+              </Link>
               <Link href="/uat">
                 <Button variant="outline" size="sm" className="h-8 md:h-9 border-primary/20 text-primary font-black text-[9px]">
-                  BACK TO ONBOARDING
+                  EXIT
                 </Button>
               </Link>
             </div>
@@ -173,9 +196,24 @@ function UATBoothContent() {
             <div className="flex items-center gap-2 min-w-max">
               {volume === 0 ? <VolumeX className="h-3.5 w-3.5 text-muted-foreground" /> : <Volume2 className="h-3.5 w-3.5 text-primary" />}
             </div>
-            <Slider value={[volume * 100]} onValueChange={(vals) => setVolume(vals[0] / 100)} max={100} step={1} className="flex-1" />
+            <Slider 
+              disabled={isReadOnly}
+              value={[volume * 100]} 
+              onValueChange={(vals) => setVolume(vals[0] / 100)} 
+              max={100} 
+              step={1} 
+              className="flex-1" 
+            />
             <div className="flex items-center gap-1 ml-2">
-              <Button variant="outline" size="sm" onClick={stopEverything} className="h-8 md:h-9 border-destructive/20 text-destructive px-2 md:px-4 font-black text-[9px] uppercase">STOP</Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={stopEverything} 
+                disabled={isReadOnly}
+                className="h-8 md:h-9 border-destructive/20 text-destructive px-2 md:px-4 font-black text-[9px] uppercase"
+              >
+                STOP
+              </Button>
             </div>
           </div>
         </header>
@@ -220,6 +258,13 @@ function UATBoothContent() {
 
           <main className="flex-1 flex flex-col p-4 md:p-8 overflow-y-auto space-y-4 md:space-y-8 bg-black/10">
             <div className="max-w-5xl mx-auto w-full space-y-4 md:space-y-8 pb-40">
+              {isReadOnly && (
+                <div className="bg-destructive/10 border border-destructive/20 p-3 rounded-lg flex items-center justify-center gap-2">
+                  <Lock className="h-4 w-4 text-destructive" />
+                  <span className="text-[10px] font-black uppercase tracking-widest text-destructive">Dashboard in View-Only Mode</span>
+                </div>
+              )}
+              
               <section className="flex justify-center">
                 <Card className="w-full md:max-w-2xl bg-card/80 border-2 border-white/5 overflow-hidden shadow-2xl">
                   <CardHeader className="pb-3 md:pb-4 border-b border-white/5 bg-white/5">
@@ -240,7 +285,7 @@ function UATBoothContent() {
                     </Select>
 
                     <Button 
-                      disabled={!activePlayer} 
+                      disabled={!activePlayer || isReadOnly} 
                       onClick={triggerWalkonSequence} 
                       className="w-full h-14 md:h-16 text-sm md:text-base font-black bg-primary"
                     >
@@ -261,6 +306,7 @@ function UATBoothContent() {
                       <Button 
                         key={song.id}
                         variant="outline" 
+                        disabled={isReadOnly}
                         onClick={() => playYoutubeTrack(song.link, song.title, song.startTime)} 
                         className="w-full h-12 border-secondary/20 font-black uppercase text-[8px] justify-start px-3"
                       >
@@ -279,6 +325,7 @@ function UATBoothContent() {
                       <Button 
                         key={song.id}
                         variant="outline" 
+                        disabled={isReadOnly}
                         onClick={() => playYoutubeTrack(song.link, song.title, song.startTime)} 
                         className="w-full h-12 border-secondary/20 font-black uppercase text-[8px] justify-start px-3"
                       >

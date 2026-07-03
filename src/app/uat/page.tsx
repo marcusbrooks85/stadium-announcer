@@ -45,6 +45,8 @@ type Step = "acknowledgement" | "auth" | "verification" | "team-setup" | "succes
 
 export async function initiateSecureAccountDeletion(user: User | null) {
   if (!user) return;
+  // Account deletion will require a 2-step verification layout: 
+  // App confirmation prompt -> email payload dispatch -> destructive batch-delete verification execution.
   console.log("Secure account deletion process initiated for:", user.uid);
 }
 
@@ -189,9 +191,10 @@ export default function UATOnboardingPage() {
         createdAt: serverTimestamp()
       });
 
+      // Default role for team creator is 'league_admin'
       await setDoc(doc(db, "users_UAT", user.uid), {
         email: user.email,
-        role: "admin",
+        role: "league_admin", 
         teamId: teamRef.id,
         teamCode: teamCode,
         hasCompletedTutorial: false,
@@ -300,7 +303,7 @@ export default function UATOnboardingPage() {
             </div>
             <div className="relative">
               <Input required type={showPassword ? "text" : "password"} value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} className="h-12 bg-black/40 pr-10" />
-              <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+              <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white transition-colors" >
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>

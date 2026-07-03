@@ -7,18 +7,23 @@ import {
   Calendar as CalendarIcon, 
   ShieldCheck, 
   MapPin,
-  Clock
+  Clock,
+  Loader2,
+  Plus
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useFirestore } from "@/firebase";
 import { collection, onSnapshot } from "firebase/firestore";
-import { UATGameProvider } from "@/app/context/uat-game-context";
+import { UATGameProvider, useUATGame } from "@/app/context/uat-game-context";
 
 function UATScheduleContent() {
   const db = useFirestore();
+  const { userRole, isLoaded } = useUATGame();
   const [games, setGames] = useState<any[]>([]);
+
+  const canEdit = userRole === "super_admin" || userRole === "league_admin";
 
   useEffect(() => {
     if (!db) return;
@@ -27,6 +32,8 @@ function UATScheduleContent() {
     });
     return () => unsub();
   }, [db]);
+
+  if (!isLoaded) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin" /></div>;
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground stadium-gradient">
@@ -40,11 +47,20 @@ function UATScheduleContent() {
             </div>
           </div>
         </div>
-        <Link href="/uat">
-          <Button variant="ghost" size="sm" className="font-black uppercase text-[10px] tracking-widest">
-            Back
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          {canEdit && (
+            <Link href="/admin-uat">
+              <Button size="sm" className="bg-primary font-black uppercase text-[10px] tracking-widest hidden md:flex">
+                <Plus className="h-3 w-3 mr-1" /> Add Games
+              </Button>
+            </Link>
+          )}
+          <Link href="/uat">
+            <Button variant="ghost" size="sm" className="font-black uppercase text-[10px] tracking-widest">
+              Back
+            </Button>
+          </Link>
+        </div>
       </header>
 
       <main className="flex-1 p-4 md:p-8 max-w-5xl mx-auto w-full space-y-6">
@@ -58,9 +74,11 @@ function UATScheduleContent() {
             {games.length === 0 ? (
               <Card className="bg-card/40 border-dashed border-white/10 p-12 text-center">
                 <p className="text-sm font-black uppercase text-muted-foreground">No test games configured</p>
-                <Link href="/admin-uat">
-                  <Button className="mt-4 bg-primary font-black uppercase tracking-widest text-[10px]">Add Games in Admin</Button>
-                </Link>
+                {canEdit && (
+                  <Link href="/admin-uat">
+                    <Button className="mt-4 bg-primary font-black uppercase tracking-widest text-[10px]">Add Games in Admin</Button>
+                  </Link>
+                )}
               </Card>
             ) : (
               games.map((game) => (

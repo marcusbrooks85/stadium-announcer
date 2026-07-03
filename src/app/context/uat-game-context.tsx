@@ -2,7 +2,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
-import { useFirestore } from "@/firebase";
+import { useFirestore, useAuth } from "@/firebase";
 import { 
   collection, 
   onSnapshot, 
@@ -10,8 +10,10 @@ import {
   setDoc, 
   deleteDoc,
   writeBatch,
-  increment
+  increment,
+  getDoc
 } from "firebase/firestore";
+import { onAuthStateChanged } from "firebase/auth";
 
 export interface Song {
   name: string;
@@ -43,6 +45,8 @@ export interface Player {
   stats?: PlayerStats;
 }
 
+export type UATRole = "super_admin" | "league_admin" | "booth_admin" | "user";
+
 interface UATGameContextType {
   roster: Player[];
   organSongs: StadiumSong[];
@@ -53,29 +57,52 @@ interface UATGameContextType {
   awayScore: number;
   updateTeamScore: (team: 'home' | 'away', delta: number) => void;
   updatePlayerStat: (playerId: string, statType: keyof PlayerStats, delta: number) => void;
-  isAdmin: boolean;
+  userRole: UATRole;
+  userTeamId: string | null;
   savePlayer: (playerData: Omit<Player, 'id'>, id?: string) => void;
   deletePlayer: (id: string) => void;
   saveStadiumSong: (category: 'organ' | 'pumpup', song: Omit<StadiumSong, 'id'>, id?: string) => void;
   deleteStadiumSong: (category: 'organ' | 'pumpup', id: string) => void;
   reorderStadiumSongs: (category: 'organ' | 'pumpup', songs: StadiumSong[]) => void;
+  isLoaded: boolean;
 }
 
 const UATGameContext = createContext<UATGameContextType | undefined>(undefined);
 
 export function UATGameProvider({ children }: { children: ReactNode }) {
   const db = useFirestore();
+  const auth = useAuth();
+  
   const [roster, setRoster] = useState<Player[]>([]);
   const [organSongs, setOrganSongs] = useState<StadiumSong[]>([]);
   const [pumpUpSongs, setPumpUpSongs] = useState<StadiumSong[]>([]);
   const [selectedGameId, setSelectedGameId] = useState<string>("uat_game_1");
   const [gameStats, setGameStats] = useState<any>({});
   const [allGameStats, setAllGameStats] = useState<Record<string, any>>({});
+  
+  const [userRole, setUserRole] = useState<UATRole>("user");
+  const [userTeamId, setUserTeamId] = useState<string | null>(null);
+  const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    if (!db) return;
-    
-    // UAT Collections are empty by default - no INITIAL_ROSTER or songs
+    if (!db || !auth) return;
+
+    const unsubAuth = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        const userDoc = await getDoc(doc(db, "users_UAT", user.uid));
+        if (userDoc.exists()) {
+          const data = userDoc.data();
+          setUserRole(data.role || "user");
+          setUserTeamId(data.teamId || null);
+        }
+      } else {
+        setUserRole("user");
+        setUserTeamId(null);
+      }
+      setIsLoaded(true);
+    });
+
+    // UAT Collections
     const unsubPlayers = onSnapshot(collection(db, "players_UAT"), (snap) => {
       setRoster(snap.docs.map(d => ({ id: d.id, ...d.data() })) as Player[]);
     });
@@ -94,8 +121,14 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
       setPumpUpSongs(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a: any, b: any) => (a.order || 0) - (b.order || 0)) as StadiumSong[]);
     });
 
-    return () => { unsubPlayers(); unsubAllStats(); unsubOrgan(); unsubPump(); };
-  }, [db]);
+    return () => { 
+      unsubAuth();
+      unsubPlayers(); 
+      unsubAllStats(); 
+      unsubOrgan(); 
+      unsubPump(); 
+    };
+  }, [db, auth]);
 
   useEffect(() => {
     if (selectedGameId && allGameStats[selectedGameId]) {
@@ -106,14 +139,14 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
   }, [selectedGameId, allGameStats]);
 
   const updateTeamScore = (team: 'home' | 'away', delta: number) => {
-    if (!db) return;
+    if (!db || (userRole !== "super_admin" && userRole !== "league_admin")) return;
     const key = team === 'home' ? 'homeScore' : 'awayScore';
     const current = gameStats[key] || 0;
     setDoc(doc(db, "game_stats_UAT", selectedGameId), { [key]: Math.max(0, current + delta) }, { merge: true });
   };
 
   const updatePlayerStat = (playerId: string, statType: keyof PlayerStats, delta: number) => {
-    if (!db) return;
+    if (!db || (userRole !== "super_admin" && userRole !== "league_admin")) return;
     const ref = doc(db, "game_stats_UAT", selectedGameId);
     const pStats = gameStats.playerStats || {};
     const current = pStats[playerId] || { ab: 0, h: 0, r: 0, rbi: 0 };
@@ -122,28 +155,28 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
   };
 
   const savePlayer = (playerData: Omit<Player, 'id'>, id?: string) => {
-    if (!db) return;
+    if (!db || userRole === "user") return;
     setDoc(id ? doc(db, "players_UAT", id) : doc(collection(db, "players_UAT")), playerData, { merge: true });
   };
 
   const deletePlayer = (id: string) => {
-    if (!db) return;
+    if (!db || userRole === "user") return;
     deleteDoc(doc(db, "players_UAT", id));
   };
 
   const saveStadiumSong = (category: 'organ' | 'pumpup', song: Omit<StadiumSong, 'id'>, id?: string) => {
-    if (!db) return;
+    if (!db || (userRole !== "super_admin" && userRole !== "league_admin")) return;
     const coll = category === 'organ' ? "organ_songs_UAT" : "pump_up_songs_UAT";
     setDoc(id ? doc(db, coll, id) : doc(collection(db, coll)), song, { merge: true });
   };
 
   const deleteStadiumSong = (category: 'organ' | 'pumpup', id: string) => {
-    if (!db) return;
+    if (!db || (userRole !== "super_admin" && userRole !== "league_admin")) return;
     deleteDoc(doc(db, category === 'organ' ? "organ_songs_UAT" : "pump_up_songs_UAT", id));
   };
 
   const reorderStadiumSongs = (category: 'organ' | 'pumpup', updatedSongs: StadiumSong[]) => {
-    if (!db) return;
+    if (!db || (userRole !== "super_admin" && userRole !== "league_admin")) return;
     const batch = writeBatch(db);
     updatedSongs.forEach((song, index) => {
       batch.update(doc(db, category === 'organ' ? "organ_songs_UAT" : "pump_up_songs_UAT", song.id), { order: index });
@@ -162,12 +195,14 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
       awayScore: gameStats.awayScore || 0,
       updateTeamScore,
       updatePlayerStat,
-      isAdmin: true, // Always true for UAT workspace
+      userRole,
+      userTeamId,
       savePlayer,
       deletePlayer,
       saveStadiumSong,
       deleteStadiumSong,
-      reorderStadiumSongs
+      reorderStadiumSongs,
+      isLoaded
     }}>
       {children}
     </UATGameContext.Provider>
