@@ -9,25 +9,18 @@ import {
   Eye, 
   EyeOff, 
   Trophy, 
-  Lock, 
   Loader2, 
   CheckCircle2, 
   Mail, 
   Chrome,
-  ArrowLeft,
   KeyRound,
-  RefreshCw,
   Copy,
   Check,
   Building2,
-  MapPin,
-  LayoutDashboard,
   Users,
   Music,
   Calendar,
   ChevronRight,
-  Sparkles,
-  Info
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,7 +36,6 @@ import {
   signInWithPopup,
   GoogleAuthProvider,
   User,
-  onAuthStateChanged
 } from "firebase/auth";
 import { doc, setDoc, collection, addDoc, serverTimestamp, getDoc, updateDoc } from "firebase/firestore";
 import { cn } from "@/lib/utils";
@@ -51,11 +43,6 @@ import { Progress } from "@/components/ui/progress";
 
 type Step = "acknowledgement" | "auth" | "verification" | "team-setup" | "success" | "forgot-password" | "tutorial";
 
-/**
- * Account deletion helper stub.
- * Account deletion will require a 2-step verification layout: 
- * App confirmation prompt -> email payload dispatch -> destructive batch-delete verification execution.
- */
 export async function initiateSecureAccountDeletion(user: User | null) {
   if (!user) return;
   console.log("Secure account deletion process initiated for:", user.uid);
@@ -108,7 +95,7 @@ export default function UATOnboardingPage() {
       return false;
     }
     
-    router.push("/booth");
+    router.push("/booth-uat");
     return true;
   };
 
@@ -141,7 +128,7 @@ export default function UATOnboardingPage() {
     } catch (error: any) {
       let errorMessage = error.message;
       if (error.code === 'auth/configuration-not-found') {
-        errorMessage = "Email/Password authentication is not enabled in the Firebase Console. Please enable it to proceed.";
+        errorMessage = "Email/Password authentication is not enabled in the Firebase Console.";
       }
       toast({ variant: "destructive", title: "Auth Failed", description: errorMessage });
     } finally {
@@ -230,7 +217,7 @@ export default function UATOnboardingPage() {
         hasCompletedTutorial: true,
         tutorialCompletedAt: serverTimestamp()
       });
-      router.push("/booth");
+      router.push("/booth-uat");
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error", description: "Could not save tutorial progress." });
     } finally {
@@ -390,15 +377,12 @@ export default function UATOnboardingPage() {
         </CardDescription>
       </CardHeader>
       <CardFooter className="flex flex-col gap-3">
-        <Button onClick={() => window.location.reload()} className="w-full h-12 font-black uppercase tracking-widest bg-primary">
-          Verify My Email
-        </Button>
         <Button variant="ghost" onClick={async () => {
           if (auth.currentUser) {
             await sendEmailVerification(auth.currentUser);
             toast({ title: "Email Sent", description: "Verification link resent." });
           }
-        }} className="text-[10px] font-black uppercase tracking-widest">
+        }} className="w-full h-12 text-[10px] font-black uppercase tracking-widest">
           Resend Verification Email
         </Button>
       </CardFooter>
