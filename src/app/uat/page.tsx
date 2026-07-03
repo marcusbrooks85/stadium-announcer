@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { 
   ShieldCheck, 
@@ -21,7 +21,13 @@ import {
   Check,
   Building2,
   MapPin,
-  LayoutDashboard
+  LayoutDashboard,
+  Users,
+  Music,
+  Calendar,
+  ChevronRight,
+  Sparkles,
+  Info
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,15 +42,19 @@ import {
   sendPasswordResetEmail,
   signInWithPopup,
   GoogleAuthProvider,
-  User
+  User,
+  onAuthStateChanged
 } from "firebase/auth";
-import { doc, setDoc, collection, addDoc, serverTimestamp, getDoc } from "firebase/firestore";
+import { doc, setDoc, collection, addDoc, serverTimestamp, getDoc, updateDoc } from "firebase/firestore";
 import { cn } from "@/lib/utils";
+import { Progress } from "@/components/ui/progress";
 
-type Step = "acknowledgement" | "auth" | "verification" | "team-setup" | "success" | "forgot-password";
+type Step = "acknowledgement" | "auth" | "verification" | "team-setup" | "success" | "forgot-password" | "tutorial";
 
 /**
  * Account deletion helper stub.
+ * Account deletion will require a 2-step verification layout: 
+ * App confirmation prompt -> email payload dispatch -> destructive batch-delete verification execution.
  */
 export async function initiateSecureAccountDeletion(user: User | null) {
   if (!user) return;
@@ -61,6 +71,7 @@ export default function UATOnboardingPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [generatedCode, setGeneratedCode] = useState<string>("");
   const [copied, setCopied] = useState(false);
+  const [tutorialStep, setTutorialStep] = useState(0);
   
   const { auth, firestore: db } = initializeFirebase();
   const { toast } = useToast();
@@ -89,6 +100,11 @@ export default function UATOnboardingPage() {
     
     if (!userDoc.exists() || !userData?.teamId || !userData?.teamCode) {
       setStep("team-setup");
+      return false;
+    }
+    
+    if (!userData?.hasCompletedTutorial) {
+      setStep("tutorial");
       return false;
     }
     
@@ -123,7 +139,11 @@ export default function UATOnboardingPage() {
         await checkUserTeamStatus(userCredential.user);
       }
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Auth Failed", description: error.message });
+      let errorMessage = error.message;
+      if (error.code === 'auth/configuration-not-found') {
+        errorMessage = "Email/Password authentication is not enabled in the Firebase Console. Please enable it to proceed.";
+      }
+      toast({ variant: "destructive", title: "Auth Failed", description: errorMessage });
     } finally {
       setLoading(false);
     }
@@ -139,6 +159,24 @@ export default function UATOnboardingPage() {
       toast({ variant: "destructive", title: "Auth Failed", description: error.message });
     } finally {
       setGoogleLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!formData.email) {
+      toast({ variant: "destructive", title: "Required", description: "Please enter your email address first." });
+      return;
+    }
+    setLoading(true);
+    try {
+      await sendPasswordResetEmail(auth, formData.email);
+      toast({ title: "Reset Email Sent", description: "Check your inbox for the password recovery link." });
+      setIsRegisterMode(false);
+      setStep("auth");
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Error", description: error.message });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -169,6 +207,7 @@ export default function UATOnboardingPage() {
         role: "admin",
         teamId: teamRef.id,
         teamCode: teamCode,
+        hasCompletedTutorial: false,
         updatedAt: serverTimestamp()
       }, { merge: true });
 
@@ -176,6 +215,24 @@ export default function UATOnboardingPage() {
       setStep("success");
     } catch (error: any) {
       toast({ variant: "destructive", title: "Setup Failed", description: error.message });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCompleteTutorial = async () => {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    setLoading(true);
+    try {
+      await updateDoc(doc(db, "users_UAT", user.uid), {
+        hasCompletedTutorial: true,
+        tutorialCompletedAt: serverTimestamp()
+      });
+      router.push("/booth");
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Error", description: "Could not save tutorial progress." });
     } finally {
       setLoading(false);
     }
@@ -246,19 +303,30 @@ export default function UATOnboardingPage() {
             <Input required type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="h-12 bg-black/40" />
           </div>
           <div className="space-y-2 relative">
-            <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Password</Label>
-            <Input required type={showPassword ? "text" : "password"} value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} className="h-12 bg-black/40" />
-            <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-[38px] text-muted-foreground">
-              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </button>
+            <div className="flex justify-between items-center">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Password</Label>
+              {!isRegisterMode && (
+                <button type="button" onClick={handleForgotPassword} className="text-[9px] font-black uppercase text-primary hover:underline">
+                  Forgot Password?
+                </button>
+              )}
+            </div>
+            <div className="relative">
+              <Input required type={showPassword ? "text" : "password"} value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} className="h-12 bg-black/40 pr-10" />
+              <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
           </div>
           {isRegisterMode && (
             <div className="space-y-2 relative">
               <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Confirm Password</Label>
-              <Input required type={showConfirmPassword ? "text" : "password"} value={formData.confirmPassword} onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })} className="h-12 bg-black/40" />
-              <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-3 top-[38px] text-muted-foreground">
-                {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
+              <div className="relative">
+                <Input required type={showConfirmPassword ? "text" : "password"} value={formData.confirmPassword} onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })} className="h-12 bg-black/40 pr-10" />
+                <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
           )}
           <Button disabled={loading} type="submit" className="w-full h-14 font-black uppercase tracking-widest bg-secondary text-secondary-foreground">
@@ -323,7 +391,7 @@ export default function UATOnboardingPage() {
       </CardHeader>
       <CardFooter className="flex flex-col gap-3">
         <Button onClick={() => window.location.reload()} className="w-full h-12 font-black uppercase tracking-widest bg-primary">
-          I've Verified My Email
+          Verify My Email
         </Button>
         <Button variant="ghost" onClick={async () => {
           if (auth.currentUser) {
@@ -331,7 +399,7 @@ export default function UATOnboardingPage() {
             toast({ title: "Email Sent", description: "Verification link resent." });
           }
         }} className="text-[10px] font-black uppercase tracking-widest">
-          Resend Verification link
+          Resend Verification Email
         </Button>
       </CardFooter>
     </Card>
@@ -360,21 +428,88 @@ export default function UATOnboardingPage() {
         </div>
       </CardContent>
       <CardFooter>
-        <Button onClick={() => router.push("/booth")} className="w-full h-12 font-black uppercase tracking-widest bg-primary">
-          Enter Booth Dashboard <LayoutDashboard className="ml-2 w-4 h-4" />
+        <Button onClick={() => setStep("tutorial")} className="w-full h-12 font-black uppercase tracking-widest bg-primary">
+          Continue to Tutorial <ChevronRight className="ml-2 w-4 h-4" />
         </Button>
       </CardFooter>
     </Card>
   );
 
+  const renderTutorial = () => {
+    const slides = [
+      {
+        icon: <Building2 className="w-12 h-12 text-primary" />,
+        title: "Welcome & Workspace Setup",
+        description: "Your team shell is ready. This is your central hub for managing games, schedules, and player rosters in real-time.",
+      },
+      {
+        icon: <Users className="w-12 h-12 text-secondary" />,
+        title: "Roster Management",
+        description: "Add and manage your team players. Each player can have their own announcement audio and custom walk-up music.",
+      },
+      {
+        icon: <Music className="w-12 h-12 text-accent" />,
+        title: "Live Game Soundboard",
+        description: "Control the stadium atmosphere. Use the booth dashboard to trigger walk-on sequences and crowd pump-up hits.",
+      },
+      {
+        icon: <Calendar className="w-12 h-12 text-primary" />,
+        title: "Schedule & AI Features",
+        description: "Customize your game schedule and use AI to generate professional announcer scripts and audio for every batter.",
+      }
+    ];
+
+    const currentSlide = slides[tutorialStep];
+    const isLastSlide = tutorialStep === slides.length - 1;
+
+    return (
+      <Card className="w-full max-w-xl border-2 border-primary/30 bg-card/80 backdrop-blur-2xl shadow-[0_0_50px_rgba(66,133,255,0.2)]">
+        <CardHeader className="text-center pt-8 pb-4">
+          <div className="mx-auto w-24 h-24 bg-white/5 rounded-full flex items-center justify-center mb-6 border border-white/10 animate-in zoom-in duration-500">
+            {currentSlide.icon}
+          </div>
+          <CardTitle className="text-2xl font-black uppercase tracking-[0.1em] mb-2">{currentSlide.title}</CardTitle>
+          <div className="flex justify-center gap-1.5 mb-2">
+            {slides.map((_, i) => (
+              <div key={i} className={cn("h-1.5 rounded-full transition-all duration-300", i === tutorialStep ? "w-8 bg-primary" : "w-1.5 bg-white/20")} />
+            ))}
+          </div>
+        </CardHeader>
+        <CardContent className="px-8 pb-10 text-center space-y-6">
+          <p className="text-sm font-bold text-muted-foreground uppercase leading-relaxed tracking-tight">
+            {currentSlide.description}
+          </p>
+          <div className="pt-4">
+            <Progress value={((tutorialStep + 1) / slides.length) * 100} className="h-1 bg-white/5" />
+          </div>
+        </CardContent>
+        <CardFooter className="p-0 border-t border-white/5">
+          <Button 
+            disabled={loading}
+            onClick={() => isLastSlide ? handleCompleteTutorial() : setTutorialStep(prev => prev + 1)} 
+            className={cn(
+              "w-full h-16 font-black uppercase tracking-[0.2em] rounded-none rounded-b-lg text-lg",
+              isLastSlide ? "bg-green-600 hover:bg-green-700" : "bg-primary"
+            )}
+          >
+            {loading ? <Loader2 className="animate-spin mr-2" /> : (isLastSlide ? "Finish & Enter Booth" : "Next Slide")}
+            {!isLastSlide && <ChevronRight className="ml-2 w-5 h-5" />}
+          </Button>
+        </CardFooter>
+      </Card>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-background stadium-gradient flex items-center justify-center p-4">
-      {step === "acknowledgement" && renderAcknowledgement()}
-      {step === "auth" && renderAuth()}
-      {step === "verification" && renderVerification()}
-      {step === "team-setup" && renderTeamSetup()}
-      {step === "success" && renderSuccess()}
+      <div className="w-full flex items-center justify-center animate-in fade-in duration-700">
+        {step === "acknowledgement" && renderAcknowledgement()}
+        {step === "auth" && renderAuth()}
+        {step === "verification" && renderVerification()}
+        {step === "team-setup" && renderTeamSetup()}
+        {step === "success" && renderSuccess()}
+        {step === "tutorial" && renderTutorial()}
+      </div>
     </div>
   );
 }
-
