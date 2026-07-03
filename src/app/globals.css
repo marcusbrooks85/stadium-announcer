@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -24,6 +25,10 @@
     --input: 221 15% 25%;
     --ring: 218 100% 63%;
     --radius: 0.75rem;
+
+    /* Multi-Tenant Default Variables */
+    --tenant-primary: #4285FF;
+    --tenant-secondary: #2EB1D9;
   }
 }
 

@@ -15,12 +15,14 @@ import {
   Zap,
   AlertTriangle,
   Lock,
-  Trash
+  Trash,
+  Palette,
+  Save
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useUATGame, UATGameProvider } from "@/app/context/uat-game-context";
 import { useFirestore, useAuth } from "@/firebase";
@@ -44,7 +46,9 @@ function UATAdminContent() {
     deletePlayer,
     userRole,
     userTeamId,
-    isLoaded
+    isLoaded,
+    teamBranding,
+    updateBranding
   } = useUATGame();
   
   const db = useFirestore();
@@ -62,6 +66,9 @@ function UATAdminContent() {
   // Game Form
   const [gameForm, setGameForm] = useState({ home: "", away: "", time: "", location: "" });
 
+  // Branding Form
+  const [brandForm, setBrandForm] = useState({ primary: teamBranding.primary, secondary: teamBranding.secondary });
+
   const handleAddPlayer = async () => {
     if (!playerForm.name) return;
     if (userRole === "user") {
@@ -74,7 +81,8 @@ function UATAdminContent() {
         name: playerForm.name,
         number: playerForm.number,
         announcementAudioUrl: "",
-        songs: []
+        songs: [],
+        teamId: userTeamId!
       });
       setPlayerForm({ name: "", number: 0 });
       toast({ title: "Test Player Added" });
@@ -82,7 +90,7 @@ function UATAdminContent() {
   };
 
   const handleAddGame = async () => {
-    if (!gameForm.home || !gameForm.away || !db) return;
+    if (!gameForm.home || !gameForm.away || !db || !userTeamId) return;
     if (userRole !== "super_admin" && userRole !== "league_admin") {
       toast({ variant: "destructive", title: "Access Denied", description: "Only admins can schedule games." });
       return;
@@ -91,10 +99,19 @@ function UATAdminContent() {
     try {
       await addDoc(collection(db, "games_UAT"), {
         ...gameForm,
+        teamId: userTeamId,
         createdAt: new Date().toISOString()
       });
       setGameForm({ home: "", away: "", time: "", location: "" });
       toast({ title: "Test Game Added" });
+    } finally { setIsSaving(false); }
+  };
+
+  const handleUpdateBranding = async () => {
+    setIsSaving(true);
+    try {
+      await updateBranding(brandForm.primary, brandForm.secondary);
+      toast({ title: "Branding Updated", description: "Workspace colors have been refreshed." });
     } finally { setIsSaving(false); }
   };
 
@@ -106,17 +123,12 @@ function UATAdminContent() {
       const user = auth.currentUser;
       const batch = writeBatch(db);
       
-      // Wipe user data
       batch.delete(doc(db, "users_UAT", user.uid));
-      
-      // Attempt to orphan/cleanup team if owner
       if (userTeamId) {
         batch.delete(doc(db, "teams_UAT", userTeamId));
       }
 
       await batch.commit();
-      
-      // Auth Scrubbing - Requires recent login
       await deleteUser(user);
       
       toast({ title: "Account Scrubbed", description: "Your UAT workspace data has been permanently deleted." });
@@ -158,12 +170,12 @@ function UATAdminContent() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground stadium-gradient p-4 md:p-8">
+    <div className="min-h-screen bg-background text-foreground stadium-gradient p-4 md:p-8" style={{ '--primary': teamBranding.primary } as any}>
       <div className="max-w-4xl mx-auto space-y-8 pb-40">
         <header className="flex items-center justify-between border-b border-white/5 pb-6">
           <div className="flex flex-col">
             <h1 className="font-headline font-black uppercase tracking-[0.2em] text-lg flex items-center gap-3">
-              <ShieldAlert className="h-6 w-6 text-primary" /> UAT MANAGEMENT
+              <ShieldAlert className="h-6 w-6 text-[var(--tenant-primary)]" /> UAT MANAGEMENT
             </h1>
             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
               Isolated Test Configuration • Role: {userRole.replace('_', ' ').toUpperCase()}
@@ -175,7 +187,37 @@ function UATAdminContent() {
         </header>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Player Management Card - Available to Super, League, and Booth Admins */}
+          {/* Workspace Branding */}
+          {(userRole === "super_admin" || userRole === "league_admin") && (
+            <Card className="bg-card/50 border-white/10 col-span-1 md:col-span-2">
+              <CardHeader>
+                <CardTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-2">
+                  <Palette className="h-4 w-4" /> Workspace Branding
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label className="text-[10px] uppercase font-black">Primary Color (Tenant)</Label>
+                  <div className="flex gap-2">
+                    <Input type="color" value={brandForm.primary} onChange={e => setBrandForm({...brandForm, primary: e.target.value})} className="w-12 h-10 p-1" />
+                    <Input value={brandForm.primary} onChange={e => setBrandForm({...brandForm, primary: e.target.value})} className="flex-1" />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] uppercase font-black">Secondary Color (Tenant)</Label>
+                  <div className="flex gap-2">
+                    <Input type="color" value={brandForm.secondary} onChange={e => setBrandForm({...brandForm, secondary: e.target.value})} className="w-12 h-10 p-1" />
+                    <Input value={brandForm.secondary} onChange={e => setBrandForm({...brandForm, secondary: e.target.value})} className="flex-1" />
+                  </div>
+                </div>
+                <Button onClick={handleUpdateBranding} className="w-full bg-[var(--tenant-primary)] text-white font-black uppercase md:col-span-2">
+                  <Save className="h-4 w-4 mr-2" /> Update Tenant Branding
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Player Management */}
           <Card className="bg-card/50 border-white/10">
             <CardHeader>
               <CardTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-2">
@@ -191,7 +233,7 @@ function UATAdminContent() {
                 <Label className="text-[10px] uppercase font-black">Jersey Number</Label>
                 <Input type="number" value={playerForm.number || ""} onChange={e => setPlayerForm({...playerForm, number: parseInt(e.target.value) || 0})} className="h-10" />
               </div>
-              <Button onClick={handleAddPlayer} className="w-full bg-primary font-black uppercase" disabled={isSaving}>
+              <Button onClick={handleAddPlayer} className="w-full bg-[var(--tenant-primary)] text-white font-black uppercase" disabled={isSaving}>
                 {isSaving ? <Loader2 className="animate-spin h-4 w-4" /> : <Plus className="h-4 w-4 mr-2" />} Add Player
               </Button>
 
@@ -207,7 +249,7 @@ function UATAdminContent() {
             </CardContent>
           </Card>
 
-          {/* Game Management Card - Restricted to Super and League Admins */}
+          {/* Game Management */}
           {(userRole === "super_admin" || userRole === "league_admin") && (
             <Card className="bg-card/50 border-white/10">
               <CardHeader>
@@ -240,7 +282,7 @@ function UATAdminContent() {
                     <Input placeholder="Field Name" className="pl-10" value={gameForm.location} onChange={e => setGameForm({...gameForm, location: e.target.value})} />
                   </div>
                 </div>
-                <Button onClick={handleAddGame} className="w-full bg-secondary text-secondary-foreground font-black uppercase" disabled={isSaving}>
+                <Button onClick={handleAddGame} className="w-full bg-[var(--tenant-secondary)] text-white font-black uppercase" disabled={isSaving}>
                   <Plus className="h-4 w-4 mr-2" /> Schedule UAT Game
                 </Button>
               </CardContent>
@@ -248,7 +290,7 @@ function UATAdminContent() {
           )}
         </div>
 
-        {/* Danger Zone - Super Admin Exclusive */}
+        {/* Danger Zone */}
         {userRole === "super_admin" && (
           <section className="pt-12">
             <Card className="border-destructive/40 bg-destructive/5">

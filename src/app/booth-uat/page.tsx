@@ -41,7 +41,8 @@ function UATBoothContent() {
     organSongs, 
     pumpUpSongs, 
     userRole,
-    isLoaded
+    isLoaded,
+    teamBranding
   } = useUATGame();
   
   const [activePlayerId, setActivePlayerId] = useState<string | null>(null);
@@ -160,8 +161,8 @@ function UATBoothContent() {
             <div className="flex flex-col shrink-0">
               <h1 className="font-headline font-black uppercase tracking-[0.2em] text-[10px] md:text-sm">UAT BOOTH</h1>
               <div className="flex items-center gap-1.5">
-                <ShieldCheck className="h-3 w-3 text-primary" />
-                <span className="text-[8px] font-black uppercase text-primary tracking-tighter">
+                <ShieldCheck className="h-3 w-3 text-[var(--tenant-primary)]" />
+                <span className="text-[8px] font-black uppercase text-[var(--tenant-primary)] tracking-tighter">
                   Role: {userRole.replace('_', ' ').toUpperCase()}
                 </span>
               </div>
@@ -171,7 +172,7 @@ function UATBoothContent() {
               {activeTrackName && (
                 <div className="animate-in fade-in slide-in-from-top-2 duration-500">
                   <Badge variant="secondary" className="font-black text-[9px] md:text-xs uppercase tracking-widest px-3 py-1">
-                    <Activity className="h-3 w-3 mr-2 animate-pulse text-primary" />
+                    <Activity className="h-3 w-3 mr-2 animate-pulse text-[var(--tenant-primary)]" />
                     {activeTrackName}
                   </Badge>
                 </div>
@@ -180,21 +181,21 @@ function UATBoothContent() {
 
             <div className="flex items-center gap-1 md:gap-3 shrink-0">
               <Link href="/admin-uat">
-                <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 text-muted-foreground hover:text-primary/80">
+                <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 text-muted-foreground hover:text-[var(--tenant-primary)]">
                   <Lock className="h-4 w-4" />
                 </Button>
               </Link>
               <Link href="/uat">
-                <Button variant="outline" size="sm" className="h-8 md:h-9 border-primary/20 text-primary font-black text-[9px]">
+                <Button variant="outline" size="sm" className="h-8 md:h-9 border-[var(--tenant-primary)] text-[var(--tenant-primary)] font-black text-[9px]">
                   EXIT
                 </Button>
               </Link>
             </div>
           </div>
 
-          <div className="w-full flex items-center gap-2 md:gap-4 bg-primary/5 p-1.5 md:p-2 rounded-lg border border-primary/10">
+          <div className="w-full flex items-center gap-2 md:gap-4 bg-[var(--tenant-primary)]/5 p-1.5 md:p-2 rounded-lg border border-[var(--tenant-primary)]/10">
             <div className="flex items-center gap-2 min-w-max">
-              {volume === 0 ? <VolumeX className="h-3.5 w-3.5 text-muted-foreground" /> : <Volume2 className="h-3.5 w-3.5 text-primary" />}
+              {volume === 0 ? <VolumeX className="h-3.5 w-3.5 text-muted-foreground" /> : <Volume2 className="h-3.5 w-3.5 text-[var(--tenant-primary)]" />}
             </div>
             <Slider 
               disabled={isReadOnly}
@@ -221,7 +222,7 @@ function UATBoothContent() {
         <div className="flex flex-1 overflow-hidden">
           <aside className="w-80 bg-card/40 border-r border-border backdrop-blur-sm hidden lg:flex flex-col">
             <div className="p-5 border-b border-border flex items-center justify-between">
-              <div className="flex items-center gap-3"><Users className="h-5 w-5 text-primary" /><h2 className="font-headline font-bold uppercase tracking-widest text-sm">Test Roster</h2></div>
+              <div className="flex items-center gap-3"><Users className="h-5 w-5 text-[var(--tenant-primary)]" /><h2 className="font-headline font-bold uppercase tracking-widest text-sm">Test Roster</h2></div>
             </div>
             <ScrollArea className="flex-1">
               <div className="p-4 space-y-3">
@@ -229,7 +230,7 @@ function UATBoothContent() {
                   <div className="p-8 text-center border border-dashed border-white/10 rounded-xl">
                     <p className="text-[10px] font-black uppercase text-muted-foreground">Roster Empty</p>
                     <Link href="/admin-uat">
-                      <Button variant="link" className="text-[10px] text-primary p-0 h-auto mt-2">Add Test Players</Button>
+                      <Button variant="link" className="text-[10px] text-[var(--tenant-primary)] p-0 h-auto mt-2">Add Test Players</Button>
                     </Link>
                   </div>
                 ) : (
@@ -239,7 +240,7 @@ function UATBoothContent() {
                       onClick={() => { setActivePlayerId(player.id); setSelectedSongIndex(0); }}
                       className={cn(
                         "w-full text-left p-4 rounded-xl border transition-all duration-200",
-                        activePlayerId === player.id ? "bg-primary border-primary" : "bg-background/40 border-white/5 hover:bg-white/5"
+                        activePlayerId === player.id ? "bg-[var(--tenant-primary)] border-[var(--tenant-primary)]" : "bg-background/40 border-white/5 hover:bg-white/5"
                       )}
                     >
                       <div className="flex justify-between items-center">
@@ -287,7 +288,7 @@ function UATBoothContent() {
                     <Button 
                       disabled={!activePlayer || isReadOnly} 
                       onClick={triggerWalkonSequence} 
-                      className="w-full h-14 md:h-16 text-sm md:text-base font-black bg-primary"
+                      className="w-full h-14 md:h-16 text-sm md:text-base font-black bg-[var(--tenant-primary)]"
                     >
                       <Zap className="mr-2 fill-white" /> TRIGGER WALK-ON
                     </Button>
@@ -308,7 +309,7 @@ function UATBoothContent() {
                         variant="outline" 
                         disabled={isReadOnly}
                         onClick={() => playYoutubeTrack(song.link, song.title, song.startTime)} 
-                        className="w-full h-12 border-secondary/20 font-black uppercase text-[8px] justify-start px-3"
+                        className="w-full h-12 border-[var(--tenant-secondary)]/20 font-black uppercase text-[8px] justify-start px-3"
                       >
                         🎹 {song.title}
                       </Button>
@@ -327,7 +328,7 @@ function UATBoothContent() {
                         variant="outline" 
                         disabled={isReadOnly}
                         onClick={() => playYoutubeTrack(song.link, song.title, song.startTime)} 
-                        className="w-full h-12 border-secondary/20 font-black uppercase text-[8px] justify-start px-3"
+                        className="w-full h-12 border-[var(--tenant-secondary)]/20 font-black uppercase text-[8px] justify-start px-3"
                       >
                         📣 {song.title}
                       </Button>
