@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState } from "react";
@@ -56,15 +55,7 @@ export default function UATOnboardingPage() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Safety check ensuring Firebase Auth client has mounted correctly
-    if (!auth) {
-      toast({
-        variant: "destructive",
-        title: "Configuration Error",
-        description: "Firebase Auth instance is not ready. Check your config file keys."
-      });
-      return;
-    }
+    if (!auth || !db) return;
 
     if (formData.password !== formData.confirmPassword) {
       toast({
@@ -86,7 +77,7 @@ export default function UATOnboardingPage() {
 
     setLoading(true);
     try {
-      // 1. Create User using direct singleton instance
+      // 1. Create User using auth hook
       const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
       const user = userCredential.user;
 
@@ -101,7 +92,7 @@ export default function UATOnboardingPage() {
         createdAt: serverTimestamp()
       });
 
-      // 4. Create User Profile with assigned roles
+      // 4. Create User Profile
       await setDoc(doc(db, "users", user.uid), {
         email: formData.email,
         role: "admin",
@@ -120,7 +111,7 @@ export default function UATOnboardingPage() {
       setFormData({ email: "", password: "", confirmPassword: "", teamName: "" });
 
     } catch (error: any) {
-      console.error("UAT Registration Crash Error:", error);
+      console.error("UAT Registration Error:", error);
       toast({
         variant: "destructive",
         title: "Registration Failed",
