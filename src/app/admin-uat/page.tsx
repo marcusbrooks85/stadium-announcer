@@ -38,6 +38,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { UATNavbar } from "@/components/UATNavbar";
 
 function UATAdminContent() {
   const { 
@@ -60,13 +61,8 @@ function UATAdminContent() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
 
-  // Player Form
   const [playerForm, setPlayerForm] = useState({ name: "", number: 0 });
-
-  // Game Form
   const [gameForm, setGameForm] = useState({ home: "", away: "", time: "", location: "" });
-
-  // Branding Form
   const [brandForm, setBrandForm] = useState({ primary: teamBranding.primary, secondary: teamBranding.secondary });
 
   const handleAddPlayer = async () => {
@@ -159,9 +155,10 @@ function UATAdminContent() {
               Read-only accounts do not have administrative configuration privileges.
             </CardDescription>
           </CardHeader>
-          <CardFooter>
+          <CardFooter className="flex flex-col gap-3">
+            <UATNavbar />
             <Link href="/booth-uat" className="w-full">
-              <Button variant="outline" className="w-full font-black uppercase tracking-widest">Back to Dashboard</Button>
+              <Button variant="outline" className="w-full font-black uppercase tracking-widest">Back to Booth</Button>
             </Link>
           </CardFooter>
         </Card>
@@ -181,13 +178,10 @@ function UATAdminContent() {
               Isolated Test Configuration • Role: {userRole.replace('_', ' ').toUpperCase()}
             </p>
           </div>
-          <Link href="/uat">
-            <Button variant="outline" className="font-black uppercase tracking-widest text-[10px]">Back to Onboarding</Button>
-          </Link>
+          <UATNavbar />
         </header>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Workspace Branding */}
           {(userRole === "super_admin" || userRole === "league_admin") && (
             <Card className="bg-card/50 border-white/10 col-span-1 md:col-span-2">
               <CardHeader>
@@ -197,14 +191,14 @@ function UATAdminContent() {
               </CardHeader>
               <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <Label className="text-[10px] uppercase font-black">Primary Color (Tenant)</Label>
+                  <Label className="text-[10px] font-black">Primary Color (Tenant)</Label>
                   <div className="flex gap-2">
                     <Input type="color" value={brandForm.primary} onChange={e => setBrandForm({...brandForm, primary: e.target.value})} className="w-12 h-10 p-1" />
                     <Input value={brandForm.primary} onChange={e => setBrandForm({...brandForm, primary: e.target.value})} className="flex-1" />
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[10px] uppercase font-black">Secondary Color (Tenant)</Label>
+                  <Label className="text-[10px] font-black">Secondary Color (Tenant)</Label>
                   <div className="flex gap-2">
                     <Input type="color" value={brandForm.secondary} onChange={e => setBrandForm({...brandForm, secondary: e.target.value})} className="w-12 h-10 p-1" />
                     <Input value={brandForm.secondary} onChange={e => setBrandForm({...brandForm, secondary: e.target.value})} className="flex-1" />
@@ -217,7 +211,6 @@ function UATAdminContent() {
             </Card>
           )}
 
-          {/* Player Management */}
           <Card className="bg-card/50 border-white/10">
             <CardHeader>
               <CardTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-2">
@@ -236,20 +229,9 @@ function UATAdminContent() {
               <Button onClick={handleAddPlayer} className="w-full bg-[var(--tenant-primary)] text-white font-black uppercase" disabled={isSaving}>
                 {isSaving ? <Loader2 className="animate-spin h-4 w-4" /> : <Plus className="h-4 w-4 mr-2" />} Add Player
               </Button>
-
-              <div className="mt-6 space-y-2">
-                <Label className="text-[10px] uppercase font-black opacity-50">Current UAT Roster</Label>
-                {roster.map(p => (
-                  <div key={p.id} className="flex items-center justify-between p-3 bg-black/20 rounded-lg border border-white/5">
-                    <span className="text-xs font-bold">#{p.number} - {p.name}</span>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deletePlayer(p.id)}><Trash2 className="h-4 w-4" /></Button>
-                  </div>
-                ))}
-              </div>
             </CardContent>
           </Card>
 
-          {/* Game Management */}
           {(userRole === "super_admin" || userRole === "league_admin") && (
             <Card className="bg-card/50 border-white/10">
               <CardHeader>
@@ -260,27 +242,17 @@ function UATAdminContent() {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label className="text-[10px] uppercase font-black">Home Team</Label>
-                    <Input value={gameForm.home} onChange={e => setGameForm({...gameForm, home: e.target.value})} />
+                    <Input placeholder="Home Team" value={gameForm.home} onChange={e => setGameForm({...gameForm, home: e.target.value})} />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-[10px] uppercase font-black">Away Team</Label>
-                    <Input value={gameForm.away} onChange={e => setGameForm({...gameForm, away: e.target.value})} />
+                    <Input placeholder="Away Team" value={gameForm.away} onChange={e => setGameForm({...gameForm, away: e.target.value})} />
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[10px] uppercase font-black">Time</Label>
-                  <div className="relative">
-                    <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input placeholder="e.g. 2:00 PM" className="pl-10" value={gameForm.time} onChange={e => setGameForm({...gameForm, time: e.target.value})} />
-                  </div>
+                  <Input placeholder="e.g. 2:00 PM" value={gameForm.time} onChange={e => setGameForm({...gameForm, time: e.target.value})} />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[10px] uppercase font-black">Location</Label>
-                  <div className="relative">
-                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input placeholder="Field Name" className="pl-10" value={gameForm.location} onChange={e => setGameForm({...gameForm, location: e.target.value})} />
-                  </div>
+                  <Input placeholder="Field Name" value={gameForm.location} onChange={e => setGameForm({...gameForm, location: e.target.value})} />
                 </div>
                 <Button onClick={handleAddGame} className="w-full bg-[var(--tenant-secondary)] text-white font-black uppercase" disabled={isSaving}>
                   <Plus className="h-4 w-4 mr-2" /> Schedule UAT Game
@@ -290,7 +262,6 @@ function UATAdminContent() {
           )}
         </div>
 
-        {/* Danger Zone */}
         {userRole === "super_admin" && (
           <section className="pt-12">
             <Card className="border-destructive/40 bg-destructive/5">
@@ -298,9 +269,6 @@ function UATAdminContent() {
                 <CardTitle className="text-xs font-black uppercase tracking-[0.2em] text-destructive flex items-center gap-2">
                   <AlertTriangle className="h-4 w-4" /> DANGER ZONE
                 </CardTitle>
-                <CardDescription className="text-[10px] font-bold uppercase tracking-widest">
-                  Scrub all workspace and credential data permanently.
-                </CardDescription>
               </CardHeader>
               <CardContent>
                 <Dialog>
@@ -312,10 +280,6 @@ function UATAdminContent() {
                   <DialogContent className="bg-card border-destructive/20">
                     <DialogHeader>
                       <DialogTitle className="text-destructive font-black uppercase tracking-widest">Irreversible Deletion</DialogTitle>
-                      <DialogDescription className="text-[10px] font-bold uppercase tracking-widest leading-relaxed">
-                        This action will scrub your user document, team data, and authentication credentials. 
-                        To confirm, type <span className="text-destructive font-black">DELETE</span> below.
-                      </DialogDescription>
                     </DialogHeader>
                     <div className="py-4">
                       <Input 
@@ -342,11 +306,6 @@ function UATAdminContent() {
           </section>
         )}
       </div>
-
-      <footer className="fixed bottom-0 left-0 right-0 p-4 bg-card/90 backdrop-blur-md border-t border-white/5 flex justify-center gap-4">
-        <Link href="/schedule-uat"><Button variant="ghost" size="sm" className="font-black uppercase text-[10px]"><Calendar className="h-4 w-4 mr-2" /> UAT Schedule</Button></Link>
-        <Link href="/booth-uat"><Button variant="ghost" size="sm" className="font-black uppercase text-[10px]"><Zap className="h-4 w-4 mr-2" /> UAT Booth</Button></Link>
-      </footer>
     </div>
   );
 }

@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import Link from "next/link";
+import Link from "next/image";
 import { 
   Users, 
   Activity, 
@@ -11,7 +11,6 @@ import {
   ChevronRight,
   Music2,
   Zap,
-  Home,
   ShieldCheck,
   Lock,
   Loader2
@@ -34,6 +33,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useUATGame, UATGameProvider } from "@/app/context/uat-game-context";
+import { UATNavbar } from "@/components/UATNavbar";
 
 function UATBoothContent() {
   const { 
@@ -169,13 +169,15 @@ function UATBoothContent() {
             </div>
             
             <div className="flex items-center justify-center gap-1.5 md:gap-8 flex-1">
-              {activeTrackName && (
+              {activeTrackName ? (
                 <div className="animate-in fade-in slide-in-from-top-2 duration-500">
                   <Badge variant="secondary" className="font-black text-[9px] md:text-xs uppercase tracking-widest px-3 py-1">
                     <Activity className="h-3 w-3 mr-2 animate-pulse text-[var(--tenant-primary)]" />
                     {activeTrackName}
                   </Badge>
                 </div>
+              ) : (
+                <UATNavbar />
               )}
             </div>
 
@@ -183,11 +185,6 @@ function UATBoothContent() {
               <Link href="/admin-uat">
                 <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 text-muted-foreground hover:text-[var(--tenant-primary)]">
                   <Lock className="h-4 w-4" />
-                </Button>
-              </Link>
-              <Link href="/uat">
-                <Button variant="outline" size="sm" className="h-8 md:h-9 border-[var(--tenant-primary)] text-[var(--tenant-primary)] font-black text-[9px]">
-                  EXIT
                 </Button>
               </Link>
             </div>
