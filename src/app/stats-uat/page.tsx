@@ -15,7 +15,8 @@ import {
   FileDown,
   ClipboardList,
   Calendar,
-  CheckCircle2
+  CheckCircle2,
+  AlertTriangle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -44,6 +45,7 @@ function UATStatsContent() {
   
   const [logs, setLogs] = useState<any[]>([]);
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
+  const [indexBuilding, setIndexBuilding] = useState(false);
   
   const [isCompiling, setIsCompiling] = useState(false);
   const [compiledReport, setCompiledReport] = useState<any>(null);
@@ -53,6 +55,7 @@ function UATStatsContent() {
   useEffect(() => {
     if (!db || !userTeamId) return;
 
+    // Primary query for interactive logs
     const q = query(
       collection(db, "analytics_UAT"),
       where("teamId", "==", userTeamId),
@@ -60,10 +63,40 @@ function UATStatsContent() {
       limit(20)
     );
 
-    const unsubscribe = onSnapshot(q, (snap) => {
-      setLogs(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-      setAnalyticsLoading(false);
-    });
+    const unsubscribe = onSnapshot(q, 
+      (snap) => {
+        setLogs(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        setAnalyticsLoading(false);
+        setIndexBuilding(false);
+      },
+      (error: any) => {
+        // Handle missing or building index
+        if (error.code === 'failed-precondition') {
+          console.warn("Firestore Index Building: Falling back to un-ordered query.");
+          setIndexBuilding(true);
+          
+          // Fallback: Fetch without orderby and sort in memory
+          const fallbackQ = query(
+            collection(db, "analytics_UAT"),
+            where("teamId", "==", userTeamId),
+            limit(50)
+          );
+          
+          getDocs(fallbackQ).then((snap) => {
+            const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            // Sort in memory by timestamp
+            data.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
+            setLogs(data.slice(0, 20));
+            setAnalyticsLoading(false);
+          }).catch(() => {
+            setAnalyticsLoading(false);
+          });
+        } else {
+          console.error("Analytics stream error", error);
+          setAnalyticsLoading(false);
+        }
+      }
+    );
 
     return () => unsubscribe();
   }, [db, userTeamId]);
@@ -98,30 +131,30 @@ function UATStatsContent() {
     
     setIsCompiling(true);
     try {
-      // 1. Fetch Game Details
       const gameDoc = await getDoc(doc(db, "games_UAT", selectedGameId));
       const gameData = gameDoc.exists() ? gameDoc.data() : { away: "Unknown", home: "Unknown", date: "N/A" };
 
-      // 2. Fetch All Analytics for this game
       const q = query(
         collection(db, "analytics_UAT"),
         where("teamId", "==", userTeamId),
-        where("gameId", "==", selectedGameId),
-        orderBy("timestamp", "asc")
+        where("gameId", "==", selectedGameId)
       );
       
       const snap = await getDocs(q);
-      const allEvents = snap.docs.map(d => {
+      let allEvents = snap.docs.map(d => {
         const data = d.data();
         const player = roster.find(p => p.id === data.playerId);
         return {
           ...data,
           playerName: player ? player.name : "N/A",
-          timeStr: data.timestamp?.toDate().toLocaleString() || "N/A"
+          timeStr: data.timestamp?.toDate().toLocaleString() || "N/A",
+          sortTime: data.timestamp?.seconds || 0
         };
       });
 
-      // 3. Aggregate
+      // Manual sort for report accuracy in case index is missing
+      allEvents.sort((a, b) => a.sortTime - b.sortTime);
+
       const aggregated = {
         game: gameData,
         totalEvents: allEvents.length,
@@ -190,6 +223,15 @@ function UATStatsContent() {
       </header>
 
       <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full space-y-8 overflow-y-auto pb-20">
+        {indexBuilding && (
+          <div className="bg-yellow-500/10 border border-yellow-500/20 p-3 rounded-lg flex items-center gap-3">
+            <AlertTriangle className="h-4 w-4 text-yellow-500" />
+            <span className="text-[10px] font-black uppercase tracking-widest text-yellow-500">
+              Workspace Optimization in Progress: Stats may take a moment to refresh.
+            </span>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card className="bg-card/50 border-white/5">
             <CardHeader className="pb-2">
@@ -199,7 +241,7 @@ function UATStatsContent() {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-black text-[var(--tenant-primary)]">{stats.triggerCount}</div>
-              <p className="text-[9px] font-bold text-muted-foreground uppercase mt-1">Total interactive events (24h Window)</p>
+              <p className="text-[9px] font-bold text-muted-foreground uppercase mt-1">Total interactive events (Current View)</p>
             </CardContent>
           </Card>
 
@@ -216,6 +258,7 @@ function UATStatsContent() {
                   <Badge variant="outline" className="text-[9px] font-bold border-white/10">{count}</Badge>
                 </div>
               ))}
+              {Object.keys(stats.categoryBreakdown).length === 0 && <p className="text-[8px] opacity-40 uppercase text-center py-2">No activity recorded</p>}
             </CardContent>
           </Card>
 
@@ -311,14 +354,14 @@ function UATStatsContent() {
                   <div key={log.id} className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/5 group">
                     <div className="flex items-center gap-3">
                       <div className="h-8 w-8 rounded bg-[var(--tenant-primary)]/10 flex items-center justify-center">
-                        <Zap className="h-4 w-4 text-[var(--tenant-primary)]" />
+                        <ZapIcon className="h-4 w-4 text-[var(--tenant-primary)]" />
                       </div>
                       <div className="flex flex-col">
                         <span className="text-[10px] font-black uppercase tracking-tighter text-white">
-                          {log.category} Trigger: {log.audioId.substring(0, 8)}...
+                          {log.category} Trigger: {log.audioId?.substring(0, 8)}...
                         </span>
                         <span className="text-[8px] font-bold text-muted-foreground uppercase flex items-center gap-2">
-                          <User className="h-2 w-2" /> {log.triggeredBy.substring(0, 6)} • {log.timestamp?.toDate().toLocaleTimeString()}
+                          <User className="h-2 w-2" /> {log.triggeredBy?.substring(0, 6)} • {log.timestamp?.toDate ? log.timestamp.toDate().toLocaleTimeString() : "Recent"}
                         </span>
                       </div>
                     </div>
@@ -346,7 +389,7 @@ export default function UATStatsPage() {
   );
 }
 
-function Zap(props: any) {
+function ZapIcon(props: any) {
   return (
     <svg
       {...props}
