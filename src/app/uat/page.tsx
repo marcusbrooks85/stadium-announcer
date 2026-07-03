@@ -10,7 +10,8 @@ import {
   CheckCircle2, 
   Lock, 
   Mail,
-  Users
+  Users,
+  AlertTriangle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,7 +34,6 @@ export default function UATOnboardingPage() {
   const auth = useAuth();
   const db = useFirestore();
 
-  // Form State
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -59,30 +59,17 @@ export default function UATOnboardingPage() {
       toast({
         variant: "destructive",
         title: "Validation Error",
-        description: "Passwords do not match. Please verify your entry."
-      });
-      return;
-    }
-
-    if (formData.password.length < 6) {
-      toast({
-        variant: "destructive",
-        title: "Weak Password",
-        description: "Password must be at least 6 characters long."
+        description: "Passwords do not match."
       });
       return;
     }
 
     setLoading(true);
     try {
-      // 1. Create User via Auth Hook
       const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
       const user = userCredential.user;
-
-      // 2. Generate Unique Team Code
       const teamCode = generateTeamCode();
 
-      // 3. Create Team Document
       const teamRef = await addDoc(collection(db, "teams"), {
         name: formData.teamName,
         code: teamCode,
@@ -90,7 +77,6 @@ export default function UATOnboardingPage() {
         createdAt: serverTimestamp()
       });
 
-      // 4. Create User Profile
       await setDoc(doc(db, "users", user.uid), {
         email: formData.email,
         role: "admin",
@@ -101,18 +87,27 @@ export default function UATOnboardingPage() {
 
       toast({
         title: "Success!",
-        description: `Team created successfully. Your code is: ${teamCode}`
+        description: `Team workspace created. Code: ${teamCode}`
       });
       
       setStep("acknowledgement");
       setFormData({ email: "", password: "", confirmPassword: "", teamName: "" });
 
     } catch (error: any) {
-      console.error("UAT Registration Error:", error.message);
+      console.error("UAT Registration Error:", error.code, error.message);
+      
+      let errorMessage = error.message;
+      let errorTitle = "Registration Failed";
+
+      if (error.code === 'auth/configuration-not-found') {
+        errorTitle = "Authentication Not Configured";
+        errorMessage = "Email/Password sign-in is not enabled in your Firebase Console. Please go to Authentication > Sign-in method and enable 'Email/Password'.";
+      }
+
       toast({
         variant: "destructive",
-        title: "Registration Failed",
-        description: error.message || "Could not complete registration."
+        title: errorTitle,
+        description: errorMessage,
       });
     } finally {
       setLoading(false);
@@ -120,136 +115,83 @@ export default function UATOnboardingPage() {
   };
 
   const renderAcknowledgement = () => (
-    <Card className="w-full max-w-lg border-2 border-primary/20 bg-card/50 backdrop-blur-xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <Card className="w-full max-w-lg border-2 border-primary/20 bg-card/50 backdrop-blur-xl">
       <CardHeader className="text-center space-y-4">
         <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
           <ShieldCheck className="w-8 h-8 text-primary" />
         </div>
         <CardTitle className="text-2xl font-black uppercase tracking-widest">UAT Workspace</CardTitle>
-        <CardDescription className="text-sm font-bold text-muted-foreground uppercase leading-relaxed">
-          You are entering the User Acceptance Testing environment.
+        <CardDescription className="text-sm font-bold text-muted-foreground uppercase">
+          Provisioning a dedicated baseball logistics environment.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="bg-black/20 p-4 rounded-xl border border-white/5 space-y-3">
-          <div className="flex items-start gap-3">
-            <CheckCircle2 className="w-4 h-4 text-primary mt-1 shrink-0" />
-            <p className="text-[11px] font-bold uppercase text-muted-foreground">Sandbox environment isolation enabled</p>
-          </div>
-          <div className="flex items-start gap-3">
-            <CheckCircle2 className="w-4 h-4 text-primary mt-1 shrink-0" />
-            <p className="text-[11px] font-bold uppercase text-muted-foreground">Automatic team code generation</p>
-          </div>
-        </div>
-      </CardContent>
       <CardFooter>
-        <Button 
-          onClick={() => setStep("setup")} 
-          className="w-full h-12 font-black uppercase tracking-widest bg-primary hover:bg-primary/90 transition-all group"
-        >
-          Acknowledge & Proceed <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
+        <Button onClick={() => setStep("setup")} className="w-full h-12 font-black uppercase tracking-widest bg-primary">
+          Acknowledge & Proceed <ArrowRight className="ml-2 w-4 h-4" />
         </Button>
       </CardFooter>
     </Card>
   );
 
   const renderSetup = () => (
-    <Card className="w-full max-w-xl border-2 border-secondary/20 bg-card/50 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-500">
+    <Card className="w-full max-w-xl border-2 border-secondary/20 bg-card/50 backdrop-blur-xl">
       <CardHeader>
         <CardTitle className="text-xl font-black uppercase tracking-widest flex items-center gap-3">
-          <Trophy className="w-6 h-6 text-secondary" /> Team Workspace Setup
+          <Trophy className="w-6 h-6 text-secondary" /> Team Setup
         </CardTitle>
-        <CardDescription className="font-bold text-[10px] uppercase tracking-tighter text-muted-foreground">
-          Complete the fields below to provision your dedicated baseball workspace.
-        </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleRegister} className="space-y-6">
           <div className="space-y-4">
             <div className="space-y-2">
               <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Team Name</Label>
-              <div className="relative">
-                <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input 
-                  required
-                  placeholder="League or Team Name" 
-                  className="pl-10 h-12 bg-black/40 border-white/10 font-bold"
-                  value={formData.teamName}
-                  onChange={(e) => setFormData({ ...formData, teamName: e.target.value })}
-                />
-              </div>
+              <Input 
+                required
+                className="h-12 bg-black/40 border-white/10 font-bold"
+                value={formData.teamName}
+                onChange={(e) => setFormData({ ...formData, teamName: e.target.value })}
+              />
             </div>
-
             <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Admin Account</Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Admin Email</Label>
+              <Input 
+                required
+                type="email"
+                className="h-12 bg-black/40 border-white/10 font-bold"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2 relative">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Password</Label>
                 <Input 
                   required
-                  type="email"
-                  placeholder="Admin Email Address" 
-                  className="pl-10 h-12 bg-black/40 border-white/10 font-bold"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  type={showPassword ? "text" : "password"}
+                  className="h-12 bg-black/40 border-white/10 font-bold pr-10"
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 />
+                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-[38px] text-muted-foreground">
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
               </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input 
-                    required
-                    type={showPassword ? "text" : "password"}
-                    placeholder="••••••••" 
-                    className="pl-10 pr-12 h-12 bg-black/40 border-white/10 font-bold"
-                    value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white transition-colors"
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Confirm Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input 
-                    required
-                    type={showConfirmPassword ? "text" : "password"}
-                    placeholder="••••••••" 
-                    className={cn(
-                      "pl-10 pr-12 h-12 bg-black/40 border-white/10 font-bold transition-all",
-                      formData.confirmPassword && formData.password !== formData.confirmPassword && "border-destructive/50 ring-1 ring-destructive/20"
-                    )}
-                    value={formData.confirmPassword}
-                    onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white transition-colors"
-                  >
-                    {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
+              <div className="space-y-2 relative">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Confirm</Label>
+                <Input 
+                  required
+                  type={showConfirmPassword ? "text" : "password"}
+                  className="h-12 bg-black/40 border-white/10 font-bold pr-10"
+                  value={formData.confirmPassword}
+                  onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                />
+                <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-3 top-[38px] text-muted-foreground">
+                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
               </div>
             </div>
           </div>
-
-          <Button 
-            disabled={loading || !formData.email || !formData.password || formData.password !== formData.confirmPassword}
-            type="submit" 
-            className="w-full h-14 font-black uppercase tracking-widest bg-secondary text-secondary-foreground hover:bg-secondary/90 transition-all shadow-lg shadow-secondary/10"
-          >
+          <Button disabled={loading} type="submit" className="w-full h-14 font-black uppercase tracking-widest bg-secondary text-secondary-foreground">
             {loading ? "Creating..." : "Create Team Workspace"}
           </Button>
         </form>
@@ -259,9 +201,7 @@ export default function UATOnboardingPage() {
 
   return (
     <div className="min-h-screen bg-background stadium-gradient flex items-center justify-center p-4">
-      <div className="w-full flex justify-center">
-        {step === "acknowledgement" ? renderAcknowledgement() : renderSetup()}
-      </div>
+      {step === "acknowledgement" ? renderAcknowledgement() : renderSetup()}
     </div>
   );
 }

@@ -8,11 +8,9 @@ import {
   doc, 
   setDoc, 
   deleteDoc,
-  query, 
-  orderBy,
   writeBatch,
   increment,
-  getDoc
+  Firestore
 } from "firebase/firestore";
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -88,18 +86,14 @@ export const FULL_GAME_SCHEDULE = [
   { id: "game_8", week: 8, date: "2026-07-21", time: "6:00 PM", home: "Coach Chewy", away: "Coach Matt & Rene", location: "Jim Thorpe - Prairie Field" },
   { id: "game_9", week: 9, date: "2026-07-25", time: "9:00 AM", home: "Coach Manny", away: "Coach Chewy", location: "Jim Thorpe - Cordary Field" },
   { id: "game_10", week: 10, date: "2026-07-28", time: "6:00 PM", home: "Coach Matt & Rene", away: "Coach Chewy", location: "Jim Thorpe - Prairie Field" },
-  { id: "playoff_1", week: 11, date: "2026-08-01", time: "9:00 AM", home: "#1 Seed", away: "#4 Seed", location: "Jim Thorpe - Cordary Field", notes: "Playoffs" },
-  { id: "playoff_2", week: 11, date: "2026-08-01", time: "11:00 AM", home: "#2 Seed", away: "#3 Seed", location: "Jim Thorpe - Cordary Field", notes: "Playoffs" },
-  { id: "finals_1", week: 12, date: "2026-08-08", time: "9:00 AM", home: "Consolation", away: "Consolation", location: "Jim Thorpe - Cordary Field", notes: "Finals" },
-  { id: "finals_2", week: 12, date: "2026-08-08", time: "11:00 AM", home: "Championship", away: "Championship", location: "Jim Thorpe - Cordary Field", notes: "Finals" }
 ];
 
 export const GAME_SCHEDULE_LIST = FULL_GAME_SCHEDULE.map(g => ({
   id: g.id,
-  label: `${g.notes || `Week ${g.week}`} - ${new Date(g.date + 'T00:00:00').toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })}`
+  label: `Week ${g.week} - ${new Date(g.date + 'T00:00:00').toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })}`
 }));
 
-const SESSION_DURATION = 2 * 60 * 60 * 1000; // 2 hours
+const SESSION_DURATION = 2 * 60 * 60 * 1000;
 
 interface GameContextType {
   roster: Player[];
@@ -136,65 +130,27 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [gameWins, setGameWins] = useState<Record<string, any>>({});
   const [isAdmin, setIsAdmin] = useState(false);
 
-  // Initial Game ID selection based on date
   useEffect(() => {
     const now = new Date();
-    const convertTimeTo24h = (timeStr: string) => {
-      const [time, modifier] = timeStr.split(' ');
-      let [hours, minutes] = time.split(':').map(Number);
-      if (modifier === 'PM' && hours < 12) hours += 12;
-      if (modifier === 'AM' && hours === 12) hours = 0;
-      return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`;
-    };
-
     const sorted = [...FULL_GAME_SCHEDULE].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    
-    const active = sorted.find(g => {
-      const gameStart = new Date(`${g.date}T${convertTimeTo24h(g.time)}`);
-      return gameStart.getTime() + (2 * 60 * 60 * 1000) > now.getTime();
-    }) || sorted[sorted.length - 1];
-
-    if (active && !selectedGameId) {
-      setSelectedGameId(active.id);
-    }
+    const active = sorted.find(g => new Date(g.date).getTime() + (24 * 60 * 60 * 1000) > now.getTime()) || sorted[sorted.length - 1];
+    if (active && !selectedGameId) setSelectedGameId(active.id);
   }, [selectedGameId]);
-
-  const resetAdminTimer = useCallback(() => {
-    const expiry = Date.now() + SESSION_DURATION;
-    localStorage.setItem("admin_session_expiry", expiry.toString());
-  }, []);
 
   const adminLogout = useCallback(() => {
     setIsAdmin(false);
     localStorage.removeItem("admin_session_expiry");
   }, []);
 
-  useEffect(() => {
-    const checkSession = () => {
-      const expiry = localStorage.getItem("admin_session_expiry");
-      if (expiry) {
-        if (Date.now() < parseInt(expiry)) {
-          setIsAdmin(true);
-        } else {
-          adminLogout();
-        }
-      }
-    };
-    checkSession();
-    const interval = setInterval(checkSession, 60000); 
-    return () => clearInterval(interval);
-  }, [adminLogout]);
-
   const adminLogin = (password: string) => {
     if (password === "Chewy2026") {
       setIsAdmin(true);
-      resetAdminTimer();
+      localStorage.setItem("admin_session_expiry", (Date.now() + SESSION_DURATION).toString());
       return true;
     }
     return false;
   };
 
-  // Automated Sync Logic
   const triggerSync = useCallback(async () => {
     if (!db || !isAdmin) return;
 
@@ -212,37 +168,29 @@ export function GameProvider({ children }: { children: ReactNode }) {
       const gameStart = new Date(`${game.date}T${convertTimeTo24h(game.time)}`);
       const syncThreshold = new Date(gameStart.getTime() + 2 * 60 * 60 * 1000);
 
-      // Check if game is past the 2h window
       if (now >= syncThreshold) {
         const stats = allGameStats[game.id];
         const winStatus = gameWins[game.id];
 
-        // Process if stats exist AND (not synced OR result missing from game_wins)
-        if (stats && (!stats.statsSynced || !winStatus) && !winStatus?.cancelled) {
+        // Process if result is missing from game_wins OR if stats were not marked synced
+        if (stats && (!stats.statsSynced || !winStatus)) {
           const homeScore = stats.homeScore || 0;
           const awayScore = stats.awayScore || 0;
           
           if (homeScore > 0 || awayScore > 0) {
-            // Determine W/L based on Coach Chewy's position
             const chewyIsHome = game.home === "Coach Chewy";
             const won = homeScore === awayScore ? null : (chewyIsHome ? (homeScore > awayScore) : (awayScore > homeScore));
             const tie = homeScore === awayScore;
 
             const batch = writeBatch(db);
-            
-            // 1. Update/Create Game Win
-            const winRef = doc(db, "game_wins", game.id);
-            batch.set(winRef, {
+            batch.set(doc(db, "game_wins", game.id), {
               won: won,
               updatedAt: new Date().toISOString(),
               autoSynced: true
             }, { merge: true });
 
-            // 2. Mark Stats as Synced
-            const statsRef = doc(db, "game_stats", game.id);
-            batch.update(statsRef, { statsSynced: true });
+            batch.update(doc(db, "game_stats", game.id), { statsSynced: true });
 
-            // 3. Update Standings
             const standingsRef = doc(db, "standings", "chewy_team_2026");
             const updateData: any = { updatedAt: new Date().toISOString() };
             if (tie) updateData.ties = increment(1);
@@ -250,186 +198,122 @@ export function GameProvider({ children }: { children: ReactNode }) {
             else if (won === false) updateData.losses = increment(1);
             
             batch.set(standingsRef, updateData, { merge: true });
-
-            await batch.commit().catch(e => console.error("Sync batch failed", e));
+            await batch.commit().catch(e => console.error("Sync failed", e));
           }
         }
       }
     }
   }, [db, isAdmin, allGameStats, gameWins]);
 
-  // Listeners
   useEffect(() => {
     if (!db) return;
     
-    const playersRef = collection(db, "players");
-    const unsubPlayers = onSnapshot(playersRef, (snapshot) => {
-      if (snapshot.empty) {
-        INITIAL_ROSTER.forEach((p, idx) => setDoc(doc(playersRef, `player_${idx + 1}`), p));
+    const unsubPlayers = onSnapshot(collection(db, "players"), (snap) => {
+      if (snap.empty) {
+        INITIAL_ROSTER.forEach((p, idx) => setDoc(doc(db, "players", `player_${idx + 1}`), p));
       } else {
-        const loaded = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Player[];
-        setRoster(loaded.sort((a, b) => a.number - b.number));
+        setRoster(snap.docs.map(d => ({ id: d.id, ...d.data() })) as Player[]);
       }
     });
 
-    const organRef = collection(db, "organ_songs");
-    const unsubOrgan = onSnapshot(organRef, (snapshot) => {
-      if (snapshot.empty) {
-        INITIAL_ORGAN_HITS.forEach((s, idx) => setDoc(doc(organRef, `organ_${idx + 1}`), s));
+    const unsubOrgan = onSnapshot(collection(db, "organ_songs"), (snap) => {
+      if (snap.empty) {
+        INITIAL_ORGAN_HITS.forEach((s, idx) => setDoc(doc(db, "organ_songs", `organ_${idx + 1}`), s));
       } else {
-        const loaded = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as StadiumSong[];
-        setOrganSongs(loaded.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)));
+        setOrganSongs(snap.docs.map(d => ({ id: d.id, ...d.data() })) as StadiumSong[]);
       }
     });
 
-    const pumpRef = collection(db, "pump_up_songs");
-    const unsubPump = onSnapshot(pumpRef, (snapshot) => {
-      if (snapshot.empty) {
-        INITIAL_PUMP_UP_SONGS.forEach((s, idx) => setDoc(doc(pumpRef, `pump_${idx + 1}`), s));
+    const unsubPump = onSnapshot(collection(db, "pump_up_songs"), (snap) => {
+      if (snap.empty) {
+        INITIAL_PUMP_UP_SONGS.forEach((s, idx) => setDoc(doc(db, "pump_up_songs", `pump_${idx + 1}`), s));
       } else {
-        const loaded = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as StadiumSong[];
-        setPumpUpSongs(loaded.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)));
+        setPumpUpSongs(snap.docs.map(d => ({ id: d.id, ...d.data() })) as StadiumSong[]);
       }
     });
 
-    const winsRef = collection(db, "game_wins");
-    const unsubWins = onSnapshot(winsRef, (snapshot) => {
+    const unsubWins = onSnapshot(collection(db, "game_wins"), (snap) => {
       const wins: Record<string, any> = {};
-      snapshot.forEach(d => wins[d.id] = d.data());
+      snap.forEach(d => wins[d.id] = d.data());
       setGameWins(wins);
     });
 
-    const allStatsRef = collection(db, "game_stats");
-    const unsubAllStats = onSnapshot(allStatsRef, (snapshot) => {
+    const unsubAllStats = onSnapshot(collection(db, "game_stats"), (snap) => {
       const stats: Record<string, any> = {};
-      snapshot.forEach(d => stats[d.id] = d.data());
+      snap.forEach(d => stats[d.id] = d.data());
       setAllGameStats(stats);
     });
 
     return () => {
-      unsubPlayers();
-      unsubOrgan();
-      unsubPump();
-      unsubWins();
-      unsubAllStats();
+      unsubPlayers(); unsubOrgan(); unsubPump(); unsubWins(); unsubAllStats();
     };
   }, [db]);
 
   useEffect(() => {
     if (!db || !selectedGameId) return;
-    const statsDocRef = doc(db, "game_stats", selectedGameId);
-    const unsubscribe = onSnapshot(statsDocRef, (snapshot) => {
-      if (snapshot.exists()) {
-        setGameStats(snapshot.data());
-      } else {
-        setGameStats({ homeScore: 0, awayScore: 0, playerStats: {} });
-      }
+    return onSnapshot(doc(db, "game_stats", selectedGameId), (snap) => {
+      setGameStats(snap.exists() ? snap.data() : { homeScore: 0, awayScore: 0, playerStats: {} });
     });
-    return () => unsubscribe();
   }, [db, selectedGameId]);
 
-  // Run sync when admin is active
   useEffect(() => {
-    if (isAdmin && Object.keys(allGameStats).length > 0) {
-      triggerSync();
-    }
+    if (isAdmin) triggerSync();
   }, [isAdmin, triggerSync, allGameStats]);
 
   const updateTeamScore = (team: 'home' | 'away', delta: number) => {
-    if (!isAdmin) return;
-    resetAdminTimer();
+    if (!isAdmin || !db) return;
     const key = team === 'home' ? 'homeScore' : 'awayScore';
     const current = gameStats[key] || 0;
-    const statsDocRef = doc(db, "game_stats", selectedGameId);
-    setDoc(statsDocRef, { [key]: Math.max(0, current + delta), statsSynced: false }, { merge: true })
-      .catch(async () => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: statsDocRef.path, operation: 'write', requestResourceData: { [key]: current + delta }
-        }));
-      });
+    const ref = doc(db, "game_stats", selectedGameId);
+    setDoc(ref, { [key]: Math.max(0, current + delta), statsSynced: false }, { merge: true });
   };
 
   const updatePlayerStat = (playerId: string, statType: keyof PlayerStats, delta: number) => {
-    if (!isAdmin) return;
-    resetAdminTimer();
-    const statsDocRef = doc(db, "game_stats", selectedGameId);
-    const playerStats = gameStats.playerStats || {};
-    const currentStats = playerStats[playerId] || { ab: 0, h: 0, r: 0, rbi: 0 };
-    const newValue = Math.max(0, currentStats[statType] + delta);
-    const updatedPlayerStats = { ...playerStats, [playerId]: { ...currentStats, [statType]: newValue } };
-    setDoc(statsDocRef, { playerStats: updatedPlayerStats, statsSynced: false }, { merge: true })
-      .catch(async () => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: statsDocRef.path, operation: 'write', requestResourceData: { playerStats: updatedPlayerStats }
-        }));
-      });
+    if (!isAdmin || !db) return;
+    const ref = doc(db, "game_stats", selectedGameId);
+    const pStats = gameStats.playerStats || {};
+    const current = pStats[playerId] || { ab: 0, h: 0, r: 0, rbi: 0 };
+    const newValue = Math.max(0, current[statType] + delta);
+    setDoc(ref, { playerStats: { ...pStats, [playerId]: { ...current, [statType]: newValue } }, statsSynced: false }, { merge: true });
   };
 
   const savePlayer = (playerData: Omit<Player, 'id'>, id?: string) => {
     if (!isAdmin || !db) return;
-    resetAdminTimer();
-    const docRef = id ? doc(db, "players", id) : doc(collection(db, "players"));
-    setDoc(docRef, playerData, { merge: true })
-      .catch(async () => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: docRef.path, operation: 'write', requestResourceData: playerData
-        }));
-      });
+    setDoc(id ? doc(db, "players", id) : doc(collection(db, "players")), playerData, { merge: true });
   };
 
   const deletePlayer = (id: string) => {
     if (!isAdmin || !db) return;
-    resetAdminTimer();
-    const docRef = doc(db, "players", id);
-    deleteDoc(docRef).catch(async () => {
-      errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'delete' }));
-    });
+    deleteDoc(doc(db, "players", id));
   };
 
   const saveStadiumSong = (category: 'organ' | 'pumpup', song: Omit<StadiumSong, 'id'>, id?: string) => {
     if (!isAdmin || !db) return;
-    resetAdminTimer();
-    const collName = category === 'organ' ? "organ_songs" : "pump_up_songs";
-    const docRef = id ? doc(db, collName, id) : doc(collection(db, collName));
-    setDoc(docRef, song, { merge: true })
-      .catch(async () => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: docRef.path, operation: 'write', requestResourceData: song
-        }));
-      });
+    const coll = category === 'organ' ? "organ_songs" : "pump_up_songs";
+    setDoc(id ? doc(db, coll, id) : doc(collection(db, coll)), song, { merge: true });
   };
 
   const deleteStadiumSong = (category: 'organ' | 'pumpup', id: string) => {
     if (!isAdmin || !db) return;
-    resetAdminTimer();
-    const collName = category === 'organ' ? "organ_songs" : "pump_up_songs";
-    const docRef = doc(db, collName, id);
-    deleteDoc(docRef).catch(async () => {
-      errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'delete' }));
-    });
+    deleteDoc(doc(db, category === 'organ' ? "organ_songs" : "pump_up_songs", id));
   };
 
   const reorderStadiumSongs = (category: 'organ' | 'pumpup', updatedSongs: StadiumSong[]) => {
     if (!isAdmin || !db) return;
-    resetAdminTimer();
-    const collName = category === 'organ' ? "organ_songs" : "pump_up_songs";
     const batch = writeBatch(db);
     updatedSongs.forEach((song, index) => {
-      const docRef = doc(db, collName, song.id);
-      batch.update(docRef, { order: index });
+      batch.update(doc(db, category === 'organ' ? "organ_songs" : "pump_up_songs", song.id), { order: index });
     });
-    batch.commit().catch(async (error) => {
-       console.error("Batch update failed", error);
-    });
+    batch.commit();
   };
 
   const emailStats = () => {
     const gameLabel = GAME_SCHEDULE_LIST.find(g => g.id === selectedGameId)?.label || selectedGameId;
     const subject = `Game Report: ${gameLabel}`;
-    const scoreText = `STADIUM REPORT\n${gameLabel}\nAway: ${gameStats.awayScore || 0} | Home: ${gameStats.homeScore || 0}\n\n`;
+    const scoreText = `Game: ${gameLabel}\nAway: ${gameStats.awayScore || 0} | Home: ${gameStats.homeScore || 0}\n\n`;
     const rosterStatsText = roster.map(p => {
       const s = gameStats.playerStats?.[p.id] || { ab: 0, h: 0, r: 0, rbi: 0 };
-      return `${p.name} (#${p.number}): AB: ${s.ab}, H: ${s.h}, R: ${s.r}, RBI: ${s.rbi}`;
+      return `${p.name}: AB:${s.ab} H:${s.h} R:${s.r} RBI:${s.rbi}`;
     }).join('\n');
     window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(scoreText + rosterStatsText)}`;
   };
