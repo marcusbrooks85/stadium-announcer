@@ -55,7 +55,14 @@ export default function UATOnboardingPage() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!auth || !db) return;
+    if (!auth || !db) {
+      toast({
+        variant: "destructive",
+        title: "Connection Error",
+        description: "Firebase service is not initialized. Please refresh the page."
+      });
+      return;
+    }
 
     if (formData.password !== formData.confirmPassword) {
       toast({

@@ -225,7 +225,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         const stats = allGameStats[game.id];
         const winStatus = gameWins[game.id];
 
-        // Force sync if stats exist and (not synced OR result missing from game_wins)
+        // Process if stats exist and (not synced OR result missing from game_wins)
         if (stats && (!stats.statsSynced || !winStatus) && !winStatus?.cancelled) {
           const homeScore = stats.homeScore || 0;
           const awayScore = stats.awayScore || 0;
@@ -338,10 +338,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   // Run sync when admin is active
   useEffect(() => {
-    if (isAdmin) {
+    if (isAdmin && Object.keys(allGameStats).length > 0) {
       triggerSync();
     }
-  }, [isAdmin, triggerSync]);
+  }, [isAdmin, triggerSync, allGameStats]);
 
   const updateTeamScore = (team: 'home' | 'away', delta: number) => {
     if (!isAdmin) return;
