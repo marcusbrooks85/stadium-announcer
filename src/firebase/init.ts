@@ -6,20 +6,22 @@ import { getAuth } from 'firebase/auth';
 import { getStorage } from 'firebase/storage';
 import { firebaseConfig } from './config';
 
+const config = {
+  ...firebaseConfig,
+  apiKey: firebaseConfig.apiKey.trim(),
+};
+
+// 1. Initialize the core singleton app instance
+export const firebaseApp = getApps().length > 0 ? getApp() : initializeApp(config);
+
+// 2. Export the ready-to-use singleton service instances directly
+export const db = getFirestore(firebaseApp);
+export const auth = getAuth(firebaseApp);
+export const storage = getStorage(firebaseApp);
+
 /**
- * Initializes Firebase services and returns the app, firestore, auth, and storage instances.
- * Ensures the config is always trimmed and properly passed to prevent validation errors.
+ * Maintained for backward compatibility across the rest of the application
  */
 export function initializeFirebase() {
-  const config = {
-    ...firebaseConfig,
-    apiKey: firebaseConfig.apiKey.trim(),
-  };
-
-  const firebaseApp = getApps().length > 0 ? getApp() : initializeApp(config);
-  const firestore = getFirestore(firebaseApp);
-  const auth = getAuth(firebaseApp);
-  const storage = getStorage(firebaseApp);
-
-  return { firebaseApp, firestore, auth, storage };
+  return { firebaseApp, firestore: db, auth, storage };
 }

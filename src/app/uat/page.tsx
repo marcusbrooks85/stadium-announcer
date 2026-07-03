@@ -17,8 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-
-import { useAuth, useFirestore } from "@/firebase"; 
+import { useAuth, useFirestore } from "@/firebase";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, setDoc, collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { cn } from "@/lib/utils";
@@ -26,13 +25,14 @@ import { cn } from "@/lib/utils";
 type Step = "acknowledgement" | "setup";
 
 export default function UATOnboardingPage() {
-  const auth = useAuth();
-  const db = useFirestore();
   const [step, setStep] = useState<Step>("acknowledgement");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   
+  const auth = useAuth();
+  const db = useFirestore();
+
   // Form State
   const [formData, setFormData] = useState({
     email: "",
@@ -55,15 +55,6 @@ export default function UATOnboardingPage() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!auth || !db) {
-      toast({
-        variant: "destructive",
-        title: "Connection Error",
-        description: "Firebase service is not initialized. Please refresh the page."
-      });
-      return;
-    }
-
     if (formData.password !== formData.confirmPassword) {
       toast({
         variant: "destructive",
@@ -84,7 +75,7 @@ export default function UATOnboardingPage() {
 
     setLoading(true);
     try {
-      // 1. Create User using auth hook
+      // 1. Create User via Auth Hook
       const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
       const user = userCredential.user;
 
@@ -113,7 +104,6 @@ export default function UATOnboardingPage() {
         description: `Team created successfully. Your code is: ${teamCode}`
       });
       
-      // Clean up & advance state
       setStep("acknowledgement");
       setFormData({ email: "", password: "", confirmPassword: "", teamName: "" });
 
@@ -137,7 +127,7 @@ export default function UATOnboardingPage() {
         </div>
         <CardTitle className="text-2xl font-black uppercase tracking-widest">UAT Workspace</CardTitle>
         <CardDescription className="text-sm font-bold text-muted-foreground uppercase leading-relaxed">
-          You are entering the User Acceptance Testing environment. All data entered here is for testing purposes.
+          You are entering the User Acceptance Testing environment.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -149,10 +139,6 @@ export default function UATOnboardingPage() {
           <div className="flex items-start gap-3">
             <CheckCircle2 className="w-4 h-4 text-primary mt-1 shrink-0" />
             <p className="text-[11px] font-bold uppercase text-muted-foreground">Automatic team code generation</p>
-          </div>
-          <div className="flex items-start gap-3">
-            <CheckCircle2 className="w-4 h-4 text-primary mt-1 shrink-0" />
-            <p className="text-[11px] font-bold uppercase text-muted-foreground">Real-time database permissions audit</p>
           </div>
         </div>
       </CardContent>
@@ -181,7 +167,7 @@ export default function UATOnboardingPage() {
         <form onSubmit={handleRegister} className="space-y-6">
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Team Details</Label>
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Team Name</Label>
               <div className="relative">
                 <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input 
@@ -257,12 +243,6 @@ export default function UATOnboardingPage() {
                 </div>
               </div>
             </div>
-
-            {formData.confirmPassword && formData.password !== formData.confirmPassword && (
-              <p className="text-[9px] font-black uppercase text-destructive tracking-widest text-center animate-in fade-in slide-in-from-top-1">
-                Passwords do not match
-              </p>
-            )}
           </div>
 
           <Button 
@@ -270,15 +250,10 @@ export default function UATOnboardingPage() {
             type="submit" 
             className="w-full h-14 font-black uppercase tracking-widest bg-secondary text-secondary-foreground hover:bg-secondary/90 transition-all shadow-lg shadow-secondary/10"
           >
-            {loading ? "Provisioning Workspace..." : "Create Team Workspace"}
+            {loading ? "Creating..." : "Create Team Workspace"}
           </Button>
         </form>
       </CardContent>
-      <CardFooter className="flex flex-col items-center gap-4 border-t border-white/5 pt-6">
-        <Button variant="ghost" size="sm" onClick={() => setStep("acknowledgement")} className="text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-white">
-          Back to Disclaimer
-        </Button>
-      </CardFooter>
     </Card>
   );
 
