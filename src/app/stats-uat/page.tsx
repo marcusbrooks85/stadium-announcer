@@ -11,7 +11,11 @@ import {
   TrendingUp, 
   Clock, 
   User, 
-  Music
+  Music,
+  FileDown,
+  ClipboardList,
+  Calendar,
+  CheckCircle2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -20,13 +24,31 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { UATGameProvider, useUATGame } from "@/app/context/uat-game-context";
 import { UATNavbar } from "@/components/UATNavbar";
 import { useFirestore } from "@/firebase";
-import { collection, query, where, orderBy, limit, onSnapshot } from "firebase/firestore";
+import { 
+  collection, 
+  query, 
+  where, 
+  orderBy, 
+  limit, 
+  onSnapshot, 
+  getDocs,
+  doc,
+  getDoc
+} from "firebase/firestore";
+import { useToast } from "@/hooks/use-toast";
 
 function UATStatsContent() {
   const db = useFirestore();
-  const { userTeamId, isLoaded, roster } = useUATGame();
+  const { toast } = useToast();
+  const { userTeamId, isLoaded, roster, userRole, selectedGameId } = useUATGame();
+  
   const [logs, setLogs] = useState<any[]>([]);
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
+  
+  const [isCompiling, setIsCompiling] = useState(false);
+  const [compiledReport, setCompiledReport] = useState<any>(null);
+
+  const isAdmin = userRole === "super_admin" || userRole === "league_admin";
 
   useEffect(() => {
     if (!db || !userTeamId) return;
@@ -70,6 +92,79 @@ function UATStatsContent() {
 
     return { triggerCount, categoryBreakdown, sortedLeaderboard };
   }, [logs, roster]);
+
+  const handleCompileReport = async () => {
+    if (!db || !userTeamId || !selectedGameId) return;
+    
+    setIsCompiling(true);
+    try {
+      // 1. Fetch Game Details
+      const gameDoc = await getDoc(doc(db, "games_UAT", selectedGameId));
+      const gameData = gameDoc.exists() ? gameDoc.data() : { away: "Unknown", home: "Unknown", date: "N/A" };
+
+      // 2. Fetch All Analytics for this game
+      const q = query(
+        collection(db, "analytics_UAT"),
+        where("teamId", "==", userTeamId),
+        where("gameId", "==", selectedGameId),
+        orderBy("timestamp", "asc")
+      );
+      
+      const snap = await getDocs(q);
+      const allEvents = snap.docs.map(d => {
+        const data = d.data();
+        const player = roster.find(p => p.id === data.playerId);
+        return {
+          ...data,
+          playerName: player ? player.name : "N/A",
+          timeStr: data.timestamp?.toDate().toLocaleString() || "N/A"
+        };
+      });
+
+      // 3. Aggregate
+      const aggregated = {
+        game: gameData,
+        totalEvents: allEvents.length,
+        uniquePlayers: new Set(allEvents.filter(e => e.playerId).map(e => e.playerId)).size,
+        events: allEvents,
+        compiledAt: new Date().toLocaleString()
+      };
+
+      setCompiledReport(aggregated);
+      toast({ title: "Report Compiled", description: `${allEvents.length} events analyzed for game.` });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Compilation Failed", description: e.message });
+    } finally {
+      setIsCompiling(false);
+    }
+  };
+
+  const downloadCSV = () => {
+    if (!compiledReport) return;
+
+    const headers = ["Timestamp", "Category", "Audio ID", "Player Name", "Triggered By"];
+    const rows = compiledReport.events.map((e: any) => [
+      `"${e.timeStr}"`,
+      `"${e.category}"`,
+      `"${e.audioId}"`,
+      `"${e.playerName}"`,
+      `"${e.triggeredBy}"`
+    ]);
+
+    const csvContent = [headers, ...rows].map(r => r.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    
+    const fileName = `game_report_${selectedGameId}_${new Date().toISOString().split('T')[0]}.csv`;
+    link.setAttribute("href", url);
+    link.setAttribute("download", fileName);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast({ title: "Export Successful", description: `Report saved as ${fileName}` });
+  };
 
   if (!isLoaded) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin" /></div>;
 
@@ -142,6 +237,62 @@ function UATStatsContent() {
           </Card>
         </div>
 
+        {isAdmin && (
+          <section className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <ClipboardList className="h-5 w-5 text-[var(--tenant-primary)]" />
+                <h2 className="text-sm font-black uppercase tracking-widest">Administrative Reporting</h2>
+              </div>
+              <Button 
+                onClick={handleCompileReport} 
+                disabled={isCompiling || !selectedGameId}
+                className="bg-[var(--tenant-primary)] text-white font-black uppercase text-[10px] px-6"
+              >
+                {isCompiling ? <Loader2 className="animate-spin mr-2 h-3 w-3" /> : <Calendar className="mr-2 h-3 w-3" />}
+                Compile Game-Day Report
+              </Button>
+            </div>
+
+            {compiledReport && (
+              <Card className="bg-primary/5 border-[var(--tenant-primary)]/20 animate-in fade-in slide-in-from-top-4 duration-500">
+                <CardHeader className="pb-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-sm font-black uppercase tracking-widest">
+                        Compiled Report: {compiledReport.game.away} vs {compiledReport.game.home}
+                      </CardTitle>
+                      <CardDescription className="text-[10px] font-bold uppercase">
+                        Date: {compiledReport.game.date} • Compiled: {compiledReport.compiledAt}
+                      </CardDescription>
+                    </div>
+                    <Button onClick={downloadCSV} variant="outline" size="sm" className="border-[var(--tenant-primary)]/30 text-[var(--tenant-primary)] font-black uppercase text-[10px]">
+                      <FileDown className="h-3 w-3 mr-2" /> Export CSV
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="grid grid-cols-3 gap-4 border-t border-[var(--tenant-primary)]/10 pt-6">
+                  <div className="flex flex-col items-center p-4 bg-black/20 rounded-xl">
+                    <span className="text-[10px] font-black uppercase text-muted-foreground mb-1">Total Triggers</span>
+                    <span className="text-2xl font-black text-white">{compiledReport.totalEvents}</span>
+                  </div>
+                  <div className="flex flex-col items-center p-4 bg-black/20 rounded-xl">
+                    <span className="text-[10px] font-black uppercase text-muted-foreground mb-1">Active Roster</span>
+                    <span className="text-2xl font-black text-white">{compiledReport.uniquePlayers} Players</span>
+                  </div>
+                  <div className="flex flex-col items-center p-4 bg-black/20 rounded-xl">
+                    <span className="text-[10px] font-black uppercase text-muted-foreground mb-1">Status</span>
+                    <div className="flex items-center gap-2 text-green-500">
+                      <CheckCircle2 className="h-4 w-4" />
+                      <span className="text-xs font-black uppercase">Verified</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </section>
+        )}
+
         <Card className="bg-card/50 border-white/5 h-[400px] flex flex-col">
           <CardHeader className="border-b border-white/5">
             <CardTitle className="text-xs font-black uppercase tracking-[0.2em] flex items-center gap-3">
@@ -193,4 +344,23 @@ export default function UATStatsPage() {
       <UATStatsContent />
     </UATGameProvider>
   );
+}
+
+function Zap(props: any) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M4 14.71 14 3v9.29L20 9.29 10 21V11.71L4 14.71Z" />
+    </svg>
+  )
 }
