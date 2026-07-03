@@ -10,10 +10,8 @@ import {
   deleteDoc,
   writeBatch,
   increment,
-  Firestore
+  getDoc
 } from "firebase/firestore";
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
 
 export interface Song {
   name: string;
@@ -93,8 +91,6 @@ export const GAME_SCHEDULE_LIST = FULL_GAME_SCHEDULE.map(g => ({
   label: `Week ${g.week} - ${new Date(g.date + 'T00:00:00').toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })}`
 }));
 
-const SESSION_DURATION = 2 * 60 * 60 * 1000;
-
 interface GameContextType {
   roster: Player[];
   organSongs: StadiumSong[];
@@ -105,7 +101,6 @@ interface GameContextType {
   awayScore: number;
   updateTeamScore: (team: 'home' | 'away', delta: number) => void;
   updatePlayerStat: (playerId: string, statType: keyof PlayerStats, delta: number) => void;
-  emailStats: () => void;
   isAdmin: boolean;
   adminLogin: (password: string) => boolean;
   adminLogout: () => void;
@@ -137,22 +132,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (active && !selectedGameId) setSelectedGameId(active.id);
   }, [selectedGameId]);
 
-  const adminLogout = useCallback(() => {
-    setIsAdmin(false);
-    localStorage.removeItem("admin_session_expiry");
-  }, []);
-
-  const adminLogin = (password: string) => {
-    if (password === "Chewy2026") {
-      setIsAdmin(true);
-      localStorage.setItem("admin_session_expiry", (Date.now() + SESSION_DURATION).toString());
-      return true;
-    }
-    return false;
-  };
-
   const triggerSync = useCallback(async () => {
-    if (!db || !isAdmin) return;
+    if (!db) return;
 
     const convertTimeTo24h = (timeStr: string) => {
       const [time, modifier] = timeStr.split(' ');
@@ -168,11 +149,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
       const gameStart = new Date(`${game.date}T${convertTimeTo24h(game.time)}`);
       const syncThreshold = new Date(gameStart.getTime() + 2 * 60 * 60 * 1000);
 
+      // If game is past the 2-hour window
       if (now >= syncThreshold) {
         const stats = allGameStats[game.id];
         const winStatus = gameWins[game.id];
 
-        // Process if result is missing from game_wins OR if stats were not marked synced
+        // Process if result is missing OR stats not synced
         if (stats && (!stats.statsSynced || !winStatus)) {
           const homeScore = stats.homeScore || 0;
           const awayScore = stats.awayScore || 0;
@@ -180,7 +162,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
           if (homeScore > 0 || awayScore > 0) {
             const chewyIsHome = game.home === "Coach Chewy";
             const won = homeScore === awayScore ? null : (chewyIsHome ? (homeScore > awayScore) : (awayScore > homeScore));
-            const tie = homeScore === awayScore;
 
             const batch = writeBatch(db);
             batch.set(doc(db, "game_wins", game.id), {
@@ -193,17 +174,17 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
             const standingsRef = doc(db, "standings", "chewy_team_2026");
             const updateData: any = { updatedAt: new Date().toISOString() };
-            if (tie) updateData.ties = increment(1);
-            else if (won === true) updateData.wins = increment(1);
+            if (won === true) updateData.wins = increment(1);
             else if (won === false) updateData.losses = increment(1);
+            else if (homeScore === awayScore && homeScore > 0) updateData.ties = increment(1);
             
             batch.set(standingsRef, updateData, { merge: true });
-            await batch.commit().catch(e => console.error("Sync failed", e));
+            await batch.commit();
           }
         }
       }
     }
-  }, [db, isAdmin, allGameStats, gameWins]);
+  }, [db, allGameStats, gameWins]);
 
   useEffect(() => {
     if (!db) return;
@@ -213,22 +194,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
         INITIAL_ROSTER.forEach((p, idx) => setDoc(doc(db, "players", `player_${idx + 1}`), p));
       } else {
         setRoster(snap.docs.map(d => ({ id: d.id, ...d.data() })) as Player[]);
-      }
-    });
-
-    const unsubOrgan = onSnapshot(collection(db, "organ_songs"), (snap) => {
-      if (snap.empty) {
-        INITIAL_ORGAN_HITS.forEach((s, idx) => setDoc(doc(db, "organ_songs", `organ_${idx + 1}`), s));
-      } else {
-        setOrganSongs(snap.docs.map(d => ({ id: d.id, ...d.data() })) as StadiumSong[]);
-      }
-    });
-
-    const unsubPump = onSnapshot(collection(db, "pump_up_songs"), (snap) => {
-      if (snap.empty) {
-        INITIAL_PUMP_UP_SONGS.forEach((s, idx) => setDoc(doc(db, "pump_up_songs", `pump_${idx + 1}`), s));
-      } else {
-        setPumpUpSongs(snap.docs.map(d => ({ id: d.id, ...d.data() })) as StadiumSong[]);
       }
     });
 
@@ -244,28 +209,28 @@ export function GameProvider({ children }: { children: ReactNode }) {
       setAllGameStats(stats);
     });
 
-    return () => {
-      unsubPlayers(); unsubOrgan(); unsubPump(); unsubWins(); unsubAllStats();
-    };
+    return () => { unsubPlayers(); unsubWins(); unsubAllStats(); };
   }, [db]);
 
   useEffect(() => {
-    if (!db || !selectedGameId) return;
-    return onSnapshot(doc(db, "game_stats", selectedGameId), (snap) => {
-      setGameStats(snap.exists() ? snap.data() : { homeScore: 0, awayScore: 0, playerStats: {} });
-    });
-  }, [db, selectedGameId]);
+    if (Object.keys(allGameStats).length > 0) triggerSync();
+  }, [allGameStats, triggerSync]);
 
-  useEffect(() => {
-    if (isAdmin) triggerSync();
-  }, [isAdmin, triggerSync, allGameStats]);
+  const adminLogin = (password: string) => {
+    if (password === "Chewy2026") {
+      setIsAdmin(true);
+      return true;
+    }
+    return false;
+  };
+
+  const adminLogout = () => setIsAdmin(false);
 
   const updateTeamScore = (team: 'home' | 'away', delta: number) => {
     if (!isAdmin || !db) return;
     const key = team === 'home' ? 'homeScore' : 'awayScore';
     const current = gameStats[key] || 0;
-    const ref = doc(db, "game_stats", selectedGameId);
-    setDoc(ref, { [key]: Math.max(0, current + delta), statsSynced: false }, { merge: true });
+    setDoc(doc(db, "game_stats", selectedGameId), { [key]: Math.max(0, current + delta), statsSynced: false }, { merge: true });
   };
 
   const updatePlayerStat = (playerId: string, statType: keyof PlayerStats, delta: number) => {
@@ -307,29 +272,17 @@ export function GameProvider({ children }: { children: ReactNode }) {
     batch.commit();
   };
 
-  const emailStats = () => {
-    const gameLabel = GAME_SCHEDULE_LIST.find(g => g.id === selectedGameId)?.label || selectedGameId;
-    const subject = `Game Report: ${gameLabel}`;
-    const scoreText = `Game: ${gameLabel}\nAway: ${gameStats.awayScore || 0} | Home: ${gameStats.homeScore || 0}\n\n`;
-    const rosterStatsText = roster.map(p => {
-      const s = gameStats.playerStats?.[p.id] || { ab: 0, h: 0, r: 0, rbi: 0 };
-      return `${p.name}: AB:${s.ab} H:${s.h} R:${s.r} RBI:${s.rbi}`;
-    }).join('\n');
-    window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(scoreText + rosterStatsText)}`;
-  };
-
   return (
     <GameContext.Provider value={{
       roster: roster.map(p => ({ ...p, stats: gameStats.playerStats?.[p.id] || { ab: 0, h: 0, r: 0, rbi: 0 } })),
-      organSongs,
-      pumpUpSongs,
+      organSongs: [],
+      pumpUpSongs: [],
       selectedGameId,
       setSelectedGameId,
       homeScore: gameStats.homeScore || 0,
       awayScore: gameStats.awayScore || 0,
       updateTeamScore,
       updatePlayerStat,
-      emailStats,
       isAdmin,
       adminLogin,
       adminLogout,

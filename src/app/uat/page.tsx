@@ -1,17 +1,16 @@
 "use client";
 
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import { 
   ShieldCheck, 
   ArrowRight, 
   Eye, 
   EyeOff, 
   Trophy, 
-  CheckCircle2, 
-  Lock, 
-  Mail,
-  Users,
-  AlertTriangle
+  ShieldAlert,
+  Lock,
+  Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +25,7 @@ import { cn } from "@/lib/utils";
 type Step = "acknowledgement" | "setup";
 
 export default function UATOnboardingPage() {
+  const router = useRouter();
   const [step, setStep] = useState<Step>("acknowledgement");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -66,10 +66,12 @@ export default function UATOnboardingPage() {
 
     setLoading(true);
     try {
+      // 1. Create User
       const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
       const user = userCredential.user;
+      
+      // 2. Provision Team
       const teamCode = generateTeamCode();
-
       const teamRef = await addDoc(collection(db, "teams"), {
         name: formData.teamName,
         code: teamCode,
@@ -77,6 +79,7 @@ export default function UATOnboardingPage() {
         createdAt: serverTimestamp()
       });
 
+      // 3. Create User Profile
       await setDoc(doc(db, "users", user.uid), {
         email: formData.email,
         role: "admin",
@@ -87,11 +90,11 @@ export default function UATOnboardingPage() {
 
       toast({
         title: "Success!",
-        description: `Team workspace created. Code: ${teamCode}`
+        description: `Account created. Welcome to the ${formData.teamName} workspace.`
       });
       
-      setStep("acknowledgement");
-      setFormData({ email: "", password: "", confirmPassword: "", teamName: "" });
+      // 4. Redirect to Dashboard
+      router.push("/booth");
 
     } catch (error: any) {
       console.error("UAT Registration Error:", error.code, error.message);
@@ -99,9 +102,11 @@ export default function UATOnboardingPage() {
       let errorMessage = error.message;
       let errorTitle = "Registration Failed";
 
-      if (error.code === 'auth/configuration-not-found') {
-        errorTitle = "Authentication Not Configured";
-        errorMessage = "Email/Password sign-in is not enabled in your Firebase Console. Please go to Authentication > Sign-in method and enable 'Email/Password'.";
+      if (error.code === 'auth/configuration-not-found' || error.message.includes('configuration-not-found')) {
+        errorTitle = "Provider Not Enabled";
+        errorMessage = "Email/Password authentication is not enabled in your Firebase Console. Please go to Authentication > Sign-in method and enable it.";
+      } else if (error.code === 'auth/email-already-in-use') {
+        errorMessage = "This email is already registered.";
       }
 
       toast({
@@ -147,6 +152,7 @@ export default function UATOnboardingPage() {
               <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Team Name</Label>
               <Input 
                 required
+                placeholder="e.g. Eastside Dodgers"
                 className="h-12 bg-black/40 border-white/10 font-bold"
                 value={formData.teamName}
                 onChange={(e) => setFormData({ ...formData, teamName: e.target.value })}
@@ -157,6 +163,7 @@ export default function UATOnboardingPage() {
               <Input 
                 required
                 type="email"
+                placeholder="admin@team.com"
                 className="h-12 bg-black/40 border-white/10 font-bold"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
@@ -192,7 +199,7 @@ export default function UATOnboardingPage() {
             </div>
           </div>
           <Button disabled={loading} type="submit" className="w-full h-14 font-black uppercase tracking-widest bg-secondary text-secondary-foreground">
-            {loading ? "Creating..." : "Create Team Workspace"}
+            {loading ? <Loader2 className="animate-spin mr-2" /> : "Create Team Workspace"}
           </Button>
         </form>
       </CardContent>
