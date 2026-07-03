@@ -47,67 +47,43 @@
       },
       "required": ["updatedAt"]
     },
-    "GameStats": {
-      "title": "Game Stats",
-      "description": "Stats for all players and team scores for a specific game.",
+    "User": {
+      "title": "User Profile",
+      "description": "Metadata for authenticated users.",
       "type": "object",
       "properties": {
-        "homeScore": { "type": "number" },
-        "awayScore": { "type": "number" },
-        "statsSynced": { "type": "boolean" },
-        "playerStats": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "object",
-            "properties": {
-              "ab": { "type": "number" },
-              "h": { "type": "number" },
-              "r": { "type": "number" },
-              "rbi": { "type": "number" }
-            }
-          }
-        }
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "user"] },
+        "teamId": { "type": "string" }
       }
     },
-    "TeamStanding": {
-      "title": "Team Standing",
-      "description": "Aggregated wins, losses and ties for the season.",
+    "Team": {
+      "title": "Team",
+      "description": "A baseball team in the multi-tenant system.",
       "type": "object",
       "properties": {
-        "wins": { "type": "number" },
-        "losses": { "type": "number" },
-        "ties": { "type": "number" },
-        "updatedAt": { "type": "string", "format": "date-time" }
+        "name": { "type": "string" },
+        "code": { "type": "string" },
+        "ownerUid": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
       }
     }
   },
   "auth": {
-    "providers": []
+    "providers": ["password"]
   },
   "firestore": {
     "/players/{playerId}": {
       "schema": { "$ref": "#/backend/entities/Player" },
       "description": "Collection of players in the team."
     },
-    "/organ_songs/{songId}": {
-      "schema": { "$ref": "#/backend/entities/StadiumSong" },
-      "description": "Collection of organ master hits."
+    "/users/{userId}": {
+      "schema": { "$ref": "#/backend/entities/User" },
+      "description": "User profiles and permissions."
     },
-    "/pump_up_songs/{songId}": {
-      "schema": { "$ref": "#/backend/entities/StadiumSong" },
-      "description": "Collection of crowd pump-up hype songs."
-    },
-    "/game_wins/{gameId}": {
-      "schema": { "$ref": "#/backend/entities/GameWin" },
-      "description": "Collection storing outcomes for specific games."
-    },
-    "/game_stats/{gameId}": {
-      "schema": { "$ref": "#/backend/entities/GameStats" },
-      "description": "Collection storing per-game player stats and scores."
-    },
-    "/standings/{teamId}": {
-      "schema": { "$ref": "#/backend/entities/TeamStanding" },
-      "description": "Aggregated season standings."
+    "/teams/{teamId}": {
+      "schema": { "$ref": "#/backend/entities/Team" },
+      "description": "League teams and their unique codes."
     }
   }
 }
