@@ -16,7 +16,11 @@ import {
   Chrome,
   ArrowLeft,
   KeyRound,
-  RefreshCw
+  RefreshCw,
+  Copy,
+  Check,
+  Building2,
+  MapPin
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,7 +44,7 @@ type Step = "acknowledgement" | "auth" | "verification" | "success" | "forgot-pa
 
 /**
  * Helper stub for future account deletion logic.
- * Execution Strategy: Account deletion will require a 2-step verification layout: 
+ * Account deletion will require a 2-step verification layout: 
  * App confirmation prompt -> email payload dispatch -> destructive batch-delete verification execution.
  */
 export async function initiateSecureAccountDeletion(user: User | null) {
@@ -56,6 +60,8 @@ export default function UATOnboardingPage() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [generatedCode, setGeneratedCode] = useState<string>("");
+  const [copied, setCopied] = useState(false);
   
   const { auth, firestore: db } = initializeFirebase();
   const { toast } = useToast();
@@ -64,7 +70,9 @@ export default function UATOnboardingPage() {
     email: "",
     password: "",
     confirmPassword: "",
-    teamName: ""
+    teamName: "",
+    city: "",
+    state: ""
   });
 
   const generateTeamCode = () => {
@@ -74,6 +82,25 @@ export default function UATOnboardingPage() {
       code += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     return code;
+  };
+
+  const copyToClipboard = async () => {
+    if (!generatedCode) return;
+    try {
+      await navigator.clipboard.writeText(generatedCode);
+      setCopied(true);
+      toast({
+        title: "Team code copied to clipboard!",
+        description: "You can now share this with your team members.",
+      });
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "Failed to copy",
+        description: "Please manually select and copy the code.",
+      });
+    }
   };
 
   const handleAuthAction = async (e: React.FormEvent) => {
@@ -88,6 +115,10 @@ export default function UATOnboardingPage() {
         toast({ variant: "destructive", title: "Validation Error", description: "Passwords do not match." });
         return;
       }
+      if (!formData.city || !formData.state) {
+        toast({ variant: "destructive", title: "Validation Error", description: "City and State are required." });
+        return;
+      }
     }
 
     setLoading(true);
@@ -99,14 +130,19 @@ export default function UATOnboardingPage() {
         await sendEmailVerification(user);
 
         const teamCode = generateTeamCode();
-        const teamRef = await addDoc(collection(db, "teams"), {
+        setGeneratedCode(teamCode);
+
+        // Targeted UAT isolated collections
+        const teamRef = await addDoc(collection(db, "teams_UAT"), {
           name: formData.teamName || "New Team",
+          city: formData.city,
+          state: formData.state,
           code: teamCode,
           ownerUid: user.uid,
           createdAt: serverTimestamp()
         });
 
-        await setDoc(doc(db, "users", user.uid), {
+        await setDoc(doc(db, "users_UAT", user.uid), {
           email: formData.email,
           role: "admin",
           teamId: teamRef.id,
@@ -136,14 +172,19 @@ export default function UATOnboardingPage() {
       const user = userCredential.user;
 
       const teamCode = generateTeamCode();
-      const teamRef = await addDoc(collection(db, "teams"), {
+      setGeneratedCode(teamCode);
+
+      // Targeted UAT isolated collections
+      const teamRef = await addDoc(collection(db, "teams_UAT"), {
         name: `${user.displayName || "New"}'s Team`,
+        city: "TBD",
+        state: "TBD",
         code: teamCode,
         ownerUid: user.uid,
         createdAt: serverTimestamp()
       });
 
-      await setDoc(doc(db, "users", user.uid), {
+      await setDoc(doc(db, "users_UAT", user.uid), {
         email: user.email,
         role: "admin",
         teamId: teamRef.id,
@@ -240,16 +281,50 @@ export default function UATOnboardingPage() {
         <form onSubmit={handleAuthAction} className="space-y-6">
           <div className="space-y-4">
             {isRegisterMode && (
-              <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Team Name</Label>
-                <Input 
-                  required
-                  placeholder="e.g. Eastside Dodgers"
-                  className="h-12 bg-black/40 border-white/10 font-bold"
-                  value={formData.teamName}
-                  onChange={(e) => setFormData({ ...formData, teamName: e.target.value })}
-                />
-              </div>
+              <>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Team Name</Label>
+                  <div className="relative">
+                    <Trophy className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input 
+                      required
+                      placeholder="e.g. Eastside Dodgers"
+                      className="h-12 bg-black/40 border-white/10 font-bold pl-10"
+                      value={formData.teamName}
+                      onChange={(e) => setFormData({ ...formData, teamName: e.target.value })}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">City</Label>
+                    <div className="relative">
+                      <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input 
+                        required
+                        placeholder="Los Angeles"
+                        className="h-12 bg-black/40 border-white/10 font-bold pl-10"
+                        value={formData.city}
+                        onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">State</Label>
+                    <div className="relative">
+                      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input 
+                        required
+                        placeholder="CA"
+                        maxLength={2}
+                        className="h-12 bg-black/40 border-white/10 font-bold pl-10"
+                        value={formData.state}
+                        onChange={(e) => setFormData({ ...formData, state: e.target.value.toUpperCase() })}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </>
             )}
             <div className="space-y-2">
               <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Admin Email</Label>
@@ -377,11 +452,34 @@ export default function UATOnboardingPage() {
         <div className="mx-auto w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center">
           <CheckCircle2 className="w-8 h-8 text-green-500" />
         </div>
-        <CardTitle className="text-2xl font-black uppercase tracking-widest">Provisioned</CardTitle>
+        <CardTitle className="text-2xl font-black uppercase tracking-widest">Workspace Ready</CardTitle>
         <CardDescription className="text-sm font-bold text-muted-foreground uppercase">
-          Your team workspace is ready for logistics operations.
+          Your team workspace has been provisioned successfully.
         </CardDescription>
       </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="space-y-2">
+          <Label className="text-[10px] font-black uppercase tracking-widest text-primary ml-1">Your Team Access Code</Label>
+          <div className="flex gap-2">
+            <Input 
+              readOnly 
+              disabled
+              value={generatedCode}
+              className="h-12 bg-black/40 border-white/10 font-mono text-lg text-center font-black tracking-widest opacity-100 cursor-default"
+            />
+            <Button 
+              size="icon" 
+              className="h-12 w-12 bg-primary hover:bg-primary/90"
+              onClick={copyToClipboard}
+            >
+              {copied ? <Check className="h-5 w-5" /> : <Copy className="h-5 w-5" />}
+            </Button>
+          </div>
+          <p className="text-[9px] font-bold text-muted-foreground uppercase text-center mt-2">
+            Save this code! You will need it to link your stadium booth devices.
+          </p>
+        </div>
+      </CardContent>
       <CardFooter>
         <Button onClick={() => router.push("/booth")} className="w-full h-12 font-black uppercase tracking-widest bg-primary">
           Enter Booth Dashboard <ArrowRight className="ml-2 w-4 h-4" />
