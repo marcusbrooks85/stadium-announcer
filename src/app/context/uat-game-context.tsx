@@ -211,7 +211,6 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
   const updateBranding = async (primary: string, secondary: string) => {
     if (!db || !userTeamId || (userRole !== "super_admin" && userRole !== "league_admin")) return;
     
-    // Optimistic Collision Check
     const teamRef = doc(db, "teams_UAT", userTeamId);
     const latestSnap = await getDoc(teamRef);
     const latestData = latestSnap.data();
