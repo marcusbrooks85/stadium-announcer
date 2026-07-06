@@ -1,116 +1,304 @@
-
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { 
   Calendar as CalendarIcon, 
-  ShieldCheck, 
-  MapPin,
-  Clock,
-  Loader2,
-  Plus,
+  Home, 
+  BarChart3, 
+  MapPin, 
+  Clock, 
   Trophy,
+  MessageSquare,
+  Ban,
+  ShieldCheck,
+  XCircle,
+  RotateCcw,
+  Zap,
+  RefreshCw
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 import { useFirestore } from "@/firebase";
-import { collection, onSnapshot, query, where, orderBy } from "firebase/firestore";
-import { UATGameProvider, useUATGame } from "@/app/context/uat-game-context";
-import { UATNavbar } from "@/components/UATNavbar";
+import { doc, setDoc, onSnapshot, collection, deleteDoc } from "firebase/firestore";
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
+import { useUATGame, FULL_GAME_SCHEDULE, UATGameProvider } from "@/app/context/uat-game-context";
+import { UATAdminPanel } from "@/components/UATAdminPanel";
+import { useToast } from "@/hooks/use-toast";
+import { InstallButton } from "@/components/InstallButton";
+
+interface GameStatus {
+  won?: boolean | null;
+  cancelled?: boolean;
+  snackPlayerId?: string;
+  autoSynced?: boolean;
+}
 
 function UATScheduleContent() {
   const db = useFirestore();
-  const { userRole, userTeamId, isLoaded } = useUATGame();
-  const [games, setGames] = useState<any[]>([]);
-
-  const canEdit = userRole === "super_admin" || userRole === "league_admin";
+  const { toast } = useToast();
+  const { isAdmin, roster, triggerSync } = useUATGame();
+  const [gameStatuses, setGameStatuses] = useState<Record<string, GameStatus>>({});
+  const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
-    if (!db || !userTeamId) return;
-    const q = query(
-      collection(db, "games_UAT"), 
-      where("teamId", "==", userTeamId),
-      orderBy("date", "asc")
-    );
-    const unsub = onSnapshot(q, (snap) => {
-      setGames(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
-    return () => unsub();
-  }, [db, userTeamId]);
+    if (!db) return;
 
-  if (!isLoaded) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin" /></div>;
+    const winsRef = collection(db, "game_wins_UAT");
+    const unsubscribe = onSnapshot(
+      winsRef,
+      (snapshot) => {
+        const statuses: Record<string, GameStatus> = {};
+        snapshot.forEach((doc) => {
+          const data = doc.data();
+          statuses[doc.id] = {
+            won: data.won,
+            cancelled: data.cancelled || false,
+            snackPlayerId: data.snackPlayerId || "",
+            autoSynced: data.autoSynced || false
+          };
+        });
+        setGameStatuses(statuses);
+      },
+      async (error) => {
+        const permissionError = new FirestorePermissionError({
+          path: winsRef.path,
+          operation: 'list',
+        });
+        errorEmitter.emit('permission-error', permissionError);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [db]);
+
+  const record = useMemo(() => {
+    let w = 0;
+    let l = 0;
+    Object.values(gameStatuses).forEach((status) => {
+      if (status.cancelled) return;
+      if (status.won === true) w++;
+      else if (status.won === false) l++; 
+    });
+    return { w, l };
+  }, [gameStatuses]);
+
+  const activeGameId = useMemo(() => {
+    const now = new Date();
+    const convertTimeTo24h = (timeStr: string) => {
+      const [time, modifier] = timeStr.split(' ');
+      let [hours, minutes] = time.split(':').map(Number);
+      if (modifier === 'PM' && hours < 12) hours += 12;
+      if (modifier === 'AM' && hours === 12) hours = 0;
+      return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`;
+    };
+
+    const sorted = [...FULL_GAME_SCHEDULE].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const active = sorted.find(g => {
+      const gameStart = new Date(`${g.date}T${convertTimeTo24h(g.time)}`);
+      return gameStart.getTime() + (2 * 60 * 60 * 1000) > now.getTime();
+    }) || sorted[sorted.length - 1];
+
+    return active.id;
+  }, []);
+
+  const handleManualSync = async () => {
+    setIsSyncing(true);
+    await triggerSync();
+    setIsSyncing(false);
+    toast({ title: "UAT Standings Synced" });
+  };
+
+  const handleUpdateStatus = async (gameId: string, type: 'W' | 'L' | 'C') => {
+    if (!isAdmin || !db) return;
+    const current = gameStatuses[gameId] || {};
+    const docRef = doc(db, "game_wins_UAT", gameId);
+    
+    let updates: any = { updatedAt: new Date().toISOString(), autoSynced: false };
+    
+    if (type === 'W') {
+      updates.won = current.won === true ? null : true;
+      updates.cancelled = false;
+    } else if (type === 'L') {
+      updates.won = current.won === false ? null : false;
+      updates.cancelled = false;
+    } else if (type === 'C') {
+      updates.cancelled = !current.cancelled;
+      if (updates.cancelled) updates.won = null;
+    }
+
+    setDoc(docRef, updates, { merge: true }).catch(async (e) => {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: docRef.path,
+        operation: 'write',
+        requestResourceData: updates
+      }));
+    });
+  };
+
+  const handleUpdateSnack = async (gameId: string, playerId: string) => {
+    if (!isAdmin || !db) return;
+    const docRef = doc(db, "game_wins_UAT", gameId);
+    setDoc(docRef, { 
+      snackPlayerId: playerId,
+      updatedAt: new Date().toISOString() 
+    }, { merge: true });
+  };
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground stadium-gradient">
       <header className="sticky top-0 z-50 flex items-center justify-between p-4 border-b border-border shadow-2xl bg-card/95 backdrop-blur-md">
-        <div className="flex flex-col">
-          <h1 className="font-headline font-black uppercase tracking-[0.2em] text-[10px] md:text-sm">UAT SCHEDULE</h1>
-          <div className="flex items-center gap-1.5">
-            <ShieldCheck className="h-3 w-3 text-[var(--tenant-primary)]" />
-            <span className="text-[8px] font-black uppercase text-[var(--tenant-primary)] tracking-tighter">Isolated Environment</span>
+        <div className="flex items-center gap-4">
+          <div className="flex flex-col">
+            <h1 className="font-headline font-black uppercase tracking-[0.2em] text-[10px] md:text-sm">
+              UAT 2026 SCHEDULE
+            </h1>
+            {isAdmin && (
+              <div className="flex items-center gap-1.5 animate-in fade-in slide-in-from-left-2 duration-500">
+                <ShieldCheck className="h-3 w-3 text-primary" />
+                <span className="text-[8px] font-black uppercase text-primary tracking-tighter">UAT Operations Mode</span>
+              </div>
+            )}
           </div>
         </div>
-        
-        <div className="flex items-center gap-2">
-          <UATNavbar />
+
+        <div className="flex items-center gap-1 md:gap-3">
+          <div className="flex items-center bg-black/20 rounded-full p-1 border border-white/5 mr-1 md:mr-2">
+            <Link href="/schedule-uat">
+              <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 text-primary">
+                <Home className="h-4 w-4" />
+              </Button>
+            </Link>
+            <Link href="/booth-uat">
+              <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 text-muted-foreground hover:text-primary/80">
+                <Zap className="h-4 w-4" />
+              </Button>
+            </Link>
+            <Link href="/stats-uat">
+              <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 text-muted-foreground hover:text-primary/80">
+                <BarChart3 className="h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
+          <UATAdminPanel />
         </div>
       </header>
 
-      <main className="flex-1 p-4 md:p-8 max-w-5xl mx-auto w-full space-y-6">
-        <section className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <CalendarIcon className="h-5 w-5 text-[var(--tenant-primary)]" />
-              <h2 className="text-base font-black uppercase tracking-widest text-[var(--tenant-primary)]">Test Timeline</h2>
+      <main className="flex-1 p-4 md:p-8 max-w-5xl mx-auto w-full space-y-6 pb-40">
+        <section className="sticky top-[69px] md:top-[88px] z-40 bg-background/95 backdrop-blur-md py-3 md:py-4 border-b border-white/5 space-y-2 md:space-y-4">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
+            <div className="flex items-center gap-2 w-full sm:w-auto justify-center sm:justify-start">
+              <Trophy className="h-4 w-4 md:h-5 md:w-5 text-yellow-500" />
+              <h2 className="text-xs md:text-base font-black uppercase tracking-widest text-primary">UAT Season Standings</h2>
             </div>
-            {canEdit && (
-              <Link href="/admin-uat">
-                <Button size="sm" className="bg-[var(--tenant-primary)] font-black uppercase text-[10px] tracking-widest">
-                  <Plus className="h-3 w-3 mr-1" /> Add Games
-                </Button>
-              </Link>
+            {isAdmin && (
+              <Button variant="outline" size="sm" onClick={handleManualSync} disabled={isSyncing} className="h-7 md:h-8 border-primary/20 text-primary uppercase text-[8px] md:text-[10px] tracking-widest gap-2">
+                <RefreshCw className={cn("h-2.5 w-2.5 md:h-3 md:w-3", isSyncing && "animate-spin")} /> {isSyncing ? "Syncing..." : "Sync UAT Stats"}
+              </Button>
             )}
+          </div>
+          <div className="flex justify-center sm:justify-start gap-2 md:gap-4">
+            <div className="bg-primary/10 border border-primary/20 px-3 py-1.5 md:px-6 md:py-3 rounded-xl md:rounded-2xl flex flex-col items-center min-w-[60px] md:min-w-[100px]">
+              <span className="text-[6px] md:text-[10px] font-black uppercase tracking-widest text-primary mb-0.5 md:mb-1">Wins</span>
+              <span className="text-lg md:text-3xl font-black digit-font text-primary">{record.w}</span>
+            </div>
+            <div className="bg-destructive/10 border border-destructive/20 px-3 py-1.5 md:px-6 md:py-3 rounded-xl md:rounded-2xl flex flex-col items-center min-w-[60px] md:min-w-[100px]">
+              <span className="text-[6px] md:text-[10px] font-black uppercase tracking-widest text-destructive mb-0.5 md:mb-1">Losses</span>
+              <span className="text-lg md:text-3xl font-black digit-font text-destructive">{record.l}</span>
+            </div>
+          </div>
+        </section>
+
+        <section className="space-y-4">
+          <div className="flex items-center gap-3">
+            <CalendarIcon className="h-5 w-5 text-primary" />
+            <h2 className="text-base font-black uppercase tracking-widest text-primary">UAT Season Timeline</h2>
           </div>
 
           <div className="grid gap-4">
-            {games.length === 0 ? (
-              <Card className="bg-card/40 border-dashed border-white/10 p-12 text-center">
-                <p className="text-sm font-black uppercase text-muted-foreground">No test games configured</p>
-              </Card>
-            ) : (
-              games.map((game) => (
-                <Card key={game.id} className="bg-card/80 border-white/10 overflow-hidden relative group">
-                  <CardContent className="p-6">
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                           <Badge variant="outline" className="text-[9px] font-black uppercase border-[var(--tenant-primary)]/20 text-[var(--tenant-primary)]">
-                             Week {game.week || "N/A"}
-                           </Badge>
-                           <span className="text-[10px] font-bold text-muted-foreground uppercase">
-                             {game.date ? new Date(game.date).toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric' }) : "Date TBD"}
-                           </span>
+            {FULL_GAME_SCHEDULE.map((game) => {
+              const statusData = gameStatuses[game.id] || {};
+              const isWon = statusData.won === true;
+              const isLoss = statusData.won === false;
+              const isCancelled = statusData.cancelled || false;
+              const isHome = game.home === "Coach Chewy";
+              const snackPlayer = roster.find(p => p.id === statusData.snackPlayerId);
+              
+              return (
+                <Card id={game.id} key={game.id} className={cn("relative overflow-hidden", isHome ? "bg-blue-950/40 border-blue-800/60" : "bg-slate-800/50 border-slate-700/60", isCancelled && "opacity-60", activeGameId === game.id && "ring-2 ring-primary")}>
+                  <div className="absolute top-2 right-2 z-20 flex flex-col items-end gap-2">
+                    {isWon && !isCancelled && <span className="text-2xl md:text-3xl">🏆</span>}
+                    {isLoss && !isCancelled && <XCircle className="h-6 w-6 md:h-8 md:w-8 text-destructive" />}
+                    {isCancelled && <Badge variant="destructive" className="font-black uppercase text-[8px]">Cancelled</Badge>}
+                  </div>
+
+                  <CardContent className="p-4 md:p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
+                      <div className="md:col-span-3 flex flex-col border-b md:border-b-0 md:border-r border-white/5 pb-4 md:pb-0">
+                        <Badge variant="outline" className="w-fit text-[10px] font-black uppercase">{game.notes || `Week ${game.week}`}</Badge>
+                        <p className="mt-2 text-sm font-black uppercase text-white">
+                          {new Date(game.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric' })}
+                        </p>
+                        <div className="text-xs font-bold text-muted-foreground mt-1"><Clock className="h-3 w-3 inline mr-1" /> {game.time}</div>
+                        <div className="text-[9px] font-bold text-muted-foreground uppercase mt-2"><MapPin className="h-3 w-3 inline mr-1" /> {game.location}</div>
+                      </div>
+
+                      <div className="md:col-span-6 flex flex-col space-y-4">
+                        <div className="flex items-center justify-between gap-4 p-4 bg-black/30 rounded-xl border border-white/5">
+                          <div className="flex-1 text-center">
+                            <p className="text-[8px] font-black uppercase text-muted-foreground">Away</p>
+                            <p className={cn("text-xs font-bold", game.away === "Coach Chewy" ? "text-primary" : "text-white")}>{game.away}</p>
+                          </div>
+                          <span className="text-[8px] font-black text-muted-foreground px-2 py-1 bg-white/5 rounded-full">VS</span>
+                          <div className="flex-1 text-center">
+                            <p className="text-[8px] font-black uppercase text-muted-foreground">Home</p>
+                            <p className={cn("text-xs font-bold", game.home === "Coach Chewy" ? "text-primary" : "text-white")}>{game.home}</p>
+                          </div>
                         </div>
-                        <h3 className="text-xl font-black uppercase tracking-tight">
-                          <span className={cn(game.away === "Coach Chewy" ? "text-[var(--tenant-primary)]" : "text-white")}>{game.away}</span>
-                          <span className="mx-2 text-muted-foreground/30 text-sm">VS</span>
-                          <span className={cn(game.home === "Coach Chewy" ? "text-[var(--tenant-primary)]" : "text-white")}>{game.home}</span>
-                        </h3>
-                        <div className="flex items-center gap-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-                          <span className="flex items-center gap-1.5"><Clock className="h-3 w-3 text-[var(--tenant-primary)]" /> {game.time || "TBD"}</span>
-                          <span className="flex items-center gap-1.5"><MapPin className="h-3 w-3 text-[var(--tenant-primary)]" /> {game.location || "Test Field"}</span>
+                        <div className="flex flex-col space-y-1">
+                          <span className="text-[8px] font-black uppercase text-muted-foreground">UAT Snack Assignment</span>
+                          {isAdmin ? (
+                            <Select value={statusData.snackPlayerId || ""} onValueChange={(val) => handleUpdateSnack(game.id, val)}>
+                              <SelectTrigger className="h-9 bg-background/50 border-white/10 text-[10px] font-bold">
+                                <SelectValue placeholder="Assign Player..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {roster.map(p => <SelectItem key={p.id} value={p.id} className="text-xs font-bold">#{p.number} - {p.name}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <div className="text-[10px] font-black uppercase text-secondary bg-secondary/10 px-3 py-1.5 rounded-lg border border-secondary/20">
+                              SNACK - {snackPlayer ? snackPlayer.name : "TBD"}
+                            </div>
+                          )}
                         </div>
                       </div>
-                      <div className="opacity-10 group-hover:opacity-20 transition-opacity">
-                         <Trophy className="h-12 w-12 text-white" />
+
+                      <div className="md:col-span-3">
+                        {isAdmin && (
+                          <div className="flex items-center gap-2 pt-2">
+                            <Button size="sm" variant={isWon ? "default" : "outline"} className={cn("flex-1 h-10 text-[10px] font-black", isWon && "bg-yellow-500 hover:bg-yellow-600")} onClick={() => handleUpdateStatus(game.id, 'W')}>W</Button>
+                            <Button size="sm" variant={isLoss ? "default" : "outline"} className={cn("flex-1 h-10 text-[10px] font-black", isLoss && "bg-destructive hover:bg-destructive/90")} onClick={() => handleUpdateStatus(game.id, 'L')}>L</Button>
+                            <Button size="sm" variant={isCancelled ? "destructive" : "outline"} className="flex-1 h-10 text-[10px] font-black" onClick={() => handleUpdateStatus(game.id, 'C')}>C</Button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </CardContent>
                 </Card>
-              ))
-            )}
+              );
+            })}
           </div>
         </section>
       </main>

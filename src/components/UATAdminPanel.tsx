@@ -1,0 +1,442 @@
+"use client";
+
+import React, { useState, useEffect } from "react";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { useUATGame, Player, StadiumSong } from "@/app/context/uat-game-context";
+import { useStorage, useFirestore } from "@/firebase";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { collection, doc } from "firebase/firestore";
+import { 
+  Settings, 
+  Plus, 
+  Trash2, 
+  Save, 
+  Music, 
+  Mic2, 
+  ShieldAlert,
+  Loader2,
+  Lock,
+  Unlock,
+  Eye,
+  EyeOff,
+  LogOut,
+  AlertCircle,
+  Pencil,
+  X
+} from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
+
+type AdminSection = "players" | "organ" | "pumpup";
+
+export function UATAdminPanel() {
+  const { 
+    roster, 
+    organSongs, 
+    pumpUpSongs, 
+    isAdmin, 
+    adminLogin, 
+    adminLogout, 
+    savePlayer, 
+    deletePlayer,
+    saveStadiumSong,
+    deleteStadiumSong 
+  } = useUATGame();
+  
+  const storage = useStorage();
+  const db = useFirestore();
+  const { toast } = useToast();
+  
+  const [activeSection, setActiveSection] = useState<AdminSection>("players");
+  const [showLoginFields, setShowLoginFields] = useState(false);
+  const [authPassword, setAuthPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [authError, setAuthError] = useState(false);
+
+  const [isOpen, setIsOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  
+  const [selectedPlayerId, setSelectedPlayerId] = useState<string>("new");
+  const [playerForm, setPlayerForm] = useState({
+    name: "",
+    number: 0,
+    announcementAudioUrl: "",
+    songs: [
+      { name: "", videoId: "", startAt: 0 },
+      { name: "", videoId: "", startAt: 0 },
+      { name: "", videoId: "", startAt: 0 }
+    ]
+  });
+  const [audioFile, setAudioFile] = useState<File | null>(null);
+
+  const [editingSongId, setEditingSongId] = useState<string | null>(null);
+  const [songForm, setSongForm] = useState({ title: "", link: "", startTime: 0, order: 0 });
+
+  useEffect(() => {
+    if (activeSection === "players") {
+      if (selectedPlayerId === "new") {
+        setPlayerForm({ 
+          name: "", 
+          number: 0, 
+          announcementAudioUrl: "", 
+          songs: [
+            { name: "", videoId: "", startAt: 0 },
+            { name: "", videoId: "", startAt: 0 },
+            { name: "", videoId: "", startAt: 0 }
+          ]
+        });
+      } else {
+        const p = roster.find(player => player.id === selectedPlayerId);
+        if (p) {
+          const existingSongs = (p.songs || []).map(s => ({ ...s }));
+          const paddingCount = Math.max(0, 3 - existingSongs.length);
+          const padding = Array.from({ length: paddingCount }, () => ({ name: "", videoId: "", startAt: 0 }));
+          setPlayerForm({ 
+            name: p.name, 
+            number: p.number, 
+            announcementAudioUrl: p.announcementAudioUrl, 
+            songs: [...existingSongs, ...padding].slice(0, 3) 
+          });
+        }
+      }
+    }
+  }, [selectedPlayerId, roster, activeSection]);
+
+  const handleLoginSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (adminLogin(authPassword)) {
+      toast({ title: "UAT Booth Access Granted" });
+      setAuthPassword("");
+      setShowLoginFields(false);
+      setAuthError(false);
+    } else {
+      setAuthError(true);
+    }
+  };
+
+  const parseYoutubeId = (url: string) => {
+    if (!url) return "";
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[2].length === 11) ? match[2] : url;
+  };
+
+  const handleSavePlayer = async () => {
+    if (!db || !storage) return;
+    setIsSaving(true);
+    try {
+      let playerId = selectedPlayerId === "new" ? doc(collection(db, "players_UAT")).id : selectedPlayerId;
+      let audioUrl = playerForm.announcementAudioUrl;
+
+      if (audioFile) {
+        const storageRef = ref(storage, `audio_UAT/${playerId}.mp3`);
+        await uploadBytes(storageRef, audioFile);
+        audioUrl = `${await getDownloadURL(storageRef)}?t=${Date.now()}`;
+      }
+
+      const data = {
+        name: playerForm.name,
+        number: playerForm.number,
+        announcementAudioUrl: audioUrl,
+        songs: playerForm.songs
+          .filter(s => s.name || s.videoId)
+          .map(s => ({ 
+            name: s.name, 
+            videoId: parseYoutubeId(s.videoId), 
+            startAt: Number(s.startAt) || 0 
+          }))
+      };
+
+      savePlayer(data, playerId);
+      toast({ title: "UAT Player Profile Saved" });
+      setSelectedPlayerId("new");
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Save Failed", description: e.message });
+    } finally { setIsSaving(false); }
+  };
+
+  const startEditingStadiumSong = (song: StadiumSong) => {
+    setEditingSongId(song.id);
+    setSongForm({
+      title: song.title,
+      link: song.link,
+      startTime: song.startTime,
+      order: song.order || 0
+    });
+  };
+
+  const resetStadiumSongForm = () => {
+    setEditingSongId(null);
+    setSongForm({ title: "", link: "", startTime: 0, order: 0 });
+  };
+
+  const handleSaveStadiumSong = () => {
+    if (!songForm.title || !songForm.link) { toast({ variant: "destructive", title: "Missing Data" }); return; }
+    const category = activeSection === "organ" ? "organ" : "pumpup";
+    
+    saveStadiumSong(category, {
+      title: songForm.title,
+      link: parseYoutubeId(songForm.link),
+      startTime: Number(songForm.startTime) || 0,
+      order: songForm.order
+    }, editingSongId || undefined);
+    
+    resetStadiumSongForm();
+    toast({ title: editingSongId ? "UAT Track Updated" : "UAT Track Added to Stadium" });
+  };
+
+  const updateTrackField = (idx: number, field: 'name' | 'videoId' | 'startAt', value: string) => {
+    const nextSongs = playerForm.songs.map((song, i) => {
+      if (i === idx) {
+        return {
+          ...song,
+          [field]: field === 'startAt' ? (parseInt(value) || 0) : value
+        };
+      }
+      return song;
+    });
+    setPlayerForm({ ...playerForm, songs: nextSongs });
+  };
+
+  if (!isAdmin) {
+    return (
+      <div className="relative z-50">
+        <Button 
+          onClick={() => { setShowLoginFields(!showLoginFields); setAuthError(false); }} 
+          className="bg-primary hover:bg-primary/90 font-black uppercase h-9 md:h-10 px-4 md:px-6 shadow-lg tracking-widest transition-all transform active:scale-95 text-[10px] md:text-xs"
+        >
+          {showLoginFields ? <Unlock className="h-3.5 w-3.5 md:h-4 md:w-4 mr-2" /> : <Lock className="h-3.5 w-3.5 md:h-4 md:w-4 mr-2" />} 
+          {showLoginFields ? "CLOSE" : "UAT ADMIN"}
+        </Button>
+        
+        {showLoginFields && (
+          <div className="absolute top-12 right-0 w-72 bg-card border-2 border-primary/20 p-5 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-[60] animate-in slide-in-from-top-4 fade-in duration-300">
+            <form onSubmit={handleLoginSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-primary ml-1">Booth Password</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input 
+                    type={showPassword ? "text" : "password"} 
+                    placeholder="Enter password..." 
+                    className={cn(
+                      "pl-10 pr-12 h-12 text-xs bg-black/40 border-white/10 transition-colors",
+                      authError && "border-destructive/50 bg-destructive/5"
+                    )}
+                    value={authPassword} 
+                    onChange={e => { setAuthPassword(e.target.value); setAuthError(false); }} 
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                {authError && (
+                  <div className="flex items-center gap-1.5 text-destructive animate-in fade-in slide-in-from-top-1">
+                    <AlertCircle className="h-3 w-3" />
+                    <span className="text-[9px] font-black uppercase">Incorrect Password. Please try again.</span>
+                  </div>
+                )}
+              </div>
+              <Button type="submit" className="w-full h-11 font-black uppercase text-xs tracking-widest shadow-lg">Verify Access</Button>
+            </form>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2 md:gap-3 z-50">
+      <Dialog open={isOpen} onOpenChange={(val) => { setIsOpen(val); if (!val) resetStadiumSongForm(); }}>
+        <DialogTrigger asChild>
+          <Button variant="ghost" size="icon" className="h-9 w-9 md:h-10 md:w-10 text-primary bg-primary/10 border border-primary/20 shadow-lg hover:bg-primary/20 transition-all rounded-full transform hover:rotate-45">
+            <Settings className="h-4 w-4 md:h-5 md:w-5" />
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="max-w-2xl bg-card border-primary/20 max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-primary uppercase tracking-widest text-sm font-black flex items-center justify-between">
+              <div className="flex items-center gap-2"><ShieldAlert className="h-4 w-4" /> UAT Stadium Management</div>
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-6 py-4">
+            <div className="space-y-2">
+              <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Select Category</Label>
+              <Select value={activeSection} onValueChange={(v) => { setActiveSection(v as AdminSection); resetStadiumSongForm(); }}>
+                <SelectTrigger className="h-12 bg-black/20 font-bold border-white/5">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="players" className="font-bold">Players & Roster</SelectItem>
+                  <SelectItem value="organ" className="font-bold">Organ Master Hits</SelectItem>
+                  <SelectItem value="pumpup" className="font-bold">Crowd Pump-Up Hype</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {activeSection === "players" ? (
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Select Player</Label>
+                  <Select value={selectedPlayerId} onValueChange={setSelectedPlayerId}>
+                    <SelectTrigger className="h-12 bg-black/20 font-bold border-white/5">
+                      <SelectValue placeholder="Add New Player..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="new" className="font-black text-primary">+ ADD NEW PLAYER</SelectItem>
+                      {roster.map(p => <SelectItem key={p.id} value={p.id} className="font-bold">#{p.number} - {p.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label className="text-[9px] font-black uppercase text-muted-foreground tracking-tighter">Full Name</Label>
+                    <Input value={playerForm.name} onChange={e => setPlayerForm({...playerForm, name: e.target.value})} placeholder="Player Name" className="font-bold" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-[9px] font-black uppercase text-muted-foreground tracking-tighter">Jersey Number</Label>
+                    <Input type="number" value={playerForm.number || ""} onChange={e => setPlayerForm({...playerForm, number: parseInt(e.target.value) || 0})} placeholder="Jersey #" className="font-bold" />
+                  </div>
+                </div>
+                <div className="space-y-2 p-4 bg-primary/5 rounded-xl border border-primary/10">
+                  <Label className="text-[10px] font-black uppercase text-primary tracking-widest flex items-center gap-2">
+                    <Mic2 className="h-3 w-3" /> Announcement Audio
+                  </Label>
+                  <Input type="file" accept="audio/*" onChange={e => setAudioFile(e.target.files?.[0] || null)} className="bg-black/20 cursor-pointer border-dashed border-white/10" />
+                </div>
+                <div className="space-y-4">
+                  <Label className="text-[10px] font-black uppercase text-secondary tracking-widest flex items-center gap-2">
+                    <Music className="h-3 w-3" /> Walk-Up Tracks (YouTube)
+                  </Label>
+                  {playerForm.songs.map((song, idx) => (
+                    <div key={idx} className="grid grid-cols-12 gap-2 p-3 bg-black/20 rounded-lg border border-white/5">
+                      <Input 
+                        className="col-span-4 h-9 text-[10px] font-bold" 
+                        placeholder="Track Name" 
+                        value={song.name} 
+                        onChange={e => updateTrackField(idx, 'name', e.target.value)} 
+                      />
+                      <Input 
+                        className="col-span-5 h-9 text-[10px] font-bold" 
+                        placeholder="YouTube URL/ID" 
+                        value={song.videoId} 
+                        onChange={e => updateTrackField(idx, 'videoId', e.target.value)} 
+                      />
+                      <Input 
+                        className="col-span-3 h-9 text-[10px] font-bold" 
+                        placeholder="Start (s)" 
+                        type="number" 
+                        value={song.startAt || ""} 
+                        onChange={e => updateTrackField(idx, 'startAt', e.target.value)} 
+                      />
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-3">
+                  <Button className="flex-1 h-14 font-black uppercase tracking-widest bg-primary shadow-lg shadow-primary/20" onClick={handleSavePlayer} disabled={isSaving}>
+                    {isSaving ? <Loader2 className="animate-spin h-5 w-5" /> : <Save className="h-5 w-5 mr-2" />} SAVE PLAYER
+                  </Button>
+                  {selectedPlayerId !== "new" && (
+                    <Button variant="destructive" className="h-14 w-14 shadow-lg shadow-destructive/20" onClick={() => { if(confirm("Delete this player?")) { deletePlayer(selectedPlayerId); setSelectedPlayerId("new"); } }}>
+                      <Trash2 className="h-5 w-5" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <div className="p-5 bg-black/20 rounded-2xl space-y-4 border border-white/5 relative">
+                  {editingSongId && (
+                    <button onClick={resetStadiumSongForm} className="absolute top-2 right-2 p-1 text-muted-foreground hover:text-white">
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-[9px] font-black uppercase opacity-50 tracking-tighter">Track Title</Label>
+                      <Input placeholder="Enter title..." value={songForm.title} onChange={e => setSongForm({...songForm, title: e.target.value})} className="font-bold" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-[9px] font-black uppercase opacity-50 tracking-tighter">Start Offset (s)</Label>
+                      <Input type="number" placeholder="0" value={songForm.startTime || ""} onChange={e => setSongForm({...songForm, startTime: parseInt(e.target.value) || 0})} className="font-bold" />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-[9px] font-black uppercase opacity-50 tracking-tighter">YouTube Link or ID</Label>
+                    <Input placeholder="https://www.youtube.com/watch?v=..." value={songForm.link} onChange={e => setSongForm({...songForm, link: e.target.value})} />
+                  </div>
+                  <Button className="w-full h-12 font-black uppercase tracking-widest bg-secondary text-secondary-foreground shadow-lg shadow-secondary/10" onClick={handleSaveStadiumSong}>
+                    {editingSongId ? <Save className="h-5 w-5 mr-2" /> : <Plus className="h-5 w-5 mr-2" />} 
+                    {editingSongId ? "UPDATE TRACK" : "ADD TO STADIUM"}
+                  </Button>
+                </div>
+
+                <div className="space-y-3">
+                  <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-1">Current Stadium Tracks</Label>
+                  <div className="grid gap-2">
+                    {(activeSection === "organ" ? organSongs : pumpUpSongs).map(song => (
+                      <div key={song.id} className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5 group hover:bg-white/10 transition-colors">
+                        <div className="flex flex-col">
+                          <span className="text-sm font-black uppercase tracking-wider">{song.title}</span>
+                          <span className="text-[9px] text-muted-foreground font-bold tracking-widest uppercase">Starts @ {song.startTime}s</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-9 w-9 text-primary opacity-40 group-hover:opacity-100 transition-opacity hover:bg-primary/10" 
+                            onClick={() => startEditingStadiumSong(song)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-9 w-9 text-destructive opacity-40 group-hover:opacity-100 transition-opacity hover:bg-destructive/10" 
+                            onClick={() => { if(confirm("Remove this track?")) deleteStadiumSong(activeSection === "organ" ? "organ" : "pumpup", song.id); }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+      
+      <Button 
+        variant="outline" 
+        onClick={adminLogout} 
+        className="h-9 md:h-10 px-3 md:px-5 border-destructive/20 text-destructive hover:bg-destructive/10 font-black uppercase text-[10px] tracking-[0.2em] shadow-lg transition-all"
+      >
+        <LogOut className="h-3.5 w-3.5 md:mr-2" /> <span className="hidden md:inline">LOGOUT</span>
+      </Button>
+    </div>
+  );
+}
