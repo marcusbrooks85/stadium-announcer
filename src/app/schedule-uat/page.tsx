@@ -10,33 +10,23 @@ import {
   MapPin, 
   Clock, 
   Trophy,
-  MessageSquare,
   Ban,
   ShieldCheck,
   XCircle,
-  RotateCcw,
   Zap,
   RefreshCw
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { useFirestore } from "@/firebase";
-import { doc, setDoc, onSnapshot, collection, deleteDoc } from "firebase/firestore";
+import { onSnapshot, collection } from "firebase/firestore";
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { useUATGame, FULL_GAME_SCHEDULE, UATGameProvider } from "@/app/context/uat-game-context";
-import { UATAdminPanel } from "@/components/UATAdminPanel";
+import { UATNavbar } from "@/components/UATNavbar";
 import { useToast } from "@/hooks/use-toast";
-import { InstallButton } from "@/components/InstallButton";
 
 interface GameStatus {
   won?: boolean | null;
@@ -48,7 +38,7 @@ interface GameStatus {
 function UATScheduleContent() {
   const db = useFirestore();
   const { toast } = useToast();
-  const { isAdmin, roster, triggerSync } = useUATGame();
+  const { isAdmin, roster, triggerSync, userRole } = useUATGame();
   const [gameStatuses, setGameStatuses] = useState<Record<string, GameStatus>>({});
   const [isSyncing, setIsSyncing] = useState(false);
 
@@ -120,42 +110,6 @@ function UATScheduleContent() {
     toast({ title: "UAT Standings Synced" });
   };
 
-  const handleUpdateStatus = async (gameId: string, type: 'W' | 'L' | 'C') => {
-    if (!isAdmin || !db) return;
-    const current = gameStatuses[gameId] || {};
-    const docRef = doc(db, "game_wins_UAT", gameId);
-    
-    let updates: any = { updatedAt: new Date().toISOString(), autoSynced: false };
-    
-    if (type === 'W') {
-      updates.won = current.won === true ? null : true;
-      updates.cancelled = false;
-    } else if (type === 'L') {
-      updates.won = current.won === false ? null : false;
-      updates.cancelled = false;
-    } else if (type === 'C') {
-      updates.cancelled = !current.cancelled;
-      if (updates.cancelled) updates.won = null;
-    }
-
-    setDoc(docRef, updates, { merge: true }).catch(async (e) => {
-      errorEmitter.emit('permission-error', new FirestorePermissionError({
-        path: docRef.path,
-        operation: 'write',
-        requestResourceData: updates
-      }));
-    });
-  };
-
-  const handleUpdateSnack = async (gameId: string, playerId: string) => {
-    if (!isAdmin || !db) return;
-    const docRef = doc(db, "game_wins_UAT", gameId);
-    setDoc(docRef, { 
-      snackPlayerId: playerId,
-      updatedAt: new Date().toISOString() 
-    }, { merge: true });
-  };
-
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground stadium-gradient">
       <header className="sticky top-0 z-50 flex items-center justify-between p-4 border-b border-border shadow-2xl bg-card/95 backdrop-blur-md">
@@ -167,31 +121,14 @@ function UATScheduleContent() {
             {isAdmin && (
               <div className="flex items-center gap-1.5 animate-in fade-in slide-in-from-left-2 duration-500">
                 <ShieldCheck className="h-3 w-3 text-primary" />
-                <span className="text-[8px] font-black uppercase text-primary tracking-tighter">UAT Operations Mode</span>
+                <span className="text-[8px] font-black uppercase text-primary tracking-tighter">Verified {userRole?.replace('_', ' ')}</span>
               </div>
             )}
           </div>
         </div>
 
-        <div className="flex items-center gap-1 md:gap-3">
-          <div className="flex items-center bg-black/20 rounded-full p-1 border border-white/5 mr-1 md:mr-2">
-            <Link href="/schedule-uat">
-              <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 text-primary">
-                <Home className="h-4 w-4" />
-              </Button>
-            </Link>
-            <Link href="/booth-uat">
-              <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 text-muted-foreground hover:text-primary/80">
-                <Zap className="h-4 w-4" />
-              </Button>
-            </Link>
-            <Link href="/stats-uat">
-              <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 text-muted-foreground hover:text-primary/80">
-                <BarChart3 className="h-4 w-4" />
-              </Button>
-            </Link>
-          </div>
-          <UATAdminPanel />
+        <div className="flex items-center gap-2">
+          <UATNavbar />
         </div>
       </header>
 
@@ -254,7 +191,7 @@ function UATScheduleContent() {
                         <div className="text-[9px] font-bold text-muted-foreground uppercase mt-2"><MapPin className="h-3 w-3 inline mr-1" /> {game.location}</div>
                       </div>
 
-                      <div className="md:col-span-6 flex flex-col space-y-4">
+                      <div className="md:col-span-9 flex flex-col space-y-4">
                         <div className="flex items-center justify-between gap-4 p-4 bg-black/30 rounded-xl border border-white/5">
                           <div className="flex-1 text-center">
                             <p className="text-[8px] font-black uppercase text-muted-foreground">Away</p>
@@ -266,33 +203,9 @@ function UATScheduleContent() {
                             <p className={cn("text-xs font-bold", game.home === "Coach Chewy" ? "text-primary" : "text-white")}>{game.home}</p>
                           </div>
                         </div>
-                        <div className="flex flex-col space-y-1">
-                          <span className="text-[8px] font-black uppercase text-muted-foreground">UAT Snack Assignment</span>
-                          {isAdmin ? (
-                            <Select value={statusData.snackPlayerId || ""} onValueChange={(val) => handleUpdateSnack(game.id, val)}>
-                              <SelectTrigger className="h-9 bg-background/50 border-white/10 text-[10px] font-bold">
-                                <SelectValue placeholder="Assign Player..." />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {roster.map(p => <SelectItem key={p.id} value={p.id} className="text-xs font-bold">#{p.number} - {p.name}</SelectItem>)}
-                              </SelectContent>
-                            </Select>
-                          ) : (
-                            <div className="text-[10px] font-black uppercase text-secondary bg-secondary/10 px-3 py-1.5 rounded-lg border border-secondary/20">
-                              SNACK - {snackPlayer ? snackPlayer.name : "TBD"}
-                            </div>
-                          )}
+                        <div className="flex items-center gap-2 text-[10px] font-black uppercase text-secondary bg-secondary/10 px-3 py-1.5 rounded-lg border border-secondary/20 w-fit">
+                          SNACK - {snackPlayer ? snackPlayer.name : "TBD"}
                         </div>
-                      </div>
-
-                      <div className="md:col-span-3">
-                        {isAdmin && (
-                          <div className="flex items-center gap-2 pt-2">
-                            <Button size="sm" variant={isWon ? "default" : "outline"} className={cn("flex-1 h-10 text-[10px] font-black", isWon && "bg-yellow-500 hover:bg-yellow-600")} onClick={() => handleUpdateStatus(game.id, 'W')}>W</Button>
-                            <Button size="sm" variant={isLoss ? "default" : "outline"} className={cn("flex-1 h-10 text-[10px] font-black", isLoss && "bg-destructive hover:bg-destructive/90")} onClick={() => handleUpdateStatus(game.id, 'L')}>L</Button>
-                            <Button size="sm" variant={isCancelled ? "destructive" : "outline"} className="flex-1 h-10 text-[10px] font-black" onClick={() => handleUpdateStatus(game.id, 'C')}>C</Button>
-                          </div>
-                        )}
                       </div>
                     </div>
                   </CardContent>

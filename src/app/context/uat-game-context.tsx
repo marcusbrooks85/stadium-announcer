@@ -16,6 +16,7 @@ import {
   where,
   orderBy
 } from "firebase/firestore";
+import { useToast } from "@/hooks/use-toast";
 
 export interface Song {
   name: string;
@@ -124,6 +125,7 @@ const UATGameContext = createContext<UATGameContextType | undefined>(undefined);
 export function UATGameProvider({ children }: { children: ReactNode }) {
   const db = useFirestore();
   const auth = useAuth();
+  const { toast } = useToast();
   
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [userRole, setUserRole] = useState<any>(null);
@@ -152,8 +154,10 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
           const data = userDoc.data();
           setUserRole(data.role);
           setUserTeamId(data.teamId);
-          // Auto-admin for the super admin
-          if (data.role === 'super_admin') setIsAdmin(true);
+          // Set isAdmin if user has any administrative role
+          if (['super_admin', 'league_admin', 'booth_admin'].includes(data.role)) {
+            setIsAdmin(true);
+          }
         }
       } else {
         setUserRole(null);
@@ -325,11 +329,10 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
   };
 
   const adminLogout = () => {
-    if (userRole !== 'super_admin') setIsAdmin(false);
+    if (userRole === 'user') setIsAdmin(false);
   };
 
   const triggerSync = async () => {
-    // Basic logic for standings sync in UAT
     toast({ title: "Sync triggered (Mock)" });
   };
 

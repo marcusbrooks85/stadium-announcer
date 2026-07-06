@@ -4,7 +4,6 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from "react"
 import Link from "next/link";
 import { 
   Users, 
-  Play, 
   Activity, 
   Volume2,
   VolumeX,
@@ -15,11 +14,6 @@ import {
   ArrowDownWideNarrow,
   Ban,
   Home,
-  GripVertical,
-  Pencil,
-  Trash2,
-  Save,
-  X,
   ShieldCheck
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -34,21 +28,25 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useUATGame, StadiumSong, UATGameProvider } from "@/app/context/uat-game-context";
-import { UATAdminPanel } from "@/components/UATAdminPanel";
+import { UATNavbar } from "@/components/UATNavbar";
+import { useFirestore, useAuth } from "@/firebase";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
 function UATBoothContent() {
+  const db = useFirestore();
+  const auth = useAuth();
   const { 
     roster, 
     organSongs, 
     pumpUpSongs, 
-    isAdmin, 
-    reorderStadiumSongs,
-    saveStadiumSong,
-    deleteStadiumSong 
+    isAdmin,
+    userTeamId,
+    selectedGameId,
+    userRole
   } = useUATGame();
   
   const [activePlayerId, setActivePlayerId] = useState<string | null>(null);
@@ -97,6 +95,23 @@ function UATBoothContent() {
     }
   }, [volume]);
 
+  const logTrigger = async (category: string, audioId: string, playerId?: string) => {
+    if (!userTeamId || !auth.currentUser) return;
+    try {
+      addDoc(collection(db, "analytics_UAT"), {
+        timestamp: serverTimestamp(),
+        teamId: userTeamId,
+        gameId: selectedGameId,
+        playerId: playerId || null,
+        audioId: audioId,
+        category: category,
+        triggeredBy: auth.currentUser.uid
+      });
+    } catch (e) {
+      console.error("Analytics log failed", e);
+    }
+  };
+
   const stopEverything = useCallback(() => {
     if (fadeIntervalRef.current) { clearInterval(fadeIntervalRef.current); fadeIntervalRef.current = null; }
     if (announcementAudioRef.current) { announcementAudioRef.current.pause(); announcementAudioRef.current.currentTime = 0; }
@@ -118,8 +133,9 @@ function UATBoothContent() {
     }, interval);
   };
 
-  const playYoutubeTrack = (videoId: string, songName: string, startAt: number = 0) => {
+  const playYoutubeTrack = (videoId: string, songName: string, startAt: number = 0, category: string = "Hype") => {
     stopEverything(); setVolume(0.8); setActiveTrackName(songName);
+    logTrigger(category, videoId);
     if (ytPlayerRef.current && playerReady) {
       try {
         ytPlayerRef.current.unMute(); ytPlayerRef.current.setVolume(80);
@@ -133,6 +149,7 @@ function UATBoothContent() {
     stopEverything(); setVolume(0.8); setPlaybackPhase('announcing');
     setActiveTrackName(selectedSongIndex === -1 ? "UAT Announcement ONLY" : `Announcing: ${activePlayer.name}`);
     setCurrentAnnouncementUrl(activePlayer.announcementAudioUrl);
+    logTrigger("Walk-up", activePlayer.announcementAudioUrl || "voice", activePlayer.id);
   };
 
   const handleAnnouncementEnded = () => {
@@ -162,7 +179,7 @@ function UATBoothContent() {
               {isAdmin && (
                 <div className="flex items-center gap-1.5 animate-in fade-in slide-in-from-left-2 duration-500">
                   <ShieldCheck className="h-3 w-3 text-primary" />
-                  <span className="text-[8px] font-black uppercase text-primary tracking-tighter">UAT Ops Mode</span>
+                  <span className="text-[8px] font-black uppercase text-primary tracking-tighter">Ops Mode: {userRole?.replace('_', ' ')}</span>
                 </div>
               )}
             </div>
@@ -175,13 +192,8 @@ function UATBoothContent() {
               )}
             </div>
 
-            <div className="flex items-center gap-1 md:gap-3">
-              <div className="flex items-center bg-black/20 rounded-full p-1 border border-white/5 mr-1 md:mr-2">
-                <Link href="/schedule-uat"><Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 text-muted-foreground"><Home className="h-4 w-4" /></Button></Link>
-                <Link href="/booth-uat"><Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 text-primary"><Zap className="h-4 w-4" /></Button></Link>
-                <Link href="/stats-uat"><Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 text-muted-foreground"><BarChart3 className="h-4 w-4" /></Button></Link>
-              </div>
-              <UATAdminPanel />
+            <div className="flex items-center gap-2">
+              <UATNavbar />
             </div>
           </div>
 
@@ -235,7 +247,7 @@ function UATBoothContent() {
                   <CardHeader><CardTitle className="text-[9px] font-black uppercase tracking-[0.3em]">🎹 UAT Organ Master</CardTitle></CardHeader>
                   <CardContent className="grid grid-cols-2 gap-2">
                     {organSongs.map((hit) => (
-                      <Button key={hit.id} variant="outline" onClick={() => playYoutubeTrack(hit.link, hit.title, hit.startTime)} className="w-full h-12 text-[8px] font-black uppercase text-left justify-start">🎹 {hit.title}</Button>
+                      <Button key={hit.id} variant="outline" onClick={() => playYoutubeTrack(hit.link, hit.title, hit.startTime, "Game-Event")} className="w-full h-12 text-[8px] font-black uppercase text-left justify-start">🎹 {hit.title}</Button>
                     ))}
                   </CardContent>
                 </Card>
@@ -243,7 +255,7 @@ function UATBoothContent() {
                   <CardHeader><CardTitle className="text-[9px] font-black uppercase tracking-[0.3em]">📣 UAT Pump-Up</CardTitle></CardHeader>
                   <CardContent className="grid grid-cols-2 gap-2">
                     {pumpUpSongs.map((song) => (
-                      <Button key={song.id} variant="outline" onClick={() => playYoutubeTrack(song.link, song.title, song.startTime)} className="w-full h-12 text-[8px] font-black uppercase text-left justify-start">📣 {song.title}</Button>
+                      <Button key={song.id} variant="outline" onClick={() => playYoutubeTrack(song.link, song.title, song.startTime, "Hype")} className="w-full h-12 text-[8px] font-black uppercase text-left justify-start">📣 {song.title}</Button>
                     ))}
                   </CardContent>
                 </Card>
