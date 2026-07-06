@@ -8,16 +8,16 @@ import {
   Users, 
   Calendar, 
   Music, 
-  Trophy, 
   Plus, 
   Trash2, 
   Save, 
   Loader2, 
   Lock,
-  ChevronRight,
   Palette,
   AlertTriangle,
-  FileAudio
+  FileAudio,
+  ShieldAlert,
+  ChevronLeft
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,6 +45,7 @@ import { UATNavbar } from "@/components/UATNavbar";
 import { useFirestore } from "@/firebase";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
 
 function UATAdminPortalContent() {
   const router = useRouter();
@@ -73,17 +74,11 @@ function UATAdminPortalContent() {
   const [brandingForm, setBrandingForm] = useState({ name: "", primary: "", secondary: "" });
 
   useEffect(() => {
-    if (isLoaded && (!userRole || userRole === "user")) {
-      router.push("/uat");
-    }
-  }, [isLoaded, userRole, router]);
-
-  useEffect(() => {
     if (teamData) {
       setBrandingForm({
-        name: teamData.name,
-        primary: teamData.primaryColor,
-        secondary: teamData.secondaryColor
+        name: teamData.name || "",
+        primary: teamData.primaryColor || "#4285FF",
+        secondary: teamData.secondaryColor || "#2EB1D9"
       });
     }
   }, [teamData]);
@@ -107,10 +102,39 @@ function UATAdminPortalContent() {
         secondaryColor: brandingForm.secondary
       });
       toast({ title: "Branding Updated" });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Update Failed", description: e.message });
     } finally { setIsSaving(false); }
   };
 
-  if (!isLoaded || !userRole) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin" /></div>;
+  if (!isLoaded) {
+    return <div className="min-h-screen flex flex-col items-center justify-center stadium-gradient gap-4">
+      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Initializing Admin Environment...</span>
+    </div>;
+  }
+
+  // Final role check for the portal
+  const hasAccess = ["super_admin", "league_admin", "booth_admin"].includes(userRole || "");
+  
+  if (!hasAccess) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center stadium-gradient p-4 text-center">
+        <div className="bg-card/50 border border-white/10 p-12 rounded-3xl backdrop-blur-xl max-w-md w-full shadow-2xl">
+          <ShieldAlert className="h-16 w-16 text-destructive mx-auto mb-6" />
+          <h1 className="text-2xl font-black uppercase tracking-widest mb-2">Access Denied</h1>
+          <p className="text-sm font-bold text-muted-foreground uppercase leading-relaxed mb-8">
+            You do not have administrative clearance to access the management workspace.
+          </p>
+          <Link href="/uat">
+            <Button className="w-full h-14 font-black uppercase tracking-widest bg-primary">
+              Return to Home
+            </Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background text-foreground stadium-gradient overflow-hidden flex flex-col">
@@ -119,7 +143,7 @@ function UATAdminPortalContent() {
           <h1 className="font-headline font-black uppercase tracking-[0.2em] text-[10px] md:text-sm">UAT ADMIN PORTAL</h1>
           <div className="flex items-center gap-1.5">
             <ShieldCheck className="h-3 w-3 text-[var(--tenant-primary)]" />
-            <span className="text-[8px] font-black uppercase text-[var(--tenant-primary)] tracking-tighter">Verified: {userRole.replace('_', ' ')}</span>
+            <span className="text-[8px] font-black uppercase text-[var(--tenant-primary)] tracking-tighter">Verified: {userRole?.replace('_', ' ')}</span>
           </div>
         </div>
         <UATNavbar />

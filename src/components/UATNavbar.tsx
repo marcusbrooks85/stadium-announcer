@@ -13,7 +13,8 @@ import {
   ChevronRight,
   Settings,
   Wifi,
-  WifiOff
+  WifiOff,
+  ShieldCheck
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUATGame } from "@/app/context/uat-game-context";
@@ -120,10 +121,10 @@ export function UATNavbar() {
                     : "bg-white/5 text-muted-foreground hover:text-white hover:bg-white/10"
                 )}>
                   <div className="h-10 w-10 rounded-full bg-black/20 flex items-center justify-center">
-                    <Settings className="h-5 w-5" />
+                    <ShieldCheck className="h-5 w-5" />
                   </div>
                   <div className="flex flex-col flex-1">
-                    <span className="text-[10px] font-black uppercase tracking-widest leading-none">Admin Portal</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest leading-none">Admin Workspace</span>
                     <span className="text-[8px] font-bold opacity-50 uppercase tracking-tighter mt-1">Configure Team Profile</span>
                   </div>
                   <ChevronRight className="h-4 w-4 opacity-30 group-hover:opacity-100 transition-opacity" />
