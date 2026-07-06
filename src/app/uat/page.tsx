@@ -26,6 +26,7 @@ import {
   Lock,
   XCircle,
   CheckCircle,
+  UserPlus
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,6 +53,7 @@ export default function UATOnboardingPage() {
   const router = useRouter();
   const [step, setStep] = useState<Step>("acknowledgement");
   const [isRegisterMode, setIsRegisterMode] = useState(true);
+  const [isJoinMode, setIsJoinMode] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -67,9 +69,11 @@ export default function UATOnboardingPage() {
     email: "",
     password: "",
     confirmPassword: "",
+    fullName: "",
     teamName: "",
     city: "",
-    state: ""
+    state: "",
+    accessCode: ""
   });
 
   // Password Strength Logic
@@ -88,7 +92,7 @@ export default function UATOnboardingPage() {
   const passwordsMatch = formData.password === formData.confirmPassword && formData.confirmPassword !== "";
 
   const generateTeamCode = (teamName: string) => {
-    const sanitizedName = teamName.replace(/[^a-zA-Z0-9]/g, "").toUpperCase().substring(0, 4);
+    const sanitizedName = teamName.replace(/[^a-zA-Z0-9]/g, "").toUpperCase().substring(0, 6);
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     let randomPart = "";
     for (let i = 0; i < 4; i++) {
@@ -101,7 +105,7 @@ export default function UATOnboardingPage() {
     const userDoc = await getDoc(doc(db, "users_UAT", user.uid));
     const userData = userDoc.data();
     
-    if (!userDoc.exists() || !userData?.teamId || !userData?.teamCode) {
+    if (!userDoc.exists() || !userData?.teamId) {
       setStep("team-setup");
       return false;
     }
@@ -127,57 +131,61 @@ export default function UATOnboardingPage() {
         toast({ variant: "destructive", title: "Validation Error", description: "Passwords do not match." });
         return;
       }
+
+      if (isJoinMode && !formData.accessCode) {
+        toast({ variant: "destructive", title: "Missing Code", description: "Team Access Code is required to join a team." });
+        return;
+      }
     }
 
     setLoading(true);
     try {
       if (isRegisterMode) {
+        let teamIdToJoin = "";
+        let teamCodeToJoin = "";
+
+        // Validate team code if joining
+        if (isJoinMode) {
+          const q = query(collection(db, "teams_UAT"), where("code", "==", formData.accessCode.trim().toUpperCase()));
+          const snap = await getDocs(q);
+          if (snap.empty) {
+            toast({ variant: "destructive", title: "Invalid Team Code", description: "Please check with your administrator." });
+            setLoading(false);
+            return;
+          }
+          teamIdToJoin = snap.docs[0].id;
+          teamCodeToJoin = snap.docs[0].data().code;
+        }
+
         const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
         const user = userCredential.user;
+
+        // Save user profile immediately
+        await setDoc(doc(db, "users_UAT", user.uid), {
+          email: user.email,
+          fullName: formData.fullName,
+          role: isJoinMode ? "user" : "super_admin",
+          teamId: teamIdToJoin || null,
+          teamCode: teamCodeToJoin || null,
+          hasCompletedTutorial: false,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+
         await sendEmailVerification(user);
-        setStep("verification");
-        toast({ title: "Account Created", description: "Please verify your email to proceed to team setup." });
+        
+        if (isJoinMode) {
+          setStep("tutorial");
+        } else {
+          setStep("team-setup");
+        }
+        toast({ title: "Account Created", description: isJoinMode ? "Profile setup complete. Welcome to the team!" : "Please proceed to team setup." });
       } else {
         const userCredential = await signInWithEmailAndPassword(auth, formData.email, formData.password);
         await checkUserTeamStatus(userCredential.user);
       }
     } catch (error: any) {
-      let errorMessage = error.message;
-      if (error.code === 'auth/configuration-not-found') {
-        errorMessage = "Email/Password authentication is not enabled.";
-      }
-      toast({ variant: "destructive", title: "Auth Failed", description: errorMessage });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleGoogleSignIn = async () => {
-    setGoogleLoading(true);
-    try {
-      const provider = new GoogleAuthProvider();
-      const userCredential = await signInWithPopup(auth, provider);
-      await checkUserTeamStatus(userCredential.user);
-    } catch (error: any) {
       toast({ variant: "destructive", title: "Auth Failed", description: error.message });
-    } finally {
-      setGoogleLoading(false);
-    }
-  };
-
-  const handleForgotPassword = async () => {
-    if (!formData.email) {
-      toast({ variant: "destructive", title: "Required", description: "Please enter your email address first." });
-      return;
-    }
-    setLoading(true);
-    try {
-      await sendPasswordResetEmail(auth, formData.email);
-      toast({ title: "Reset Email Sent", description: "Check your inbox for the password recovery link." });
-      setIsRegisterMode(false);
-      setStep("auth");
-    } catch (error: any) {
-      toast({ variant: "destructive", title: "Error", description: error.message });
     } finally {
       setLoading(false);
     }
@@ -189,26 +197,21 @@ export default function UATOnboardingPage() {
     if (!user) return;
 
     if (!formData.teamName || !formData.city || !formData.state) {
-      toast({ variant: "destructive", title: "Missing Details", description: "Please fill out all team workspace fields." });
+      toast({ variant: "destructive", title: "Missing Details", description: "Please fill out all team fields." });
       return;
     }
 
     setLoading(true);
     try {
-      let teamCode = generateTeamCode(formData.teamName);
-      
-      // Ensure absolute uniqueness
+      let teamCode = "";
       let isUnique = false;
-      let attempts = 0;
-      while (!isUnique && attempts < 5) {
+      
+      // Duplicate Guard loop
+      while (!isUnique) {
+        teamCode = generateTeamCode(formData.teamName);
         const q = query(collection(db, "teams_UAT"), where("code", "==", teamCode), limit(1));
         const snapshot = await getDocs(q);
-        if (snapshot.empty) {
-          isUnique = true;
-        } else {
-          teamCode = generateTeamCode(formData.teamName);
-          attempts++;
-        }
+        if (snapshot.empty) isUnique = true;
       }
 
       const teamRef = await addDoc(collection(db, "teams_UAT"), {
@@ -222,14 +225,12 @@ export default function UATOnboardingPage() {
         secondaryColor: "#2EB1D9"
       });
 
-      await setDoc(doc(db, "users_UAT", user.uid), {
-        email: user.email,
-        role: "league_admin", 
+      // Update super admin profile
+      await updateDoc(doc(db, "users_UAT", user.uid), {
         teamId: teamRef.id,
         teamCode: teamCode,
-        hasCompletedTutorial: false,
         updatedAt: serverTimestamp()
-      }, { merge: true });
+      });
 
       setGeneratedCode(teamCode);
       setStep("success");
@@ -252,20 +253,10 @@ export default function UATOnboardingPage() {
       });
       router.push("/booth-uat");
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Error", description: "Could not save tutorial progress." });
+      toast({ variant: "destructive", title: "Error", description: "Could not save progress." });
     } finally {
       setLoading(false);
     }
-  };
-
-  const copyToClipboard = async () => {
-    if (!generatedCode) return;
-    try {
-      await navigator.clipboard.writeText(generatedCode);
-      setCopied(true);
-      toast({ title: "Copied!", description: "Team code copied to clipboard." });
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {}
   };
 
   const renderAcknowledgement = () => (
@@ -291,50 +282,32 @@ export default function UATOnboardingPage() {
     <Card className="w-full max-w-xl border-2 border-secondary/20 bg-card/50 backdrop-blur-xl">
       <CardHeader className="space-y-1">
         <CardTitle className="text-xl font-black uppercase tracking-widest flex items-center gap-3">
-          <Trophy className="w-6 h-6 text-secondary" /> {isRegisterMode ? "Admin Account" : "Admin Login"}
+          <Trophy className="w-6 h-6 text-secondary" /> 
+          {isRegisterMode ? (isJoinMode ? "Join Team" : "Register Team Owner") : "Admin Login"}
         </CardTitle>
         <CardDescription className="text-[10px] uppercase font-bold tracking-widest">
-          {isRegisterMode ? "Register to start your team" : "Access your existing booth"}
+          {isRegisterMode ? "Create your UAT profile" : "Access your existing booth"}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        <Button 
-          variant="outline" 
-          disabled={googleLoading}
-          onClick={handleGoogleSignIn}
-          className="w-full h-12 border-white/10 bg-black/20 font-black uppercase tracking-widest flex items-center gap-3 hover:bg-black/40"
-        >
-          {googleLoading ? <Loader2 className="animate-spin h-4 w-4" /> : <Chrome className="h-4 w-4" />}
-          Continue with Google
-        </Button>
-
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t border-white/5"></span>
-          </div>
-          <div className="relative flex justify-center text-[8px] font-black uppercase tracking-[0.3em]">
-            <span className="bg-card px-2 text-muted-foreground">OR EMAIL</span>
-          </div>
-        </div>
-
         <form onSubmit={handleAuthAction} className="space-y-4">
+          {isRegisterMode && (
+            <div className="space-y-2">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Full Name</Label>
+              <Input required value={formData.fullName} onChange={(e) => setFormData({ ...formData, fullName: e.target.value })} className="h-12 bg-black/40" />
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Email</Label>
             <Input required type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="h-12 bg-black/40" />
           </div>
           
-          <div className="space-y-2 relative">
-            <div className="flex justify-between items-center">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Password</Label>
-              {!isRegisterMode && (
-                <button type="button" onClick={handleForgotPassword} className="text-[9px] font-black uppercase text-primary hover:underline">
-                  Forgot Password?
-                </button>
-              )}
-            </div>
+          <div className="space-y-2">
+            <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Password</Label>
             <div className="relative">
               <Input required type={showPassword ? "text" : "password"} value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} className="h-12 bg-black/40 pr-10" />
-              <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white transition-colors" >
+              <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white" >
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
@@ -348,7 +321,7 @@ export default function UATOnboardingPage() {
           </div>
 
           {isRegisterMode && (
-            <div className="space-y-2 relative">
+            <div className="space-y-2">
               <div className="flex justify-between items-center">
                 <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Confirm Password</Label>
                 {formData.confirmPassword && (
@@ -358,23 +331,41 @@ export default function UATOnboardingPage() {
                   </span>
                 )}
               </div>
-              <div className="relative">
-                <Input required type={showConfirmPassword ? "text" : "password"} value={formData.confirmPassword} onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })} className="h-12 bg-black/40 pr-10" />
-                <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
+              <Input required type={showConfirmPassword ? "text" : "password"} value={formData.confirmPassword} onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })} className="h-12 bg-black/40" />
+            </div>
+          )}
+
+          {isRegisterMode && isJoinMode && (
+            <div className="space-y-2 p-4 bg-primary/5 rounded-xl border border-primary/20 animate-in slide-in-from-top-2">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-primary ml-1 flex items-center gap-2">
+                <Lock className="h-3 w-3" /> Team Access Code
+              </Label>
+              <Input required placeholder="XXXX-XXXX" value={formData.accessCode} onChange={(e) => setFormData({ ...formData, accessCode: e.target.value.toUpperCase() })} className="h-12 bg-black/40 font-mono text-center tracking-widest font-black" />
+              <p className="text-[8px] font-bold text-muted-foreground uppercase text-center mt-1">Required to link your account to an existing team.</p>
             </div>
           )}
 
           <Button disabled={loading} type="submit" className="w-full h-14 font-black uppercase tracking-widest bg-secondary text-secondary-foreground">
-            {loading ? <Loader2 className="animate-spin mr-2" /> : (isRegisterMode ? "Register & Setup Team" : "Sign In")}
+            {loading ? <Loader2 className="animate-spin mr-2" /> : (isRegisterMode ? (isJoinMode ? "Join Team Workspace" : "Register Team Owner") : "Sign In")}
           </Button>
         </form>
-        <div className="text-center">
-          <button onClick={() => setIsRegisterMode(!isRegisterMode)} className="text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-white">
-            {isRegisterMode ? "Already have an admin account? Sign In" : "Need a new team workspace? Register"}
-          </button>
+
+        <div className="flex flex-col gap-3 text-center">
+          {isRegisterMode ? (
+            <>
+              <button onClick={() => setIsJoinMode(!isJoinMode)} className="text-[10px] font-black uppercase tracking-widest text-primary hover:underline flex items-center justify-center gap-2">
+                {isJoinMode ? <Building2 className="h-3 w-3" /> : <UserPlus className="h-3 w-3" />}
+                {isJoinMode ? "Wait, I need to create a new team" : "I'm a team member with an access code"}
+              </button>
+              <button onClick={() => setIsRegisterMode(false)} className="text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-white">
+                Already have an account? Sign In
+              </button>
+            </>
+          ) : (
+            <button onClick={() => setIsRegisterMode(true)} className="text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-white">
+              Need a new workspace? Register
+            </button>
+          )}
         </div>
       </CardContent>
     </Card>
@@ -387,7 +378,7 @@ export default function UATOnboardingPage() {
           <Trophy className="w-6 h-6 text-primary" /> Team Workspace Setup
         </CardTitle>
         <CardDescription className="text-[10px] uppercase font-bold tracking-widest">
-          Complete your profile to access the booth dashboard.
+          Finalize your team profile to generate your unique access code.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -395,7 +386,7 @@ export default function UATOnboardingPage() {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Team Name</Label>
-              <Input required placeholder="e.g. Eastside Dodgers" value={formData.teamName} onChange={(e) => setFormData({ ...formData, teamName: e.target.value })} className="h-12 bg-black/40 font-bold" />
+              <Input required placeholder="e.g. Hawthorne Hawks" value={formData.teamName} onChange={(e) => setFormData({ ...formData, teamName: e.target.value })} className="h-12 bg-black/40 font-bold" />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -409,34 +400,10 @@ export default function UATOnboardingPage() {
             </div>
           </div>
           <Button disabled={loading} type="submit" className="w-full h-14 font-black uppercase tracking-widest bg-primary">
-            {loading ? <Loader2 className="animate-spin mr-2" /> : "Finalize Team Setup"}
+            {loading ? <Loader2 className="animate-spin mr-2" /> : "Generate Team Workspace"}
           </Button>
         </form>
       </CardContent>
-    </Card>
-  );
-
-  const renderVerification = () => (
-    <Card className="w-full max-w-lg border-2 border-yellow-500/20 bg-card/50 backdrop-blur-xl">
-      <CardHeader className="text-center space-y-4">
-        <div className="mx-auto w-16 h-16 bg-yellow-500/10 rounded-full flex items-center justify-center">
-          <Mail className="w-8 h-8 text-yellow-500" />
-        </div>
-        <CardTitle className="text-2xl font-black uppercase tracking-widest">Verify Email</CardTitle>
-        <CardDescription className="text-sm font-bold text-muted-foreground uppercase leading-relaxed">
-          Check your inbox. Verify your email to continue setup.
-        </CardDescription>
-      </CardHeader>
-      <CardFooter className="flex flex-col gap-3">
-        <Button variant="ghost" onClick={async () => {
-          if (auth.currentUser) {
-            await sendEmailVerification(auth.currentUser);
-            toast({ title: "Email Sent", description: "Verification link resent." });
-          }
-        }} className="w-full h-12 text-[10px] font-black uppercase tracking-widest">
-          Resend Verification Email
-        </Button>
-      </CardFooter>
     </Card>
   );
 
@@ -448,7 +415,7 @@ export default function UATOnboardingPage() {
         </div>
         <CardTitle className="text-2xl font-black uppercase tracking-widest">Workspace Ready</CardTitle>
         <CardDescription className="text-sm font-bold text-muted-foreground uppercase">
-          Your team workspace is provisioned.
+          Your team workspace is provisioned. Share the code below with your team.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -456,7 +423,7 @@ export default function UATOnboardingPage() {
           <Label className="text-[10px] font-black uppercase tracking-widest text-primary ml-1">Team Access Code</Label>
           <div className="flex gap-2">
             <Input readOnly value={generatedCode} className="h-12 bg-black/40 font-mono text-lg text-center font-black" />
-            <Button size="icon" className="h-12 w-12 bg-primary" onClick={copyToClipboard}>
+            <Button size="icon" className="h-12 w-12 bg-primary" onClick={() => { navigator.clipboard.writeText(generatedCode); setCopied(true); setTimeout(() => setCopied(false), 2000); }}>
               {copied ? <Check className="h-5 w-5" /> : <Copy className="h-5 w-5" />}
             </Button>
           </div>
@@ -464,7 +431,7 @@ export default function UATOnboardingPage() {
       </CardContent>
       <CardFooter>
         <Button onClick={() => setStep("tutorial")} className="w-full h-12 font-black uppercase tracking-widest bg-primary">
-          Continue to Tutorial <ChevronRight className="ml-2 w-4 h-4" />
+          Start Tutorial <ChevronRight className="ml-2 w-4 h-4" />
         </Button>
       </CardFooter>
     </Card>
@@ -474,28 +441,28 @@ export default function UATOnboardingPage() {
     const slides = [
       {
         icon: <Building2 className="w-12 h-12 text-primary" />,
-        title: "Home: Workspace Dashboard",
-        description: "Welcome to your command center. This landing page provides an overview of your team's status and quick navigation to all modules.",
+        title: "Team Command Center",
+        description: "Your home dashboard provides a bird's-eye view of your team's upcoming schedule and seasonal performance.",
       },
       {
         icon: <Music className="w-12 h-12 text-secondary" />,
-        title: "Booth: Live Soundboard",
-        description: "Control the atmosphere. Use the booth to trigger walk-up cues, organ hits, and stadium hype tracks in real-time during games.",
+        title: "The Audio Booth",
+        description: "Control the atmosphere. Trigger walk-up cues, organ hits, and stadium hype tracks in real-time during games.",
       },
       {
         icon: <BarChart3 className="w-12 h-12 text-accent" />,
-        title: "Stats: Live Game Metrics",
-        description: "Track performance on the fly. Record at-bats, hits, and runs as they happen to keep your roster metrics accurate and up to date.",
+        title: "Live Game Stats",
+        description: "Track At-Bats, Hits, and Runs as they happen to keep your roster metrics accurate and up to date.",
       },
       {
         icon: <Calendar className="w-12 h-12 text-primary" />,
-        title: "Schedule: Seasonal Timeline",
-        description: "Manage your season. View upcoming games, track results, and assign snack duties to ensure your team is always prepared.",
+        title: "Seasonal Timeline",
+        description: "Manage upcoming games, track league results, and assign snack duties for the team.",
       },
       {
         icon: <Settings className="w-12 h-12 text-secondary" />,
-        title: "Admin: Workspace Configuration",
-        description: "Full control. Update your team branding, manage your player roster, and configure custom audio settings in one central hub.",
+        title: "Admin Workspace",
+        description: "Configure branding, manage your roster, and verify system operational logs in one central hub.",
       }
     ];
 
@@ -503,36 +470,30 @@ export default function UATOnboardingPage() {
     const isLastSlide = tutorialStep === slides.length - 1;
 
     return (
-      <Card className="w-full max-w-xl border-2 border-primary/30 bg-card/80 backdrop-blur-2xl shadow-[0_0_50px_rgba(66,133,255,0.2)]">
+      <Card className="w-full max-w-xl border-2 border-primary/30 bg-card/80 backdrop-blur-2xl">
         <CardHeader className="text-center pt-8 pb-4">
-          <div className="mx-auto w-24 h-24 bg-white/5 rounded-full flex items-center justify-center mb-6 border border-white/10 animate-in zoom-in duration-500">
+          <div className="mx-auto w-24 h-24 bg-white/5 rounded-full flex items-center justify-center mb-6 border border-white/10">
             {currentSlide.icon}
           </div>
           <CardTitle className="text-2xl font-black uppercase tracking-[0.1em] mb-2">{currentSlide.title}</CardTitle>
           <div className="flex justify-center gap-1.5 mb-2">
             {slides.map((_, i) => (
-              <div key={i} className={cn("h-1.5 rounded-full transition-all duration-300", i === tutorialStep ? "w-8 bg-primary" : "w-1.5 bg-white/20")} />
+              <div key={i} className={cn("h-1.5 rounded-full", i === tutorialStep ? "w-8 bg-primary" : "w-1.5 bg-white/20")} />
             ))}
           </div>
         </CardHeader>
-        <CardContent className="px-8 pb-10 text-center space-y-6">
-          <p className="text-sm font-bold text-muted-foreground uppercase leading-relaxed tracking-tight">
+        <CardContent className="px-8 pb-10 text-center">
+          <p className="text-sm font-bold text-muted-foreground uppercase leading-relaxed">
             {currentSlide.description}
           </p>
-          <div className="pt-4">
-            <Progress value={((tutorialStep + 1) / slides.length) * 100} className="h-1 bg-white/5" />
-          </div>
         </CardContent>
         <CardFooter className="p-0 border-t border-white/5">
           <Button 
             disabled={loading}
             onClick={() => isLastSlide ? handleCompleteTutorial() : setTutorialStep(prev => prev + 1)} 
-            className={cn(
-              "w-full h-16 font-black uppercase tracking-[0.2em] rounded-none rounded-b-lg text-lg",
-              isLastSlide ? "bg-green-600 hover:bg-green-700" : "bg-primary"
-            )}
+            className="w-full h-16 font-black uppercase tracking-[0.2em] rounded-none rounded-b-lg text-lg bg-primary"
           >
-            {loading ? <Loader2 className="animate-spin mr-2" /> : (isLastSlide ? "Finish & Enter Booth" : "Next Slide")}
+            {loading ? <Loader2 className="animate-spin mr-2" /> : (isLastSlide ? "Enter Booth" : "Next Module")}
             {!isLastSlide && <ChevronRight className="ml-2 w-5 h-5" />}
           </Button>
         </CardFooter>
@@ -545,7 +506,6 @@ export default function UATOnboardingPage() {
       <div className="w-full flex items-center justify-center animate-in fade-in duration-700">
         {step === "acknowledgement" && renderAcknowledgement()}
         {step === "auth" && renderAuth()}
-        {step === "verification" && renderVerification()}
         {step === "team-setup" && renderTeamSetup()}
         {step === "success" && renderSuccess()}
         {step === "tutorial" && renderTutorial()}
