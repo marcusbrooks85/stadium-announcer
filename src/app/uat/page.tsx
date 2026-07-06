@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { 
   ShieldCheck, 
@@ -13,7 +13,6 @@ import {
   CheckCircle2, 
   Mail, 
   Chrome,
-  KeyRound,
   Copy,
   Check,
   Building2,
@@ -21,6 +20,12 @@ import {
   Music,
   Calendar,
   ChevronRight,
+  ShieldAlert,
+  BarChart3,
+  Settings,
+  Lock,
+  XCircle,
+  CheckCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,18 +42,11 @@ import {
   GoogleAuthProvider,
   User,
 } from "firebase/auth";
-import { doc, setDoc, collection, addDoc, serverTimestamp, getDoc, updateDoc } from "firebase/firestore";
+import { doc, setDoc, collection, addDoc, serverTimestamp, getDoc, updateDoc, query, where, getDocs, limit } from "firebase/firestore";
 import { cn } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
 
 type Step = "acknowledgement" | "auth" | "verification" | "team-setup" | "success" | "forgot-password" | "tutorial";
-
-export async function initiateSecureAccountDeletion(user: User | null) {
-  if (!user) return;
-  // Account deletion will require a 2-step verification layout: 
-  // App confirmation prompt -> email payload dispatch -> destructive batch-delete verification execution.
-  console.log("Secure account deletion process initiated for:", user.uid);
-}
 
 export default function UATOnboardingPage() {
   const router = useRouter();
@@ -74,13 +72,29 @@ export default function UATOnboardingPage() {
     state: ""
   });
 
-  const generateTeamCode = () => {
+  // Password Strength Logic
+  const passwordCriteria = useMemo(() => {
+    const p = formData.password;
+    return {
+      length: p.length >= 8,
+      upper: /[A-Z]/.test(p),
+      lower: /[a-z]/.test(p),
+      number: /[0-9]/.test(p),
+      special: /[^A-Za-z0-9]/.test(p),
+    };
+  }, [formData.password]);
+
+  const isPasswordStrong = Object.values(passwordCriteria).every(Boolean);
+  const passwordsMatch = formData.password === formData.confirmPassword && formData.confirmPassword !== "";
+
+  const generateTeamCode = (teamName: string) => {
+    const sanitizedName = teamName.replace(/[^a-zA-Z0-9]/g, "").toUpperCase().substring(0, 4);
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-    let code = "TEAM-";
+    let randomPart = "";
     for (let i = 0; i < 4; i++) {
-      code += chars.charAt(Math.floor(Math.random() * chars.length));
+      randomPart += chars.charAt(Math.floor(Math.random() * chars.length));
     }
-    return code;
+    return `${sanitizedName}-${randomPart}`;
   };
 
   const checkUserTeamStatus = async (user: User) => {
@@ -105,11 +119,11 @@ export default function UATOnboardingPage() {
     e.preventDefault();
     
     if (isRegisterMode) {
-      if (formData.password.length < 6) {
-        toast({ variant: "destructive", title: "Validation Error", description: "Password must be at least 6 characters." });
+      if (!isPasswordStrong) {
+        toast({ variant: "destructive", title: "Security Error", description: "Password does not meet strength requirements." });
         return;
       }
-      if (formData.password !== formData.confirmPassword) {
+      if (!passwordsMatch) {
         toast({ variant: "destructive", title: "Validation Error", description: "Passwords do not match." });
         return;
       }
@@ -130,7 +144,7 @@ export default function UATOnboardingPage() {
     } catch (error: any) {
       let errorMessage = error.message;
       if (error.code === 'auth/configuration-not-found') {
-        errorMessage = "Email/Password authentication is not enabled in the Firebase Console.";
+        errorMessage = "Email/Password authentication is not enabled.";
       }
       toast({ variant: "destructive", title: "Auth Failed", description: errorMessage });
     } finally {
@@ -181,17 +195,33 @@ export default function UATOnboardingPage() {
 
     setLoading(true);
     try {
-      const teamCode = generateTeamCode();
+      let teamCode = generateTeamCode(formData.teamName);
+      
+      // Ensure absolute uniqueness
+      let isUnique = false;
+      let attempts = 0;
+      while (!isUnique && attempts < 5) {
+        const q = query(collection(db, "teams_UAT"), where("code", "==", teamCode), limit(1));
+        const snapshot = await getDocs(q);
+        if (snapshot.empty) {
+          isUnique = true;
+        } else {
+          teamCode = generateTeamCode(formData.teamName);
+          attempts++;
+        }
+      }
+
       const teamRef = await addDoc(collection(db, "teams_UAT"), {
         name: formData.teamName,
         city: formData.city,
         state: formData.state,
         code: teamCode,
         ownerUid: user.uid,
-        createdAt: serverTimestamp()
+        createdAt: serverTimestamp(),
+        primaryColor: "#4285FF",
+        secondaryColor: "#2EB1D9"
       });
 
-      // Default role for team creator is 'league_admin'
       await setDoc(doc(db, "users_UAT", user.uid), {
         email: user.email,
         role: "league_admin", 
@@ -292,6 +322,7 @@ export default function UATOnboardingPage() {
             <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Email</Label>
             <Input required type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="h-12 bg-black/40" />
           </div>
+          
           <div className="space-y-2 relative">
             <div className="flex justify-between items-center">
               <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Password</Label>
@@ -307,10 +338,26 @@ export default function UATOnboardingPage() {
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
+            {isRegisterMode && (
+              <div className="pt-2 grid grid-cols-5 gap-1">
+                {Object.entries(passwordCriteria).map(([key, valid]) => (
+                   <div key={key} className={cn("h-1 rounded-full", valid ? "bg-green-500" : "bg-white/10")} />
+                ))}
+              </div>
+            )}
           </div>
+
           {isRegisterMode && (
             <div className="space-y-2 relative">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Confirm Password</Label>
+              <div className="flex justify-between items-center">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Confirm Password</Label>
+                {formData.confirmPassword && (
+                  <span className={cn("text-[9px] font-black uppercase flex items-center gap-1", passwordsMatch ? "text-green-500" : "text-destructive")}>
+                    {passwordsMatch ? <CheckCircle className="h-2.5 w-2.5" /> : <XCircle className="h-2.5 w-2.5" />}
+                    {passwordsMatch ? "Match" : "Mismatch"}
+                  </span>
+                )}
+              </div>
               <div className="relative">
                 <Input required type={showConfirmPassword ? "text" : "password"} value={formData.confirmPassword} onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })} className="h-12 bg-black/40 pr-10" />
                 <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
@@ -319,6 +366,7 @@ export default function UATOnboardingPage() {
               </div>
             </div>
           )}
+
           <Button disabled={loading} type="submit" className="w-full h-14 font-black uppercase tracking-widest bg-secondary text-secondary-foreground">
             {loading ? <Loader2 className="animate-spin mr-2" /> : (isRegisterMode ? "Register & Setup Team" : "Sign In")}
           </Button>
@@ -426,23 +474,28 @@ export default function UATOnboardingPage() {
     const slides = [
       {
         icon: <Building2 className="w-12 h-12 text-primary" />,
-        title: "Welcome & Workspace Setup",
-        description: "Your team shell is ready. This is your central hub for managing games, schedules, and player rosters in real-time.",
+        title: "Home: Workspace Dashboard",
+        description: "Welcome to your command center. This landing page provides an overview of your team's status and quick navigation to all modules.",
       },
       {
-        icon: <Users className="w-12 h-12 text-secondary" />,
-        title: "Roster Management",
-        description: "Add and manage your team players. Each player can have their own announcement audio and custom walk-up music.",
+        icon: <Music className="w-12 h-12 text-secondary" />,
+        title: "Booth: Live Soundboard",
+        description: "Control the atmosphere. Use the booth to trigger walk-up cues, organ hits, and stadium hype tracks in real-time during games.",
       },
       {
-        icon: <Music className="w-12 h-12 text-accent" />,
-        title: "Live Game Soundboard",
-        description: "Control the stadium atmosphere. Use the booth dashboard to trigger walk-on sequences and crowd pump-up hits.",
+        icon: <BarChart3 className="w-12 h-12 text-accent" />,
+        title: "Stats: Live Game Metrics",
+        description: "Track performance on the fly. Record at-bats, hits, and runs as they happen to keep your roster metrics accurate and up to date.",
       },
       {
         icon: <Calendar className="w-12 h-12 text-primary" />,
-        title: "Schedule & AI Features",
-        description: "Customize your game schedule and use AI to generate professional announcer scripts and audio for every batter.",
+        title: "Schedule: Seasonal Timeline",
+        description: "Manage your season. View upcoming games, track results, and assign snack duties to ensure your team is always prepared.",
+      },
+      {
+        icon: <Settings className="w-12 h-12 text-secondary" />,
+        title: "Admin: Workspace Configuration",
+        description: "Full control. Update your team branding, manage your player roster, and configure custom audio settings in one central hub.",
       }
     ];
 

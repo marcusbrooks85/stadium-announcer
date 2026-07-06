@@ -62,7 +62,7 @@ function UATAdminContent() {
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
 
   const [playerForm, setPlayerForm] = useState({ name: "", number: 0 });
-  const [gameForm, setGameForm] = useState({ home: "", away: "", time: "", location: "" });
+  const [gameForm, setGameForm] = useState({ home: "", away: "", time: "", location: "", date: "", week: 1 });
   const [brandForm, setBrandForm] = useState({ primary: teamBranding.primary, secondary: teamBranding.secondary });
 
   const validateRosterEntry = (name: string, number: number) => {
@@ -99,7 +99,10 @@ function UATAdminContent() {
   };
 
   const handleAddGame = async () => {
-    if (!gameForm.home || !gameForm.away || !db || !userTeamId) return;
+    if (!gameForm.home || !gameForm.away || !db || !userTeamId || !gameForm.date) {
+      toast({ variant: "destructive", title: "Validation Error", description: "Please fill all required game fields." });
+      return;
+    }
     if (userRole !== "super_admin" && userRole !== "league_admin") {
       toast({ variant: "destructive", title: "Access Denied", description: "Only admins can schedule games." });
       return;
@@ -111,7 +114,7 @@ function UATAdminContent() {
         teamId: userTeamId,
         createdAt: new Date().toISOString()
       });
-      setGameForm({ home: "", away: "", time: "", location: "" });
+      setGameForm({ home: "", away: "", time: "", location: "", date: "", week: 1 });
       toast({ title: "Test Game Added" });
     } finally { setIsSaving(false); }
   };
@@ -284,18 +287,34 @@ function UATAdminContent() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Input placeholder="Home Team" value={gameForm.home} onChange={e => setGameForm({...gameForm, home: e.target.value})} />
+                  <div className="space-y-1">
+                    <Label className="text-[9px] font-black uppercase opacity-50">Home Team</Label>
+                    <Input placeholder="Home" value={gameForm.home} onChange={e => setGameForm({...gameForm, home: e.target.value})} />
                   </div>
-                  <div className="space-y-2">
-                    <Input placeholder="Away Team" value={gameForm.away} onChange={e => setGameForm({...gameForm, away: e.target.value})} />
+                  <div className="space-y-1">
+                    <Label className="text-[9px] font-black uppercase opacity-50">Away Team</Label>
+                    <Input placeholder="Away" value={gameForm.away} onChange={e => setGameForm({...gameForm, away: e.target.value})} />
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <Input placeholder="e.g. 2:00 PM" value={gameForm.time} onChange={e => setGameForm({...gameForm, time: e.target.value})} />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <Label className="text-[9px] font-black uppercase opacity-50">Date</Label>
+                    <Input type="date" value={gameForm.date} onChange={e => setGameForm({...gameForm, date: e.target.value})} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[9px] font-black uppercase opacity-50">Week #</Label>
+                    <Input type="number" min="1" max="20" value={gameForm.week} onChange={e => setGameForm({...gameForm, week: parseInt(e.target.value) || 1})} />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Input placeholder="Field Name" value={gameForm.location} onChange={e => setGameForm({...gameForm, location: e.target.value})} />
+                <div className="grid grid-cols-2 gap-4">
+                   <div className="space-y-1">
+                      <Label className="text-[9px] font-black uppercase opacity-50">Time</Label>
+                      <Input placeholder="e.g. 2:00 PM" value={gameForm.time} onChange={e => setGameForm({...gameForm, time: e.target.value})} />
+                   </div>
+                   <div className="space-y-1">
+                      <Label className="text-[9px] font-black uppercase opacity-50">Location</Label>
+                      <Input placeholder="Field Name" value={gameForm.location} onChange={e => setGameForm({...gameForm, location: e.target.value})} />
+                   </div>
                 </div>
                 <Button onClick={handleAddGame} className="w-full bg-[var(--tenant-secondary)] text-white font-black uppercase" disabled={isSaving}>
                   <Plus className="h-4 w-4 mr-2" /> Schedule UAT Game

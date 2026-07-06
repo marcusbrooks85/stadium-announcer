@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -9,29 +10,35 @@ import {
   Clock,
   Loader2,
   Plus,
+  Trophy,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useFirestore } from "@/firebase";
-import { collection, onSnapshot } from "firebase/firestore";
+import { collection, onSnapshot, query, where, orderBy } from "firebase/firestore";
 import { UATGameProvider, useUATGame } from "@/app/context/uat-game-context";
 import { UATNavbar } from "@/components/UATNavbar";
 
 function UATScheduleContent() {
   const db = useFirestore();
-  const { userRole, isLoaded } = useUATGame();
+  const { userRole, userTeamId, isLoaded } = useUATGame();
   const [games, setGames] = useState<any[]>([]);
 
   const canEdit = userRole === "super_admin" || userRole === "league_admin";
 
   useEffect(() => {
-    if (!db) return;
-    const unsub = onSnapshot(collection(db, "games_UAT"), (snap) => {
+    if (!db || !userTeamId) return;
+    const q = query(
+      collection(db, "games_UAT"), 
+      where("teamId", "==", userTeamId),
+      orderBy("date", "asc")
+    );
+    const unsub = onSnapshot(q, (snap) => {
       setGames(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
     return () => unsub();
-  }, [db]);
+  }, [db, userTeamId]);
 
   if (!isLoaded) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin" /></div>;
 
@@ -74,16 +81,30 @@ function UATScheduleContent() {
               </Card>
             ) : (
               games.map((game) => (
-                <Card key={game.id} className="bg-card/80 border-white/10">
+                <Card key={game.id} className="bg-card/80 border-white/10 overflow-hidden relative group">
                   <CardContent className="p-6">
-                    <div className="flex flex-col md:flex-row justify-between gap-4">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                       <div className="space-y-1">
-                        <Badge variant="outline" className="text-[10px] font-black uppercase">UAT GAME</Badge>
-                        <h3 className="text-lg font-black uppercase">{game.away} vs {game.home}</h3>
-                        <div className="flex items-center gap-4 text-[10px] font-bold text-muted-foreground">
-                          <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {game.time || "TBD"}</span>
-                          <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {game.location || "Test Field"}</span>
+                        <div className="flex items-center gap-2">
+                           <Badge variant="outline" className="text-[9px] font-black uppercase border-[var(--tenant-primary)]/20 text-[var(--tenant-primary)]">
+                             Week {game.week || "N/A"}
+                           </Badge>
+                           <span className="text-[10px] font-bold text-muted-foreground uppercase">
+                             {game.date ? new Date(game.date).toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric' }) : "Date TBD"}
+                           </span>
                         </div>
+                        <h3 className="text-xl font-black uppercase tracking-tight">
+                          <span className={cn(game.away === "Coach Chewy" ? "text-[var(--tenant-primary)]" : "text-white")}>{game.away}</span>
+                          <span className="mx-2 text-muted-foreground/30 text-sm">VS</span>
+                          <span className={cn(game.home === "Coach Chewy" ? "text-[var(--tenant-primary)]" : "text-white")}>{game.home}</span>
+                        </h3>
+                        <div className="flex items-center gap-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                          <span className="flex items-center gap-1.5"><Clock className="h-3 w-3 text-[var(--tenant-primary)]" /> {game.time || "TBD"}</span>
+                          <span className="flex items-center gap-1.5"><MapPin className="h-3 w-3 text-[var(--tenant-primary)]" /> {game.location || "Test Field"}</span>
+                        </div>
+                      </div>
+                      <div className="opacity-10 group-hover:opacity-20 transition-opacity">
+                         <Trophy className="h-12 w-12 text-white" />
                       </div>
                     </div>
                   </CardContent>
