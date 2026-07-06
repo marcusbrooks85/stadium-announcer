@@ -4,8 +4,9 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Zap, BarChart3, Calendar } from "lucide-react";
+import { Home, Zap, BarChart3, Calendar, Activity } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useUATGame } from "@/app/context/uat-game-context";
 
 /**
  * A shared navigation bar for the UAT environment.
@@ -13,6 +14,9 @@ import { cn } from "@/lib/utils";
  */
 export function UATNavbar() {
   const pathname = usePathname();
+  const { userRole } = useUATGame();
+
+  const isAdmin = userRole === "super_admin" || userRole === "league_admin";
 
   const navItems = [
     { label: "Home", href: "/uat", icon: Home },
@@ -21,9 +25,16 @@ export function UATNavbar() {
     { label: "Schedule", href: "/schedule-uat", icon: Calendar },
   ];
 
+  // System analytics link for administrators
+  const adminItems = isAdmin ? [
+    { label: "Analytics", href: "/analytics-uat", icon: Activity }
+  ] : [];
+
+  const allItems = [...navItems, ...adminItems];
+
   return (
     <div className="flex items-center bg-black/20 rounded-full p-1 border border-white/5 mr-1 md:mr-2">
-      {navItems.map((item) => {
+      {allItems.map((item) => {
         const Icon = item.icon;
         const isActive = pathname === item.href;
         

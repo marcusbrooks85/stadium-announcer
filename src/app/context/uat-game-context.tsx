@@ -53,6 +53,7 @@ export type UATRole = "super_admin" | "league_admin" | "booth_admin" | "user";
 
 interface UATGameContextType {
   roster: Player[];
+  games: any[];
   organSongs: StadiumSong[];
   pumpUpSongs: StadiumSong[];
   selectedGameId: string;
@@ -81,9 +82,10 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   
   const [roster, setRoster] = useState<Player[]>([]);
+  const [games, setGames] = useState<any[]>([]);
   const [organSongs, setOrganSongs] = useState<StadiumSong[]>([]);
   const [pumpUpSongs, setPumpUpSongs] = useState<StadiumSong[]>([]);
-  const [selectedGameId, setSelectedGameId] = useState<string>("uat_game_1");
+  const [selectedGameId, setSelectedGameId] = useState<string>("");
   const [gameStats, setGameStats] = useState<any>({});
   const [allGameStats, setAllGameStats] = useState<Record<string, any>>({});
   
@@ -107,15 +109,12 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
           if (!teamId) {
             router.push("/uat");
           } else {
-            // Fetch Team Branding
             const teamDoc = await getDoc(doc(db, "teams_UAT", teamId));
             if (teamDoc.exists()) {
               const teamData = teamDoc.data();
               const primary = teamData.primaryColor || "#4285FF";
               const secondary = teamData.secondaryColor || "#2EB1D9";
               setTeamBranding({ primary, secondary });
-              
-              // Inject CSS variables
               document.documentElement.style.setProperty('--tenant-primary', primary);
               document.documentElement.style.setProperty('--tenant-secondary', secondary);
             }
@@ -136,10 +135,18 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!db || !userTeamId) return;
 
-    // Multi-tenant isolated queries
     const qPlayers = query(collection(db, "players_UAT"), where("teamId", "==", userTeamId));
     const unsubPlayers = onSnapshot(qPlayers, (snap) => {
       setRoster(snap.docs.map(d => ({ id: d.id, ...d.data() })) as Player[]);
+    });
+
+    const qGames = query(collection(db, "games_UAT"), where("teamId", "==", userTeamId));
+    const unsubGames = onSnapshot(qGames, (snap) => {
+      const gList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setGames(gList);
+      if (gList.length > 0 && !selectedGameId) {
+        setSelectedGameId(gList[0].id);
+      }
     });
 
     const qStats = query(collection(db, "game_stats_UAT"), where("teamId", "==", userTeamId));
@@ -161,6 +168,7 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
 
     return () => { 
       unsubPlayers(); 
+      unsubGames();
       unsubAllStats(); 
       unsubOrgan(); 
       unsubPump(); 
@@ -175,17 +183,6 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
     }
   }, [selectedGameId, allGameStats]);
 
-  const logAudit = async (actionType: string) => {
-    if (!db || !auth.currentUser || !userTeamId) return;
-    await setDoc(doc(collection(db, "audit_logs_UAT")), {
-      timestamp: serverTimestamp(),
-      operatorId: auth.currentUser.uid,
-      operatorRole: userRole,
-      actionType,
-      teamId: userTeamId
-    });
-  };
-
   const updateBranding = async (primary: string, secondary: string) => {
     if (!db || !userTeamId || (userRole !== "super_admin" && userRole !== "league_admin")) return;
     await setDoc(doc(db, "teams_UAT", userTeamId), {
@@ -195,7 +192,6 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
     setTeamBranding({ primary, secondary });
     document.documentElement.style.setProperty('--tenant-primary', primary);
     document.documentElement.style.setProperty('--tenant-secondary', secondary);
-    await logAudit("THEME_UPDATE");
   };
 
   const updateTeamScore = (team: 'home' | 'away', delta: number) => {
@@ -259,6 +255,7 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
   return (
     <UATGameContext.Provider value={{
       roster: roster.map(p => ({ ...p, stats: gameStats.playerStats?.[p.id] || { ab: 0, h: 0, r: 0, rbi: 0 } })),
+      games,
       organSongs,
       pumpUpSongs,
       selectedGameId,
