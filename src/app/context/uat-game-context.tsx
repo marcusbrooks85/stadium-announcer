@@ -70,8 +70,9 @@ interface UATGameContextType {
   deleteStadiumSong: (category: 'organ' | 'pumpup', id: string) => void;
   reorderStadiumSongs: (category: 'organ' | 'pumpup', songs: StadiumSong[]) => void;
   isLoaded: boolean;
-  teamBranding: { primary: string; secondary: string };
-  updateBranding: (primary: string, secondary: string) => void;
+  isOnline: boolean;
+  teamBranding: { primary: string; secondary: string; updatedAt?: any };
+  updateBranding: (primary: string, secondary: string) => Promise<void>;
 }
 
 const UATGameContext = createContext<UATGameContextType | undefined>(undefined);
@@ -92,41 +93,65 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
   const [userRole, setUserRole] = useState<UATRole>("user");
   const [userTeamId, setUserTeamId] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
   const [teamBranding, setTeamBranding] = useState({ primary: "#4285FF", secondary: "#2EB1D9" });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    setIsOnline(navigator.onLine);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
 
   useEffect(() => {
     if (!db || !auth) return;
 
     const unsubAuth = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        const userDoc = await getDoc(doc(db, "users_UAT", user.uid));
-        if (userDoc.exists()) {
-          const data = userDoc.data();
-          const teamId = data.teamId || null;
-          setUserRole(data.role || "user");
-          setUserTeamId(teamId);
+        const userDocRef = doc(db, "users_UAT", user.uid);
+        const unsubUser = onSnapshot(userDocRef, async (docSnap) => {
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            const teamId = data.teamId || null;
+            setUserRole(data.role || "user");
+            setUserTeamId(teamId);
 
-          if (!teamId) {
-            router.push("/uat");
-          } else {
-            const teamDoc = await getDoc(doc(db, "teams_UAT", teamId));
-            if (teamDoc.exists()) {
-              const teamData = teamDoc.data();
-              const primary = teamData.primaryColor || "#4285FF";
-              const secondary = teamData.secondaryColor || "#2EB1D9";
-              setTeamBranding({ primary, secondary });
-              document.documentElement.style.setProperty('--tenant-primary', primary);
-              document.documentElement.style.setProperty('--tenant-secondary', secondary);
+            if (!teamId) {
+              router.push("/uat");
+            } else {
+              const teamDocRef = doc(db, "teams_UAT", teamId);
+              onSnapshot(teamDocRef, (teamSnap) => {
+                if (teamSnap.exists()) {
+                  const teamData = teamSnap.data();
+                  const primary = teamData.primaryColor || "#4285FF";
+                  const secondary = teamData.secondaryColor || "#2EB1D9";
+                  setTeamBranding({ 
+                    primary, 
+                    secondary,
+                    updatedAt: teamData.updatedAt 
+                  });
+                  document.documentElement.style.setProperty('--tenant-primary', primary);
+                  document.documentElement.style.setProperty('--tenant-secondary', secondary);
+                }
+              });
             }
+          } else {
+            router.push("/uat");
           }
-        } else {
-          router.push("/uat");
-        }
+          setIsLoaded(true);
+        });
+        return () => unsubUser();
       } else {
         setUserRole("user");
         setUserTeamId(null);
+        setIsLoaded(true);
       }
-      setIsLoaded(true);
     });
 
     return () => unsubAuth();
@@ -185,13 +210,22 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
 
   const updateBranding = async (primary: string, secondary: string) => {
     if (!db || !userTeamId || (userRole !== "super_admin" && userRole !== "league_admin")) return;
-    await setDoc(doc(db, "teams_UAT", userTeamId), {
+    
+    // Optimistic Collision Check
+    const teamRef = doc(db, "teams_UAT", userTeamId);
+    const latestSnap = await getDoc(teamRef);
+    const latestData = latestSnap.data();
+    
+    if (teamBranding.updatedAt && latestData?.updatedAt && latestData.updatedAt.seconds > teamBranding.updatedAt.seconds) {
+      throw new Error("COLLISION_ERROR");
+    }
+
+    await setDoc(teamRef, {
       primaryColor: primary,
-      secondaryColor: secondary
+      secondaryColor: secondary,
+      updatedAt: serverTimestamp(),
+      lastUpdatedBy: auth.currentUser?.uid
     }, { merge: true });
-    setTeamBranding({ primary, secondary });
-    document.documentElement.style.setProperty('--tenant-primary', primary);
-    document.documentElement.style.setProperty('--tenant-secondary', secondary);
   };
 
   const updateTeamScore = (team: 'home' | 'away', delta: number) => {
@@ -200,7 +234,8 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
     const current = gameStats[key] || 0;
     setDoc(doc(db, "game_stats_UAT", selectedGameId), { 
       [key]: Math.max(0, current + delta),
-      teamId: userTeamId 
+      teamId: userTeamId,
+      updatedAt: serverTimestamp()
     }, { merge: true });
   };
 
@@ -212,7 +247,8 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
     const newValue = Math.max(0, current[statType] + delta);
     setDoc(ref, { 
       playerStats: { ...pStats, [playerId]: { ...current, [statType]: newValue } },
-      teamId: userTeamId 
+      teamId: userTeamId,
+      updatedAt: serverTimestamp()
     }, { merge: true });
   };
 
@@ -220,7 +256,8 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
     if (!db || !userTeamId || userRole === "user") return;
     setDoc(id ? doc(db, "players_UAT", id) : doc(collection(db, "players_UAT")), {
       ...playerData,
-      teamId: userTeamId
+      teamId: userTeamId,
+      updatedAt: serverTimestamp()
     }, { merge: true });
   };
 
@@ -234,7 +271,8 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
     const coll = category === 'organ' ? "organ_songs_UAT" : "pump_up_songs_UAT";
     setDoc(id ? doc(db, coll, id) : doc(collection(db, coll)), {
       ...song,
-      teamId: userTeamId
+      teamId: userTeamId,
+      updatedAt: serverTimestamp()
     }, { merge: true });
   };
 
@@ -247,7 +285,10 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
     if (!db || (userRole !== "super_admin" && userRole !== "league_admin")) return;
     const batch = writeBatch(db);
     updatedSongs.forEach((song, index) => {
-      batch.update(doc(db, category === 'organ' ? "organ_songs_UAT" : "pump_up_songs_UAT", song.id), { order: index });
+      batch.update(doc(db, category === 'organ' ? "organ_songs_UAT" : "pump_up_songs_UAT", song.id), { 
+        order: index,
+        updatedAt: serverTimestamp()
+      });
     });
     batch.commit();
   };
@@ -272,6 +313,7 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
       deleteStadiumSong,
       reorderStadiumSongs,
       isLoaded,
+      isOnline,
       teamBranding,
       updateBranding
     }}>

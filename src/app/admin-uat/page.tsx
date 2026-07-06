@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState } from "react";
@@ -14,6 +15,7 @@ import {
   Trash,
   Palette,
   Save,
+  RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,6 +35,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogClose,
 } from "@/components/ui/dialog";
 import { UATNavbar } from "@/components/UATNavbar";
 
@@ -55,6 +58,7 @@ function UATAdminContent() {
   
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showCollisionModal, setShowCollisionModal] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
 
   const [playerForm, setPlayerForm] = useState({ name: "", number: 0 });
@@ -117,6 +121,12 @@ function UATAdminContent() {
     try {
       await updateBranding(brandForm.primary, brandForm.secondary);
       toast({ title: "Branding Updated", description: "Workspace colors have been refreshed." });
+    } catch (e: any) {
+      if (e.message === "COLLISION_ERROR") {
+        setShowCollisionModal(true);
+      } else {
+        toast({ variant: "destructive", title: "Update Failed", description: e.message });
+      }
     } finally { setIsSaving(false); }
   };
 
@@ -156,7 +166,7 @@ function UATAdminContent() {
   if (userRole === "user") {
     return (
       <div className="min-h-screen bg-background p-8 flex items-center justify-center">
-        <Card className="w-full max-w-md border-destructive/20 bg-destructive/5">
+        <Card className="w-full max-md border-destructive/20 bg-destructive/5">
           <CardHeader className="text-center">
             <Lock className="w-12 h-12 text-destructive mx-auto mb-4" />
             <CardTitle className="text-xl font-black uppercase">Access Denied</CardTitle>
@@ -221,7 +231,8 @@ function UATAdminContent() {
                   </div>
                 </div>
                 <Button onClick={handleUpdateBranding} className="w-full bg-[var(--tenant-primary)] text-white font-black uppercase md:col-span-2">
-                  <Save className="h-4 w-4 mr-2" /> Update Tenant Branding
+                  {isSaving ? <Loader2 className="animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />} 
+                  Update Tenant Branding
                 </Button>
               </CardContent>
             </Card>
@@ -338,6 +349,26 @@ function UATAdminContent() {
           </section>
         )}
       </div>
+
+      <Dialog open={showCollisionModal} onOpenChange={setShowCollisionModal}>
+        <DialogContent className="bg-card border-yellow-500/20">
+          <DialogHeader>
+            <div className="mx-auto w-12 h-12 bg-yellow-500/10 rounded-full flex items-center justify-center mb-4">
+              <RefreshCw className="w-6 h-6 text-yellow-500" />
+            </div>
+            <DialogTitle className="text-center text-yellow-500 font-black uppercase tracking-widest">Collision Warning</DialogTitle>
+            <DialogDescription className="text-center font-bold text-muted-foreground uppercase leading-relaxed">
+              This configuration was modified by another operator while you were editing. 
+              Please refresh to load the latest state.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button onClick={() => window.location.reload()} className="w-full bg-yellow-500 hover:bg-yellow-600 font-black uppercase tracking-widest">
+              Refresh Workspace
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

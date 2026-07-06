@@ -1,3 +1,4 @@
+
 "use client";
 
 import React from "react";
@@ -12,6 +13,8 @@ import {
   Menu, 
   ChevronRight,
   Lock,
+  Wifi,
+  WifiOff
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUATGame } from "@/app/context/uat-game-context";
@@ -31,7 +34,7 @@ import { Button } from "@/components/ui/button";
  */
 export function UATNavbar() {
   const pathname = usePathname();
-  const { userRole } = useUATGame();
+  const { userRole, isOnline } = useUATGame();
 
   const isAdmin = userRole === "super_admin" || userRole === "league_admin";
 
@@ -59,10 +62,19 @@ export function UATNavbar() {
       </SheetTrigger>
       <SheetContent side="right" className="bg-card/95 backdrop-blur-xl border-l border-white/10 p-0 w-[280px] md:w-[320px] flex flex-col shadow-2xl">
         <SheetHeader className="p-6 border-b border-white/5 bg-white/5">
-          <SheetTitle className="text-left text-[10px] font-black uppercase tracking-[0.3em] text-[var(--tenant-primary)] flex items-center gap-3">
-             <div className="h-1.5 w-1.5 rounded-full bg-[var(--tenant-primary)] animate-pulse" />
-             Navigation Menu
-          </SheetTitle>
+          <div className="flex items-center justify-between">
+            <SheetTitle className="text-left text-[10px] font-black uppercase tracking-[0.3em] text-[var(--tenant-primary)] flex items-center gap-3">
+               <div className="h-1.5 w-1.5 rounded-full bg-[var(--tenant-primary)] animate-pulse" />
+               Navigation Menu
+            </SheetTitle>
+            <div className={cn(
+              "flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[8px] font-black uppercase tracking-tighter",
+              isOnline ? "bg-green-500/10 border-green-500/20 text-green-500" : "bg-yellow-500/10 border-yellow-500/20 text-yellow-500"
+            )}>
+              {isOnline ? <Wifi className="h-2 w-2" /> : <WifiOff className="h-2 w-2" />}
+              {isOnline ? "Live" : "Offline"}
+            </div>
+          </div>
         </SheetHeader>
 
         <nav className="flex-1 p-6 space-y-3 overflow-y-auto">
