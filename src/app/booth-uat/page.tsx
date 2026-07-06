@@ -6,16 +6,16 @@ import Link from "next/link";
 import { 
   Users, 
   Activity, 
-  Volume2,
-  VolumeX,
-  ChevronRight,
-  BarChart3,
-  Music2,
-  Zap,
-  ArrowDownWideNarrow,
-  Ban,
-  Home,
-  ShieldCheck
+  Volume2, 
+  VolumeX, 
+  ChevronRight, 
+  BarChart3, 
+  Music2, 
+  Zap, 
+  ArrowDownWideNarrow, 
+  Ban, 
+  Home, 
+  ShieldCheck 
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -273,7 +273,7 @@ function UATBoothContent() {
                       <Button key={song.id} variant="outline" onClick={() => playYoutubeTrack(song.link, song.title, song.startTime, "Hype")} className="w-full h-12 text-[8px] font-black uppercase text-left justify-start">📣 {song.title}</Button>
                     ))}
                   </CardContent>
-                </div>
+                </Card>
               </div>
             </div>
           </main>
