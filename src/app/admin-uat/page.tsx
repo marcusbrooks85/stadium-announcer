@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { 
   ShieldCheck, 
   Settings, 
@@ -17,7 +18,9 @@ import {
   AlertTriangle,
   FileAudio,
   ShieldAlert,
-  ChevronLeft
+  ChevronLeft,
+  Upload,
+  Trophy
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,14 +45,16 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useUATGame, UATGameProvider } from "@/app/context/uat-game-context";
 import { UATNavbar } from "@/components/UATNavbar";
-import { useFirestore } from "@/firebase";
+import { useFirestore, useStorage } from "@/firebase";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 
 function UATAdminPortalContent() {
   const router = useRouter();
   const db = useFirestore();
+  const storage = useStorage();
   const { toast } = useToast();
   const { 
     isLoaded, 
@@ -69,16 +74,18 @@ function UATAdminPortalContent() {
 
   const [teamUsers, setTeamUsers] = useState<any[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   // Form States
-  const [brandingForm, setBrandingForm] = useState({ name: "", primary: "", secondary: "" });
+  const [brandingForm, setBrandingForm] = useState({ name: "", primary: "", secondary: "", logoUrl: "" });
 
   useEffect(() => {
     if (teamData) {
       setBrandingForm({
         name: teamData.name || "",
         primary: teamData.primaryColor || "#4285FF",
-        secondary: teamData.secondaryColor || "#2EB1D9"
+        secondary: teamData.secondaryColor || "#2EB1D9",
+        logoUrl: teamData.logoUrl || ""
       });
     }
   }, [teamData]);
@@ -101,10 +108,29 @@ function UATAdminPortalContent() {
         primaryColor: brandingForm.primary,
         secondaryColor: brandingForm.secondary
       });
-      toast({ title: "Branding Updated" });
+      toast({ title: "Identity Updated" });
     } catch (e: any) {
       toast({ variant: "destructive", title: "Update Failed", description: e.message });
     } finally { setIsSaving(false); }
+  };
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !userTeamId) return;
+    
+    setIsUploading(true);
+    try {
+      const storageRef = ref(storage, `logos_UAT/${userTeamId}_${Date.now()}`);
+      await uploadBytes(storageRef, file);
+      const url = await getDownloadURL(storageRef);
+      await saveTeamBranding({ logoUrl: url });
+      setBrandingForm(prev => ({ ...prev, logoUrl: url }));
+      toast({ title: "Logo Successfully Uploaded" });
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Logo Upload Failed", description: err.message });
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   if (!isLoaded) {
@@ -114,7 +140,6 @@ function UATAdminPortalContent() {
     </div>;
   }
 
-  // Final role check for the portal
   const hasAccess = ["super_admin", "league_admin", "booth_admin"].includes(userRole || "");
   
   if (!hasAccess) {
@@ -139,18 +164,30 @@ function UATAdminPortalContent() {
   return (
     <div className="min-h-screen bg-background text-foreground stadium-gradient overflow-hidden flex flex-col">
       <header className="sticky top-0 z-50 flex items-center justify-between p-4 border-b border-border shadow-2xl bg-card/95 backdrop-blur-md">
-        <div className="flex flex-col">
-          <h1 className="font-headline font-black uppercase tracking-[0.2em] text-[10px] md:text-sm">UAT ADMIN PORTAL</h1>
-          <div className="flex items-center gap-1.5">
-            <ShieldCheck className="h-3 w-3 text-[var(--tenant-primary)]" />
-            <span className="text-[8px] font-black uppercase text-[var(--tenant-primary)] tracking-tighter">Verified: {userRole?.replace('_', ' ')}</span>
+        <div className="flex items-center gap-3">
+          {teamData?.logoUrl ? (
+            <div className="relative w-8 h-8 md:w-10 md:h-10">
+              <Image src={teamData.logoUrl} alt="Logo" fill className="object-contain" />
+            </div>
+          ) : (
+            <div className="w-8 h-8 md:w-10 md:h-10 bg-primary/10 rounded flex items-center justify-center">
+               <ShieldCheck className="h-5 w-5 text-[var(--tenant-primary)]" />
+            </div>
+          )}
+          <div className="flex flex-col">
+            <h1 className="font-headline font-black uppercase tracking-[0.2em] text-[10px] md:text-sm">
+              {teamData?.name || "UAT ADMIN PORTAL"}
+            </h1>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[8px] font-black uppercase text-[var(--tenant-primary)] tracking-tighter">Verified: {userRole?.replace('_', ' ')}</span>
+            </div>
           </div>
         </div>
         <UATNavbar />
       </header>
 
       <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full overflow-y-auto pb-24">
-        <Tabs defaultValue="logistics" className="space-y-8">
+        <Tabs defaultValue="branding" className="space-y-8">
           <TabsList className="bg-black/20 p-1 border border-white/5 h-12 w-full justify-start overflow-x-auto whitespace-nowrap scrollbar-hide">
             {(userRole === "super_admin") && <TabsTrigger value="branding" className="text-[10px] font-black uppercase tracking-widest px-6 h-10">Branding</TabsTrigger>}
             {(userRole === "super_admin") && <TabsTrigger value="users" className="text-[10px] font-black uppercase tracking-widest px-6 h-10">Team Users</TabsTrigger>}
@@ -164,9 +201,34 @@ function UATAdminPortalContent() {
                 <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-3">
                   <Palette className="h-4 w-4 text-[var(--tenant-primary)]" /> Visual Identity
                 </CardTitle>
-                <CardDescription className="text-[10px] uppercase font-bold">Configure workspace colors and name.</CardDescription>
+                <CardDescription className="text-[10px] uppercase font-bold">Configure workspace branding and name.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Team Logo</Label>
+                  <div className="flex items-center gap-6">
+                    <div className="relative w-24 h-24 rounded-2xl overflow-hidden border-2 border-white/5 bg-black/40 flex items-center justify-center">
+                      {brandingForm.logoUrl ? (
+                        <Image src={brandingForm.logoUrl} alt="Logo Preview" fill className="object-contain" />
+                      ) : (
+                        <Trophy className="h-8 w-8 opacity-20" />
+                      )}
+                      {isUploading && <div className="absolute inset-0 bg-black/60 flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>}
+                    </div>
+                    <div className="flex-1 space-y-2">
+                       <p className="text-[9px] font-bold text-muted-foreground uppercase leading-relaxed">Upload a PNG or SVG to replace the default icon across the entire booth environment.</p>
+                       <div className="relative">
+                         <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" id="logo-upload" />
+                         <Label htmlFor="logo-upload">
+                           <Button asChild variant="outline" className="h-10 text-[10px] font-black uppercase border-white/10 w-full cursor-pointer">
+                             <span><Upload className="h-3 w-3 mr-2" /> Upload New Logo</span>
+                           </Button>
+                         </Label>
+                       </div>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="space-y-2">
                   <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Official Team Name</Label>
                   <Input value={brandingForm.name} onChange={e => setBrandingForm({...brandingForm, name: e.target.value})} className="h-12 bg-black/40 font-bold" />

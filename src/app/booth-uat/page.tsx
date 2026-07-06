@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { 
   Users, 
@@ -46,7 +47,8 @@ function UATBoothContent() {
     isAdmin,
     userTeamId,
     selectedGameId,
-    userRole
+    userRole,
+    teamData
   } = useUATGame();
   
   const [activePlayerId, setActivePlayerId] = useState<string | null>(null);
@@ -174,14 +176,26 @@ function UATBoothContent() {
 
         <header className="sticky top-0 z-50 flex flex-col p-4 border-b border-border shadow-2xl bg-card/95 backdrop-blur-md gap-4">
           <div className="flex items-center justify-between w-full relative gap-2">
-            <div className="flex flex-col shrink-0">
-              <h1 className="font-headline font-black uppercase tracking-[0.2em] text-[10px] md:text-sm">UAT BOOTH</h1>
-              {isAdmin && (
-                <div className="flex items-center gap-1.5 animate-in fade-in slide-in-from-left-2 duration-500">
-                  <ShieldCheck className="h-3 w-3 text-primary" />
-                  <span className="text-[8px] font-black uppercase text-primary tracking-tighter">Ops Mode: {userRole?.replace('_', ' ')}</span>
+            <div className="flex items-center gap-3 shrink-0">
+              {teamData?.logoUrl ? (
+                <div className="relative w-8 h-8 md:w-10 md:h-10">
+                  <Image src={teamData.logoUrl} alt="Logo" fill className="object-contain" />
+                </div>
+              ) : (
+                <div className="w-8 h-8 md:w-10 md:h-10 bg-primary/10 rounded flex items-center justify-center">
+                  <ShieldCheck className="h-5 w-5 text-primary" />
                 </div>
               )}
+              <div className="flex flex-col">
+                <h1 className="font-headline font-black uppercase tracking-[0.2em] text-[10px] md:text-sm">
+                  {teamData?.name ? `${teamData.name} BOOTH` : "UAT BOOTH"}
+                </h1>
+                {isAdmin && (
+                  <div className="flex items-center gap-1.5 animate-in fade-in slide-in-from-left-2 duration-500">
+                    <span className="text-[8px] font-black uppercase text-primary tracking-tighter">Ops Mode: {userRole?.replace('_', ' ')}</span>
+                  </div>
+                )}
+              </div>
             </div>
             
             <div className="flex-1 flex justify-center">
@@ -237,6 +251,7 @@ function UATBoothContent() {
                   )}
                   
                   <Button disabled={!activePlayer || playbackPhase === 'announcing'} onClick={triggerWalkonSequence} className="w-full h-16 text-base font-black bg-primary">
+                    {playbackPhase === 'announcing' ? <Activity className="animate-pulse mr-2" /> : <Zap className="mr-2 fill-white" />}
                     {playbackPhase === 'announcing' ? "STADIUM ANNOUNCING..." : "TRIGGER UAT WALK-ON"}
                   </Button>
                 </CardContent>
@@ -258,7 +273,7 @@ function UATBoothContent() {
                       <Button key={song.id} variant="outline" onClick={() => playYoutubeTrack(song.link, song.title, song.startTime, "Hype")} className="w-full h-12 text-[8px] font-black uppercase text-left justify-start">📣 {song.title}</Button>
                     ))}
                   </CardContent>
-                </Card>
+                </div>
               </div>
             </div>
           </main>
