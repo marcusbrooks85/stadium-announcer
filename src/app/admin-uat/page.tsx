@@ -9,16 +9,11 @@ import {
   ShieldAlert,
   Loader2,
   Calendar,
-  MapPin,
-  Clock,
-  Zap,
   AlertTriangle,
   Lock,
   Trash,
   Palette,
   Save,
-  CheckCircle2,
-  AlertCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,13 +23,12 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useUATGame, UATGameProvider } from "@/app/context/uat-game-context";
 import { useFirestore, useAuth } from "@/firebase";
-import { collection, addDoc, doc, deleteDoc, writeBatch } from "firebase/firestore";
+import { collection, addDoc, doc, writeBatch } from "firebase/firestore";
 import { deleteUser } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -171,7 +165,9 @@ function UATAdminContent() {
             </CardDescription>
           </CardHeader>
           <CardFooter className="flex flex-col gap-3">
-            <UATNavbar />
+             <div className="flex justify-center w-full">
+                <UATNavbar />
+             </div>
             <Link href="/booth-uat" className="w-full">
               <Button variant="outline" className="w-full font-black uppercase tracking-widest">Back to Booth</Button>
             </Link>

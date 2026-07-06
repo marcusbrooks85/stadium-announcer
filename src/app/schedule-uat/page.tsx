@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -10,7 +9,6 @@ import {
   Clock,
   Loader2,
   Plus,
-  Lock
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -50,11 +48,6 @@ function UATScheduleContent() {
         
         <div className="flex items-center gap-2">
           <UATNavbar />
-          <Link href="/admin-uat">
-            <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-[var(--tenant-primary)]">
-              <Lock className="h-4 w-4" />
-            </Button>
-          </Link>
         </div>
       </header>
 

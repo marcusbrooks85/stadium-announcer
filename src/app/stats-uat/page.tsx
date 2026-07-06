@@ -1,19 +1,12 @@
-
 "use client";
 
 import React, { useState, useMemo } from "react";
-import Link from "next/link";
 import { 
   Plus, 
   Minus, 
   Target, 
   Table as TableIcon,
-  Home,
-  Mail,
   Calendar,
-  BarChart3,
-  Zap,
-  Lock,
   Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -81,11 +74,6 @@ function UATStatsContent() {
           
           <div className="flex items-center gap-2">
             <UATNavbar />
-            <Link href="/admin-uat">
-              <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-[var(--tenant-primary)]">
-                <Lock className="h-4 w-4" />
-              </Button>
-            </Link>
           </div>
         </header>
 

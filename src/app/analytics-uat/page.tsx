@@ -1,12 +1,8 @@
-
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import Link from "next/link";
 import { 
-  BarChart3, 
   ShieldCheck, 
-  Lock, 
   Loader2, 
   Activity, 
   TrendingUp, 
@@ -56,7 +52,6 @@ function UATAnalyticsContent() {
   useEffect(() => {
     if (!db || !userTeamId) return;
 
-    // Primary query for interactive logs
     const q = query(
       collection(db, "analytics_UAT"),
       where("teamId", "==", userTeamId),
@@ -71,12 +66,8 @@ function UATAnalyticsContent() {
         setIndexBuilding(false);
       },
       (error: any) => {
-        // Handle missing or building index
         if (error.code === 'failed-precondition') {
-          console.warn("Firestore Index Building: Falling back to un-ordered query.");
           setIndexBuilding(true);
-          
-          // Fallback: Fetch without orderby and sort in memory
           const fallbackQ = query(
             collection(db, "analytics_UAT"),
             where("teamId", "==", userTeamId),
@@ -85,7 +76,6 @@ function UATAnalyticsContent() {
           
           getDocs(fallbackQ).then((snap) => {
             const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-            // Sort in memory by timestamp
             data.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
             setLogs(data.slice(0, 20));
             setAnalyticsLoading(false);
@@ -153,7 +143,6 @@ function UATAnalyticsContent() {
         };
       });
 
-      // Manual sort for report accuracy in case index is missing
       allEvents.sort((a, b) => a.sortTime - b.sortTime);
 
       const aggregated = {
@@ -215,11 +204,6 @@ function UATAnalyticsContent() {
         
         <div className="flex items-center gap-2">
           <UATNavbar />
-          <Link href="/admin-uat">
-            <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-[var(--tenant-primary)]">
-              <Lock className="h-4 w-4" />
-            </Button>
-          </Link>
         </div>
       </header>
 
@@ -355,7 +339,7 @@ function UATAnalyticsContent() {
                   <div key={log.id} className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/5 group">
                     <div className="flex items-center gap-3">
                       <div className="h-8 w-8 rounded bg-[var(--tenant-primary)]/10 flex items-center justify-center">
-                        <ZapIcon className="h-4 w-4 text-[var(--tenant-primary)]" />
+                        <Activity className="h-4 w-4 text-[var(--tenant-primary)]" />
                       </div>
                       <div className="flex flex-col">
                         <span className="text-[10px] font-black uppercase tracking-tighter text-white">
@@ -388,23 +372,4 @@ export default function UATAnalyticsPage() {
       <UATAnalyticsContent />
     </UATGameProvider>
   );
-}
-
-function ZapIcon(props: any) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M4 14.71 14 3v9.29L20 9.29 10 21V11.71L4 14.71Z" />
-    </svg>
-  )
 }

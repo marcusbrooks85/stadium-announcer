@@ -1,16 +1,33 @@
-
 "use client";
 
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Zap, BarChart3, Calendar, Activity } from "lucide-react";
+import { 
+  Home, 
+  Zap, 
+  BarChart3, 
+  Calendar, 
+  Activity, 
+  Menu, 
+  ChevronRight,
+  Lock,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUATGame } from "@/app/context/uat-game-context";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+  SheetClose,
+} from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
 
 /**
  * A shared navigation bar for the UAT environment.
- * Utilizes tenant-specific branding variables.
+ * Consolidates all links into a slide-out hamburger menu.
  */
 export function UATNavbar() {
   const pathname = usePathname();
@@ -25,45 +42,84 @@ export function UATNavbar() {
     { label: "Schedule", href: "/schedule-uat", icon: Calendar },
   ];
 
-  // System analytics link for administrators
-  const adminItems = isAdmin ? [
-    { label: "Analytics", href: "/analytics-uat", icon: Activity }
-  ] : [];
-
-  const allItems = [...navItems, ...adminItems];
+  if (isAdmin) {
+    navItems.push({ label: "Analytics", href: "/analytics-uat", icon: Activity });
+  }
 
   return (
-    <div className="flex items-center bg-black/20 rounded-full p-1 border border-white/5 mr-1 md:mr-2">
-      {allItems.map((item) => {
-        const Icon = item.icon;
-        const isActive = pathname === item.href;
-        
-        return (
-          <Link key={item.href} href={item.href}>
-            <div
-              className={cn(
-                "flex items-center gap-2 px-2 md:px-3 py-1.5 rounded-full transition-all duration-300",
-                isActive 
-                  ? "bg-[var(--tenant-primary)] text-white shadow-lg" 
-                  : "text-muted-foreground hover:text-[var(--tenant-primary)] hover:bg-[var(--tenant-primary)]/5"
-              )}
-            >
-              <Icon 
-                className={cn(
-                  "h-3.5 w-3.5 md:h-4 md:w-4 transition-transform",
-                  isActive ? "scale-110" : "scale-100"
-                )} 
-              />
-              <span className={cn(
-                "text-[8px] md:text-[9px] font-black uppercase tracking-widest hidden sm:inline",
-                isActive ? "opacity-100" : "opacity-70"
+    <Sheet>
+      <SheetTrigger asChild>
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="h-10 w-10 text-muted-foreground hover:text-[var(--tenant-primary)] hover:bg-[var(--tenant-primary)]/10 transition-all rounded-full"
+        >
+          <Menu className="h-6 w-6" />
+        </Button>
+      </SheetTrigger>
+      <SheetContent side="right" className="bg-card/95 backdrop-blur-xl border-l border-white/10 p-0 w-[280px] md:w-[320px] flex flex-col shadow-2xl">
+        <SheetHeader className="p-6 border-b border-white/5 bg-white/5">
+          <SheetTitle className="text-left text-[10px] font-black uppercase tracking-[0.3em] text-[var(--tenant-primary)] flex items-center gap-3">
+             <div className="h-1.5 w-1.5 rounded-full bg-[var(--tenant-primary)] animate-pulse" />
+             Navigation Menu
+          </SheetTitle>
+        </SheetHeader>
+
+        <nav className="flex-1 p-6 space-y-3 overflow-y-auto">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = pathname === item.href;
+            
+            return (
+              <SheetClose key={item.href} asChild>
+                <Link href={item.href}>
+                  <div
+                    className={cn(
+                      "flex items-center justify-between p-4 rounded-2xl transition-all duration-300 group relative overflow-hidden",
+                      isActive 
+                        ? "bg-[var(--tenant-primary)] text-white shadow-xl shadow-[var(--tenant-primary)]/20" 
+                        : "text-muted-foreground hover:bg-white/5 hover:text-white"
+                    )}
+                  >
+                    <div className="flex items-center gap-4 relative z-10">
+                      <div className={cn(
+                        "p-2 rounded-lg transition-colors",
+                        isActive ? "bg-white/20" : "bg-black/20"
+                      )}>
+                        <Icon className={cn("h-5 w-5 transition-transform", isActive ? "scale-110" : "group-hover:scale-110")} />
+                      </div>
+                      <span className="text-xs font-black uppercase tracking-widest">{item.label}</span>
+                    </div>
+                    <ChevronRight className={cn("h-4 w-4 relative z-10 transition-all duration-300", isActive ? "translate-x-0 opacity-100" : "-translate-x-2 opacity-0 group-hover:translate-x-0 group-hover:opacity-50")} />
+                  </div>
+                </Link>
+              </SheetClose>
+            );
+          })}
+        </nav>
+
+        <div className="p-6 border-t border-white/5 bg-black/40">
+          <SheetClose asChild>
+            <Link href="/admin-uat">
+              <div className={cn(
+                "flex items-center gap-4 p-5 rounded-2xl transition-all duration-300 group",
+                pathname === "/admin-uat" 
+                  ? "bg-[var(--tenant-secondary)] text-white shadow-lg" 
+                  : "bg-white/5 text-muted-foreground hover:text-white hover:bg-white/10"
               )}>
-                {item.label}
-              </span>
-            </div>
-          </Link>
-        );
-      })}
-    </div>
+                <div className="h-10 w-10 rounded-full bg-black/20 flex items-center justify-center">
+                  <Lock className="h-5 w-5" />
+                </div>
+                <div className="flex flex-col flex-1">
+                  <span className="text-[10px] font-black uppercase tracking-widest leading-none">Admin Workspace</span>
+                  <span className="text-[8px] font-bold opacity-50 uppercase tracking-tighter mt-1">Configure Team Profile</span>
+                </div>
+                <ChevronRight className="h-4 w-4 opacity-30 group-hover:opacity-100 transition-opacity" />
+              </div>
+            </Link>
+          </SheetClose>
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 }

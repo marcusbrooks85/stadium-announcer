@@ -5,14 +5,12 @@ import Link from "next/link";
 import { 
   Users, 
   Activity, 
-  Volume2,
-  VolumeX,
-  ChevronRight,
-  Music2,
-  Zap,
-  ShieldCheck,
-  Lock,
-  Loader2
+  Volume2, 
+  VolumeX, 
+  ChevronRight, 
+  Zap, 
+  ShieldCheck, 
+  Loader2 
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,9 +24,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
-import { 
-  TooltipProvider, 
-} from "@/components/ui/tooltip";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useUATGame, UATGameProvider } from "@/app/context/uat-game-context";
@@ -41,11 +37,11 @@ function UATBoothContent() {
     roster, 
     organSongs, 
     pumpUpSongs, 
-    userRole,
-    userTeamId,
-    isLoaded,
-    teamBranding,
-    selectedGameId
+    userRole, 
+    userTeamId, 
+    isLoaded, 
+    teamBranding, 
+    selectedGameId 
   } = useUATGame();
   
   const db = useFirestore();
@@ -187,30 +183,24 @@ function UATBoothContent() {
               <div className="flex items-center gap-1.5">
                 <ShieldCheck className="h-3 w-3 text-[var(--tenant-primary)]" />
                 <span className="text-[8px] font-black uppercase text-[var(--tenant-primary)] tracking-tighter">
-                  Role: {userRole.replace('_', ' ').toUpperCase()}
+                  {teamBranding.primary === "#4285FF" ? "System Workspace" : "Team Workspace"}
                 </span>
               </div>
             </div>
             
-            <div className="flex items-center justify-center gap-1.5 md:gap-8 flex-1">
-              {activeTrackName ? (
+            <div className="flex-1 flex justify-center">
+              {activeTrackName && (
                 <div className="animate-in fade-in slide-in-from-top-2 duration-500">
                   <Badge variant="secondary" className="font-black text-[9px] md:text-xs uppercase tracking-widest px-3 py-1">
                     <Activity className="h-3 w-3 mr-2 animate-pulse text-[var(--tenant-primary)]" />
                     {activeTrackName}
                   </Badge>
                 </div>
-              ) : (
-                <UATNavbar />
               )}
             </div>
 
-            <div className="flex items-center gap-1 md:gap-3 shrink-0">
-              <Link href="/admin-uat">
-                <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 text-muted-foreground hover:text-[var(--tenant-primary)]">
-                  <Lock className="h-4 w-4" />
-                </Button>
-              </Link>
+            <div className="flex items-center gap-2 shrink-0">
+              <UATNavbar />
             </div>
           </div>
 
