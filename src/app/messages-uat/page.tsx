@@ -100,7 +100,7 @@ function UATMessagesContent() {
     if (!profile.playerId) return standardName;
 
     const player = roster.find(p => p.id === profile.playerId);
-    return player ? `${standardName} (${player.name})` : standardName;
+    return player ? `${standardName} (${player.name} [#${player.number}])` : standardName;
   };
 
   const handleSendMessage = async (e: React.FormEvent) => {
