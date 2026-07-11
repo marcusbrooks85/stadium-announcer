@@ -106,7 +106,11 @@ function UATMessagesContent() {
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     const activeUser = user || auth.currentUser;
-    if (!newMessage.trim() || !selectedChannelId || !activeUser || !canPostInSelected) return;
+    if (!activeUser?.uid) {
+      toast({ variant: "destructive", title: "Access Denied", description: "Authentication required." });
+      return;
+    }
+    if (!newMessage.trim() || !selectedChannelId || !canPostInSelected) return;
 
     try {
       await addDoc(collection(db, "channels_UAT", selectedChannelId, "messages_UAT"), {
@@ -114,7 +118,8 @@ function UATMessagesContent() {
         senderId: activeUser.uid,
         senderName: resolveRichName(activeUser.uid),
         senderRole: userRole,
-        timestamp: serverTimestamp()
+        timestamp: serverTimestamp(),
+        teamId: userTeamId || ""
       });
       setNewMessage("");
     } catch (err: any) {
@@ -124,15 +129,19 @@ function UATMessagesContent() {
 
   const handleCreateChannel = async () => {
     const activeUser = user || auth.currentUser;
-    if (!activeUser || !userTeamId) return;
+    if (!activeUser?.uid || !userTeamId) {
+       toast({ variant: "destructive", title: "Action Blocked", description: "Authorization required to setup channels." });
+       return;
+    }
+    
     const name = prompt("Enter Channel Name:");
     if (!name) return;
     try {
       await addDoc(collection(db, "channels_UAT"), {
         name: name.replace(/\s+/g, '-').toLowerCase(),
-        teamId: userTeamId,
+        teamId: userTeamId || "",
         type: "public",
-        createdBy: activeUser.uid,
+        createdBy: activeUser.uid || "",
         createdAt: serverTimestamp()
       });
       toast({ title: "Channel Created" });
@@ -145,6 +154,8 @@ function UATMessagesContent() {
     return <div className="min-h-screen flex items-center justify-center stadium-gradient"><Loader2 className="animate-spin" /></div>;
   }
 
+  const activeUser = user || auth.currentUser;
+
   return (
     <div className="flex flex-col h-screen bg-background text-foreground stadium-gradient overflow-hidden">
       <header className="sticky top-0 z-50 flex items-center justify-between p-4 border-b border-border shadow-2xl bg-card/95 backdrop-blur-md">
@@ -154,7 +165,7 @@ function UATMessagesContent() {
           ) : (<ShieldCheck className="h-5 w-5 text-[var(--tenant-primary)]" />)}
           <div className="flex flex-col">
             <h1 className="font-headline font-black uppercase tracking-[0.2em] text-[10px] md:text-sm">Team Chat</h1>
-            <span className="text-[8px] font-black uppercase text-[var(--tenant-primary)] tracking-tighter">{teamData?.name} Workspace</span>
+            <span className="text-[8px] font-black uppercase text-[var(--tenant-primary)] tracking-tighter">{teamData?.name || "Workspace"}</span>
           </div>
         </div>
         <UATNavbar />
@@ -164,7 +175,7 @@ function UATMessagesContent() {
         <aside className="w-64 bg-black/20 border-r border-white/5 hidden md:flex flex-col">
           <div className="p-4 border-b border-white/5 flex items-center justify-between">
             <span className="text-[10px] font-black uppercase tracking-widest opacity-50">Channels</span>
-            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleCreateChannel}><Plus className="h-4 w-4" /></Button>
+            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleCreateChannel} disabled={!activeUser}><Plus className="h-4 w-4" /></Button>
           </div>
           <ScrollArea className="flex-1">
             <div className="p-2 space-y-1">
@@ -204,7 +215,7 @@ function UATMessagesContent() {
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-[11px] font-black uppercase tracking-wider">{resolveRichName(msg.senderId)}</span>
                       <Badge variant="secondary" className="text-[7px] font-black uppercase px-1.5 py-0 bg-white/5 text-muted-foreground">{msg.senderRole?.replace('_', ' ') || "User"}</Badge>
-                      <span className="text-[8px] text-muted-foreground opacity-40 uppercase">{msg.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      <span className="text-[8px] text-muted-foreground opacity-40 uppercase">{msg.timestamp?.toDate ? msg.timestamp.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Just now"}</span>
                     </div>
                     <div className="text-sm font-bold text-white/90 leading-relaxed break-words bg-white/5 p-3 rounded-2xl rounded-tl-none border border-white/5">{msg.text}</div>
                   </div>
@@ -218,9 +229,9 @@ function UATMessagesContent() {
             <form onSubmit={handleSendMessage} className="max-w-4xl mx-auto">
               <div className="flex items-center gap-3 bg-black/40 p-1.5 rounded-2xl border border-white/10">
                 <Button variant="ghost" size="icon" className="opacity-40" type="button"><Paperclip className="h-5 w-5" /></Button>
-                <Input disabled={!canPostInSelected} value={newMessage} onChange={(e) => setNewMessage(e.target.value)} placeholder={canPostInSelected ? "Type a message..." : "Announcements are read-only"} className="bg-transparent border-none focus-visible:ring-0 font-bold text-sm h-10 px-0" />
+                <Input disabled={!canPostInSelected || !activeUser} value={newMessage} onChange={(e) => setNewMessage(e.target.value)} placeholder={canPostInSelected ? (activeUser ? "Type a message..." : "Waiting for auth...") : "Announcements are read-only"} className="bg-transparent border-none focus-visible:ring-0 font-bold text-sm h-10 px-0" />
                 <Button variant="ghost" size="icon" className="opacity-40" type="button"><Smile className="h-5 w-5" /></Button>
-                <Button disabled={!newMessage.trim() || !canPostInSelected} type="submit" size="icon" className="h-10 w-10 bg-[var(--tenant-primary)]"><Send className="h-4 w-4" /></Button>
+                <Button disabled={!newMessage.trim() || !canPostInSelected || !activeUser} type="submit" size="icon" className="h-10 w-10 bg-[var(--tenant-primary)]"><Send className="h-4 w-4" /></Button>
               </div>
             </form>
           </div>
