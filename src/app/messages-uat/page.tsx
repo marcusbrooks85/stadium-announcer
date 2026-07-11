@@ -4,26 +4,22 @@ import React, { useState, useEffect, useRef } from "react";
 import { 
   Send, 
   Hash, 
-  User, 
   Plus, 
   MoreVertical, 
   Paperclip, 
   Smile, 
   ShieldCheck,
   Search,
-  ChevronRight,
   Loader2,
-  Trash2,
   Lock,
   Megaphone,
   MessageSquare
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { 
   useFirestore, 
   useAuth, 
@@ -39,7 +35,6 @@ import {
   serverTimestamp, 
   doc, 
   getDoc,
-  deleteDoc,
   limit
 } from "firebase/firestore";
 import { useUATGame, UATGameProvider } from "@/app/context/uat-game-context";
@@ -49,8 +44,9 @@ import { useToast } from "@/hooks/use-toast";
 
 function UATMessagesContent() {
   const db = useFirestore();
-  const { user } = useAuth();
-  const { userRole, userTeamId, teamData, isLoaded } = useUATGame();
+  const auth = useAuth();
+  const { user, loading: authLoading } = useUser();
+  const { userRole, userTeamId, teamData, isLoaded: gameLoaded } = useUATGame();
   const { toast } = useToast();
   
   const [channels, setChannels] = useState<any[]>([]);
@@ -120,16 +116,17 @@ function UATMessagesContent() {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || !selectedChannelId || !user || !canPostInSelected) return;
+    const activeUser = user || auth.currentUser;
+    if (!newMessage.trim() || !selectedChannelId || !activeUser || !canPostInSelected) return;
 
     try {
-      const userDoc = await getDoc(doc(db, "users_UAT", user.uid));
+      const userDoc = await getDoc(doc(db, "users_UAT", activeUser.uid));
       const userData = userDoc.data();
 
       addDoc(collection(db, "channels_UAT", selectedChannelId, "messages_UAT"), {
         text: newMessage,
-        senderId: user.uid,
-        senderName: userData?.fullName || user.email?.split('@')[0],
+        senderId: activeUser.uid,
+        senderName: userData?.fullName || activeUser.email?.split('@')[0],
         senderRole: userRole,
         timestamp: serverTimestamp()
       });
@@ -141,10 +138,13 @@ function UATMessagesContent() {
   };
 
   const handleCreateChannel = async () => {
-    // UID Guard
-    if (!user?.uid) {
-      console.error("Cannot create channel: User is not authenticated.");
-      toast({ variant: "destructive", title: "Access Denied", description: "You must be signed in to create channels." });
+    // Robust UID Guard
+    const activeUser = user || auth.currentUser;
+    
+    if (!activeUser) {
+      if (!authLoading) {
+        toast({ variant: "destructive", title: "Access Denied", description: "You must be signed in to create channels." });
+      }
       return;
     }
 
@@ -162,7 +162,7 @@ function UATMessagesContent() {
         name: name.replace(/\s+/g, '-').toLowerCase(),
         teamId: userTeamId || '',
         type: "public",
-        createdBy: user.uid || '',
+        createdBy: activeUser.uid || '',
         createdAt: serverTimestamp()
       });
       toast({ title: "Channel Created" });
@@ -171,7 +171,7 @@ function UATMessagesContent() {
     }
   };
 
-  if (!isLoaded) {
+  if (!gameLoaded || authLoading) {
     return <div className="min-h-screen flex items-center justify-center stadium-gradient"><Loader2 className="animate-spin" /></div>;
   }
 
@@ -193,7 +193,7 @@ function UATMessagesContent() {
         <aside className="w-64 bg-black/20 border-r border-white/5 hidden md:flex flex-col">
           <div className="p-4 border-b border-white/5 flex items-center justify-between">
             <span className="text-[10px] font-black uppercase tracking-widest opacity-50">Channels</span>
-            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleCreateChannel}>
+            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleCreateChannel} disabled={authLoading}>
               <Plus className="h-4 w-4" />
             </Button>
           </div>
