@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -5,7 +6,6 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { 
   ShieldCheck, 
-  Settings, 
   Users, 
   Calendar, 
   Music, 
@@ -13,14 +13,14 @@ import {
   Trash2, 
   Save, 
   Loader2, 
-  Lock,
   Palette,
   AlertTriangle,
   FileAudio,
   ShieldAlert,
-  ChevronLeft,
   Upload,
-  Trophy
+  Trophy,
+  Phone,
+  UserCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,7 +48,6 @@ import { UATNavbar } from "@/components/UATNavbar";
 import { useFirestore, useStorage } from "@/firebase";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 
 function UATAdminPortalContent() {
@@ -64,7 +63,7 @@ function UATAdminPortalContent() {
     roster, 
     games,
     saveTeamBranding,
-    updateUserRole,
+    updateUserProfile,
     deleteUserAccount,
     savePlayer,
     deletePlayer,
@@ -130,6 +129,23 @@ function UATAdminPortalContent() {
       toast({ variant: "destructive", title: "Logo Upload Failed", description: err.message });
     } finally {
       setIsUploading(false);
+    }
+  };
+
+  const handleUpdateUserPlayer = async (userId: string, playerId: string) => {
+    try {
+      await updateUserProfile(userId, { playerId: playerId === "none" ? null : playerId });
+      toast({ title: "Profile Linked" });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Update Failed" });
+    }
+  };
+
+  const handleUpdateUserPhone = async (userId: string, phone: string) => {
+    try {
+      await updateUserProfile(userId, { phoneNumber: phone });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Update Failed" });
     }
   };
 
@@ -268,13 +284,15 @@ function UATAdminPortalContent() {
                 <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-3">
                   <Users className="h-4 w-4 text-[var(--tenant-primary)]" /> User Management
                 </CardTitle>
-                <CardDescription className="text-[10px] uppercase font-bold">Manage permissions for team administrators and users.</CardDescription>
+                <CardDescription className="text-[10px] uppercase font-bold">Manage permissions and profile links for team members.</CardDescription>
               </CardHeader>
               <CardContent>
                 <Table>
                   <TableHeader>
                     <TableRow className="border-white/5">
-                      <TableHead className="text-[10px] font-black uppercase">User</TableHead>
+                      <TableHead className="text-[10px] font-black uppercase">User Profile</TableHead>
+                      <TableHead className="text-[10px] font-black uppercase">Linked Player</TableHead>
+                      <TableHead className="text-[10px] font-black uppercase">Contact</TableHead>
                       <TableHead className="text-[10px] font-black uppercase">Role</TableHead>
                       <TableHead className="text-right text-[10px] font-black uppercase">Actions</TableHead>
                     </TableRow>
@@ -289,8 +307,31 @@ function UATAdminPortalContent() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Select defaultValue={u.role} onValueChange={(val) => updateUserRole(u.id, val)}>
-                            <SelectTrigger className="w-[160px] h-9 bg-black/40 text-[10px] font-black uppercase border-white/10">
+                          <Select defaultValue={u.playerId || "none"} onValueChange={(val) => handleUpdateUserPlayer(u.id, val)}>
+                            <SelectTrigger className="w-[180px] h-9 bg-black/40 text-[10px] font-black uppercase border-white/10">
+                               <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                               <SelectItem value="none">None / Official</SelectItem>
+                               {roster.map(p => (
+                                 <SelectItem key={p.id} value={p.id}>#{p.number} - {p.name}</SelectItem>
+                               ))}
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                             <Phone className="h-3 w-3 opacity-40" />
+                             <Input 
+                               className="h-8 w-32 bg-black/20 text-[10px] border-white/5" 
+                               defaultValue={u.phoneNumber || ""} 
+                               onBlur={(e) => handleUpdateUserPhone(u.id, e.target.value)}
+                             />
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Select defaultValue={u.role} onValueChange={(val) => updateUserProfile(u.id, { role: val })}>
+                            <SelectTrigger className="w-[140px] h-9 bg-black/40 text-[10px] font-black uppercase border-white/10">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -314,7 +355,6 @@ function UATAdminPortalContent() {
 
           <TabsContent value="logistics" className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {/* Schedule Management */}
               <Card className="bg-card/50 border-white/10">
                 <CardHeader>
                   <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-3">
@@ -340,7 +380,6 @@ function UATAdminPortalContent() {
                 </CardContent>
               </Card>
 
-              {/* Roster Management */}
               <Card className="bg-card/50 border-white/10">
                 <CardHeader>
                   <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-3">
@@ -384,17 +423,6 @@ function UATAdminPortalContent() {
                       </div>
                     </div>
                     <Button className="bg-primary font-black uppercase text-[10px] tracking-widest h-10 px-6">Manage Audio</Button>
-                  </div>
-                  
-                  <div className="p-6 bg-secondary/5 rounded-2xl border border-secondary/10 flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="h-12 w-12 rounded-full bg-secondary/20 flex items-center justify-center"><Music className="h-6 w-6 text-secondary" /></div>
-                      <div className="flex flex-col">
-                        <span className="text-sm font-black uppercase tracking-widest">Stadium Soundboard</span>
-                        <span className="text-[10px] text-muted-foreground uppercase font-bold">Configure organ hits and hype tracks.</span>
-                      </div>
-                    </div>
-                    <Button className="bg-secondary text-secondary-foreground font-black uppercase text-[10px] tracking-widest h-10 px-6">Edit Soundboard</Button>
                   </div>
                 </div>
               </CardContent>

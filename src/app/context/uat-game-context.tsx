@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
@@ -138,7 +139,7 @@ interface UATGameContextType {
   saveGame: (data: any, id?: string) => Promise<void>;
   deleteGame: (id: string) => Promise<void>;
   saveTeamBranding: (data: any) => Promise<void>;
-  updateUserRole: (uid: string, role: string) => Promise<void>;
+  updateUserProfile: (uid: string, data: any) => Promise<void>;
   deleteUserAccount: (uid: string) => Promise<void>;
   saveStadiumSong: (category: 'organ' | 'pumpup', song: Omit<StadiumSong, 'id'>, id?: string) => Promise<void>;
   deleteStadiumSong: (category: 'organ' | 'pumpup', id: string) => Promise<void>;
@@ -317,8 +318,8 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
     await setDoc(doc(db, "teams_UAT", userTeamId), data, { merge: true });
   };
 
-  const updateUserRole = async (uid: string, role: string) => {
-    await setDoc(doc(db, "users_UAT", uid), { role }, { merge: true });
+  const updateUserProfile = async (uid: string, data: any) => {
+    await setDoc(doc(db, "users_UAT", uid), data, { merge: true });
   };
 
   const deleteUserAccount = async (uid: string) => {
@@ -406,7 +407,7 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
       saveGame,
       deleteGame,
       saveTeamBranding,
-      updateUserRole,
+      updateUserProfile,
       deleteUserAccount,
       saveStadiumSong,
       deleteStadiumSong,

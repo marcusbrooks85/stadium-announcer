@@ -1,6 +1,7 @@
+
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { 
   Send, 
   Hash, 
@@ -11,7 +12,6 @@ import {
   ShieldCheck,
   Search,
   Loader2,
-  Lock,
   Megaphone,
   MessageSquare
 } from "lucide-react";
@@ -46,7 +46,7 @@ function UATMessagesContent() {
   const db = useFirestore();
   const auth = useAuth();
   const { user, loading: authLoading } = useUser();
-  const { userRole, userTeamId, teamData, isLoaded: gameLoaded } = useUATGame();
+  const { userRole, userTeamId, teamData, isLoaded: gameLoaded, roster } = useUATGame();
   const { toast } = useToast();
   
   const [channels, setChannels] = useState<any[]>([]);
@@ -54,6 +54,10 @@ function UATMessagesContent() {
   const [messages, setMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  
+  // Real-time map of user profiles to resolve rich display names
+  const [userProfiles, setUserProfiles] = useState<Record<string, any>>({});
+  
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const selectedChannel = channels.find(c => c.id === selectedChannelId);
@@ -73,7 +77,6 @@ function UATMessagesContent() {
     const unsubscribe = onSnapshot(q, (snap) => {
       const channelList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       
-      // Auto-create Announcements if missing
       if (channelList.length === 0 && userRole === "super_admin") {
         addDoc(collection(db, "channels_UAT"), {
           name: "Announcements",
@@ -91,6 +94,17 @@ function UATMessagesContent() {
 
     return () => unsubscribe();
   }, [db, userTeamId, userRole, selectedChannelId]);
+
+  // Fetch User Profiles for the team to resolve names
+  useEffect(() => {
+    if (!db || !userTeamId) return;
+    const q = query(collection(db, "users_UAT"), where("teamId", "==", userTeamId));
+    return onSnapshot(q, (snap) => {
+      const profiles: Record<string, any> = {};
+      snap.forEach(d => profiles[d.id] = d.data());
+      setUserProfiles(profiles);
+    });
+  }, [db, userTeamId]);
 
   // Fetch Messages for Selected Channel
   useEffect(() => {
@@ -120,13 +134,16 @@ function UATMessagesContent() {
     if (!newMessage.trim() || !selectedChannelId || !activeUser || !canPostInSelected) return;
 
     try {
-      const userDoc = await getDoc(doc(db, "users_UAT", activeUser.uid));
-      const userData = userDoc.data();
+      const profile = userProfiles[activeUser.uid];
+      const playerName = roster.find(p => p.id === profile?.playerId)?.name;
+      const richName = profile?.playerId && playerName 
+        ? `${profile.fullName || activeUser.email?.split('@')[0]} (${playerName})`
+        : (profile?.fullName || activeUser.email?.split('@')[0]);
 
       addDoc(collection(db, "channels_UAT", selectedChannelId, "messages_UAT"), {
         text: newMessage,
         senderId: activeUser.uid,
-        senderName: userData?.fullName || activeUser.email?.split('@')[0],
+        senderName: richName,
         senderRole: userRole,
         timestamp: serverTimestamp()
       });
@@ -138,7 +155,6 @@ function UATMessagesContent() {
   };
 
   const handleCreateChannel = async () => {
-    // Robust UID Guard
     const activeUser = user || auth.currentUser;
     
     if (!activeUser) {
@@ -148,7 +164,6 @@ function UATMessagesContent() {
       return;
     }
 
-    // Workspace Guard
     if (!userTeamId) {
       toast({ variant: "destructive", title: "Missing Workspace", description: "Your account is not linked to a team workspace." });
       return;
@@ -179,7 +194,13 @@ function UATMessagesContent() {
     <div className="flex flex-col h-screen bg-background text-foreground stadium-gradient overflow-hidden">
       <header className="sticky top-0 z-50 flex items-center justify-between p-4 border-b border-border shadow-2xl bg-card/95 backdrop-blur-md">
         <div className="flex items-center gap-3">
-          <ShieldCheck className="h-5 w-5 text-[var(--tenant-primary)]" />
+          {teamData?.logoUrl ? (
+            <div className="relative w-6 h-6 md:w-8 md:h-8">
+               <Image src={teamData.logoUrl} alt="Logo" fill className="object-contain" />
+            </div>
+          ) : (
+            <ShieldCheck className="h-5 w-5 text-[var(--tenant-primary)]" />
+          )}
           <div className="flex flex-col">
             <h1 className="font-headline font-black uppercase tracking-[0.2em] text-[10px] md:text-sm">Team Communications</h1>
             <span className="text-[8px] font-black uppercase text-[var(--tenant-primary)] tracking-tighter">Verified Workspace: {teamData?.name}</span>
@@ -189,7 +210,6 @@ function UATMessagesContent() {
       </header>
 
       <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar */}
         <aside className="w-64 bg-black/20 border-r border-white/5 hidden md:flex flex-col">
           <div className="p-4 border-b border-white/5 flex items-center justify-between">
             <span className="text-[10px] font-black uppercase tracking-widest opacity-50">Channels</span>
@@ -218,7 +238,6 @@ function UATMessagesContent() {
           </ScrollArea>
         </aside>
 
-        {/* Chat Window */}
         <main className="flex-1 flex flex-col relative bg-black/10">
           <div className="p-4 border-b border-white/5 bg-card/30 backdrop-blur-sm flex items-center justify-between">
              <div className="flex items-center gap-3">
@@ -267,7 +286,6 @@ function UATMessagesContent() {
             </div>
           </ScrollArea>
 
-          {/* Chat Input */}
           <div className="p-4 bg-card/50 backdrop-blur-xl border-t border-white/5">
             <form onSubmit={handleSendMessage} className="max-w-4xl mx-auto relative">
               <div className="flex items-center gap-3 bg-black/40 p-1.5 rounded-2xl border border-white/10 shadow-inner">

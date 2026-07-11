@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { 
   ShieldCheck, 
@@ -11,43 +11,40 @@ import {
   Trophy, 
   Loader2, 
   CheckCircle2, 
-  Mail, 
-  Chrome,
   Copy,
   Check,
   Building2,
-  Users,
-  Music,
-  Calendar,
   ChevronRight,
-  ShieldAlert,
-  BarChart3,
-  Settings,
   Lock,
   XCircle,
   CheckCircle,
-  UserPlus
+  UserPlus,
+  Phone,
+  User as UserIcon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { initializeFirebase } from "@/firebase";
 import { 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword,
   sendEmailVerification,
-  sendPasswordResetEmail,
-  signInWithPopup,
-  GoogleAuthProvider,
   User,
 } from "firebase/auth";
 import { doc, setDoc, collection, addDoc, serverTimestamp, getDoc, updateDoc, query, where, getDocs, limit } from "firebase/firestore";
 import { cn } from "@/lib/utils";
-import { Progress } from "@/components/ui/progress";
 
-type Step = "acknowledgement" | "auth" | "verification" | "team-setup" | "success" | "forgot-password" | "tutorial";
+type Step = "acknowledgement" | "auth" | "verification" | "team-setup" | "success" | "tutorial";
 
 export default function UATOnboardingPage() {
   const router = useRouter();
@@ -55,12 +52,14 @@ export default function UATOnboardingPage() {
   const [isRegisterMode, setIsRegisterMode] = useState(true);
   const [isJoinMode, setIsJoinMode] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [generatedCode, setGeneratedCode] = useState<string>("");
   const [copied, setCopied] = useState(false);
   const [tutorialStep, setTutorialStep] = useState(0);
+  
+  // Players for the join team flow
+  const [availablePlayers, setAvailablePlayers] = useState<any[]>([]);
+  const [fetchingPlayers, setFetchingPlayers] = useState(false);
   
   const { auth, firestore: db } = initializeFirebase();
   const { toast } = useToast();
@@ -73,7 +72,9 @@ export default function UATOnboardingPage() {
     teamName: "",
     city: "",
     state: "",
-    accessCode: ""
+    accessCode: "",
+    phoneNumber: "",
+    playerId: "none"
   });
 
   // Password Strength Logic
@@ -90,6 +91,33 @@ export default function UATOnboardingPage() {
 
   const isPasswordStrong = Object.values(passwordCriteria).every(Boolean);
   const passwordsMatch = formData.password === formData.confirmPassword && formData.confirmPassword !== "";
+
+  // Fetch players when a valid looking code is entered
+  useEffect(() => {
+    const fetchPlayersByCode = async () => {
+      if (isJoinMode && formData.accessCode.length >= 10) {
+        setFetchingPlayers(true);
+        try {
+          const q = query(collection(db, "teams_UAT"), where("code", "==", formData.accessCode.toUpperCase()));
+          const snap = await getDocs(q);
+          if (!snap.empty) {
+            const teamId = snap.docs[0].id;
+            const pq = query(collection(db, "players_UAT"), where("teamId", "==", teamId));
+            const pSnap = await getDocs(pq);
+            setAvailablePlayers(pSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+          }
+        } catch (e) {
+          console.error("Error fetching players", e);
+        } finally {
+          setFetchingPlayers(false);
+        }
+      } else {
+        setAvailablePlayers([]);
+      }
+    };
+
+    fetchPlayersByCode();
+  }, [formData.accessCode, isJoinMode, db]);
 
   const generateTeamCode = (teamName: string) => {
     const sanitizedName = teamName.replace(/[^a-zA-Z0-9]/g, "").toUpperCase().substring(0, 6);
@@ -131,6 +159,10 @@ export default function UATOnboardingPage() {
         toast({ variant: "destructive", title: "Validation Error", description: "Passwords do not match." });
         return;
       }
+      if (!formData.phoneNumber) {
+        toast({ variant: "destructive", title: "Validation Error", description: "Phone number is required." });
+        return;
+      }
 
       if (isJoinMode && !formData.accessCode) {
         toast({ variant: "destructive", title: "Missing Code", description: "Team Access Code is required to join a team." });
@@ -164,6 +196,8 @@ export default function UATOnboardingPage() {
         await setDoc(doc(db, "users_UAT", user.uid), {
           email: user.email,
           fullName: formData.fullName,
+          phoneNumber: formData.phoneNumber,
+          playerId: formData.playerId === "none" ? null : formData.playerId,
           role: isJoinMode ? "user" : "super_admin",
           teamId: teamIdToJoin || null,
           teamCode: teamCodeToJoin || null,
@@ -206,7 +240,6 @@ export default function UATOnboardingPage() {
       let teamCode = "";
       let isUnique = false;
       
-      // Duplicate Guard loop
       while (!isUnique) {
         teamCode = generateTeamCode(formData.teamName);
         const q = query(collection(db, "teams_UAT"), where("code", "==", teamCode), limit(1));
@@ -225,7 +258,6 @@ export default function UATOnboardingPage() {
         secondaryColor: "#2EB1D9"
       });
 
-      // Update super admin profile
       await updateDoc(doc(db, "users_UAT", user.uid), {
         teamId: teamRef.id,
         teamCode: teamCode,
@@ -292,10 +324,18 @@ export default function UATOnboardingPage() {
       <CardContent className="space-y-6">
         <form onSubmit={handleAuthAction} className="space-y-4">
           {isRegisterMode && (
-            <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Full Name</Label>
-              <Input required value={formData.fullName} onChange={(e) => setFormData({ ...formData, fullName: e.target.value })} className="h-12 bg-black/40" />
-            </div>
+            <>
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Full Name</Label>
+                <Input required value={formData.fullName} onChange={(e) => setFormData({ ...formData, fullName: e.target.value })} className="h-12 bg-black/40" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1 flex items-center gap-2">
+                  <Phone className="h-3 w-3" /> Phone Number
+                </Label>
+                <Input required placeholder="(555) 000-0000" value={formData.phoneNumber} onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })} className="h-12 bg-black/40" />
+              </div>
+            </>
           )}
 
           <div className="space-y-2">
@@ -322,26 +362,36 @@ export default function UATOnboardingPage() {
 
           {isRegisterMode && (
             <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Confirm Password</Label>
-                {formData.confirmPassword && (
-                  <span className={cn("text-[9px] font-black uppercase flex items-center gap-1", passwordsMatch ? "text-green-500" : "text-destructive")}>
-                    {passwordsMatch ? <CheckCircle className="h-2.5 w-2.5" /> : <XCircle className="h-2.5 w-2.5" />}
-                    {passwordsMatch ? "Match" : "Mismatch"}
-                  </span>
-                )}
-              </div>
-              <Input required type={showConfirmPassword ? "text" : "password"} value={formData.confirmPassword} onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })} className="h-12 bg-black/40" />
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Confirm Password</Label>
+              <Input required type="password" value={formData.confirmPassword} onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })} className="h-12 bg-black/40" />
             </div>
           )}
 
           {isRegisterMode && isJoinMode && (
-            <div className="space-y-2 p-4 bg-primary/5 rounded-xl border border-primary/20 animate-in slide-in-from-top-2">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-primary ml-1 flex items-center gap-2">
-                <Lock className="h-3 w-3" /> Team Access Code
-              </Label>
-              <Input required placeholder="XXXX-XXXX" value={formData.accessCode} onChange={(e) => setFormData({ ...formData, accessCode: e.target.value.toUpperCase() })} className="h-12 bg-black/40 font-mono text-center tracking-widest font-black" />
-              <p className="text-[8px] font-bold text-muted-foreground uppercase text-center mt-1">Required to link your account to an existing team.</p>
+            <div className="space-y-4 p-4 bg-primary/5 rounded-xl border border-primary/20 animate-in slide-in-from-top-2">
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-primary ml-1 flex items-center gap-2">
+                  <Lock className="h-3 w-3" /> Team Access Code
+                </Label>
+                <Input required placeholder="XXXXXX-XXXX" value={formData.accessCode} onChange={(e) => setFormData({ ...formData, accessCode: e.target.value.toUpperCase() })} className="h-12 bg-black/40 font-mono text-center tracking-widest font-black" />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-primary ml-1 flex items-center gap-2">
+                  <UserIcon className="h-3 w-3" /> Associate with Player
+                </Label>
+                <Select value={formData.playerId} onValueChange={(val) => setFormData({ ...formData, playerId: val })}>
+                  <SelectTrigger className="h-12 bg-black/40 font-bold border-white/5">
+                    {fetchingPlayers ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : <SelectValue placeholder="Select Player..." />}
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none" className="font-bold">None / Official</SelectItem>
+                    {availablePlayers.map(p => (
+                      <SelectItem key={p.id} value={p.id} className="font-bold">#{p.number} - {p.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           )}
 
@@ -438,63 +488,23 @@ export default function UATOnboardingPage() {
   );
 
   const renderTutorial = () => {
-    const slides = [
-      {
-        icon: <Building2 className="w-12 h-12 text-primary" />,
-        title: "Team Command Center",
-        description: "Your home dashboard provides a bird's-eye view of your team's upcoming schedule and seasonal performance.",
-      },
-      {
-        icon: <Music className="w-12 h-12 text-secondary" />,
-        title: "The Audio Booth",
-        description: "Control the atmosphere. Trigger walk-up cues, organ hits, and stadium hype tracks in real-time during games.",
-      },
-      {
-        icon: <BarChart3 className="w-12 h-12 text-accent" />,
-        title: "Live Game Stats",
-        description: "Track At-Bats, Hits, and Runs as they happen to keep your roster metrics accurate and up to date.",
-      },
-      {
-        icon: <Calendar className="w-12 h-12 text-primary" />,
-        title: "Seasonal Timeline",
-        description: "Manage upcoming games, track league results, and assign snack duties for the team.",
-      },
-      {
-        icon: <Settings className="w-12 h-12 text-secondary" />,
-        title: "Admin Workspace",
-        description: "Configure branding, manage your roster, and verify system operational logs in one central hub.",
-      }
-    ];
-
-    const currentSlide = slides[tutorialStep];
-    const isLastSlide = tutorialStep === slides.length - 1;
-
     return (
       <Card className="w-full max-w-xl border-2 border-primary/30 bg-card/80 backdrop-blur-2xl">
         <CardHeader className="text-center pt-8 pb-4">
-          <div className="mx-auto w-24 h-24 bg-white/5 rounded-full flex items-center justify-center mb-6 border border-white/10">
-            {currentSlide.icon}
-          </div>
-          <CardTitle className="text-2xl font-black uppercase tracking-[0.1em] mb-2">{currentSlide.title}</CardTitle>
-          <div className="flex justify-center gap-1.5 mb-2">
-            {slides.map((_, i) => (
-              <div key={i} className={cn("h-1.5 rounded-full", i === tutorialStep ? "w-8 bg-primary" : "w-1.5 bg-white/20")} />
-            ))}
-          </div>
+          <CardTitle className="text-2xl font-black uppercase tracking-[0.1em] mb-2">Welcome to the Booth</CardTitle>
         </CardHeader>
         <CardContent className="px-8 pb-10 text-center">
           <p className="text-sm font-bold text-muted-foreground uppercase leading-relaxed">
-            {currentSlide.description}
+            Your workspace is now active. Explore the dashboard to manage your roster, schedule games, and control the atmosphere in the audio booth.
           </p>
         </CardContent>
         <CardFooter className="p-0 border-t border-white/5">
           <Button 
             disabled={loading}
-            onClick={() => isLastSlide ? handleCompleteTutorial() : setTutorialStep(prev => prev + 1)} 
+            onClick={handleCompleteTutorial} 
             className="w-full h-16 font-black uppercase tracking-[0.2em] rounded-none rounded-b-lg text-lg bg-primary"
           >
-            {loading ? <Loader2 className="animate-spin mr-2" /> : (isLastSlide ? "Enter Booth" : "Next Module")}
-            {!isLastSlide && <ChevronRight className="ml-2 w-5 h-5" />}
+            {loading ? <Loader2 className="animate-spin mr-2" /> : "Enter Booth"}
           </Button>
         </CardFooter>
       </Card>
