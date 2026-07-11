@@ -50,6 +50,7 @@ export function UATNavbar() {
 
   if (hasManagementAccess) {
     navItems.push({ label: "Analytics", href: "/analytics-uat", icon: Activity });
+    navItems.push({ label: "Admin Portal", href: "/admin-uat", icon: Settings });
   }
 
   return (
@@ -115,25 +116,13 @@ export function UATNavbar() {
 
         {hasManagementAccess && (
           <div className="p-6 border-t border-white/5 bg-black/40">
-            <SheetClose asChild>
-              <Link href="/admin-uat">
-                <div className={cn(
-                  "flex items-center gap-4 p-5 rounded-2xl transition-all duration-300 group",
-                  pathname === "/admin-uat" 
-                    ? "bg-[var(--tenant-secondary)] text-white shadow-lg" 
-                    : "bg-white/5 text-muted-foreground hover:text-white hover:bg-white/10"
-                )}>
-                  <div className="h-10 w-10 rounded-full bg-black/20 flex items-center justify-center">
-                    <ShieldCheck className="h-5 w-5" />
-                  </div>
-                  <div className="flex flex-col flex-1">
-                    <span className="text-[10px] font-black uppercase tracking-widest leading-none">Admin Workspace</span>
-                    <span className="text-[8px] font-bold opacity-50 uppercase tracking-tighter mt-1">Configure Team Profile</span>
-                  </div>
-                  <ChevronRight className="h-4 w-4 opacity-30 group-hover:opacity-100 transition-opacity" />
-                </div>
-              </Link>
-            </SheetClose>
+            <div className="bg-primary/5 border border-primary/10 rounded-2xl p-4 flex flex-col gap-2">
+              <span className="text-[8px] font-black uppercase text-primary tracking-widest">Operator Access</span>
+              <div className="flex items-center gap-2">
+                 <ShieldCheck className="h-3 w-3 text-primary" />
+                 <span className="text-[10px] font-bold text-white uppercase">{userRole?.replace('_', ' ')} Verified</span>
+              </div>
+            </div>
           </div>
         )}
       </SheetContent>

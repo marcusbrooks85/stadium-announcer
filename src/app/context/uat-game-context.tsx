@@ -175,24 +175,36 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    return onAuthStateChanged(auth, async (authUser) => {
+    let unsubProfile: (() => void) | undefined;
+
+    const unsubAuth = onAuthStateChanged(auth, async (authUser) => {
       setUser(authUser);
       if (authUser) {
-        const userDoc = await getDoc(doc(db, "users_UAT", authUser.uid));
-        if (userDoc.exists()) {
-          const data = userDoc.data();
-          setUserRole(data.role);
-          setUserTeamId(data.teamId);
-          if (['super_admin', 'league_admin', 'booth_admin'].includes(data.role)) {
-            setIsAdmin(true);
+        // Listen for user profile changes in real-time
+        unsubProfile = onSnapshot(doc(db, "users_UAT", authUser.uid), (snapshot) => {
+          if (snapshot.exists()) {
+            const data = snapshot.data();
+            setUserRole(data.role);
+            setUserTeamId(data.teamId);
+            if (['super_admin', 'league_admin', 'booth_admin'].includes(data.role)) {
+              setIsAdmin(true);
+            } else {
+              setIsAdmin(false);
+            }
           }
-        }
+        });
       } else {
+        if (unsubProfile) unsubProfile();
         setUserRole(null);
         setUserTeamId(null);
         setIsAdmin(false);
       }
     });
+
+    return () => {
+      unsubAuth();
+      if (unsubProfile) unsubProfile();
+    };
   }, [auth, db]);
 
   // Apply Global Branding
