@@ -141,16 +141,28 @@ function UATMessagesContent() {
   };
 
   const handleCreateChannel = async () => {
-    if (!userTeamId) return;
+    // UID Guard
+    if (!user?.uid) {
+      console.error("Cannot create channel: User is not authenticated.");
+      toast({ variant: "destructive", title: "Access Denied", description: "You must be signed in to create channels." });
+      return;
+    }
+
+    // Workspace Guard
+    if (!userTeamId) {
+      toast({ variant: "destructive", title: "Missing Workspace", description: "Your account is not linked to a team workspace." });
+      return;
+    }
+
     const name = prompt("Enter Channel Name:");
     if (!name) return;
 
     try {
       await addDoc(collection(db, "channels_UAT"), {
         name: name.replace(/\s+/g, '-').toLowerCase(),
-        teamId: userTeamId,
+        teamId: userTeamId || '',
         type: "public",
-        createdBy: user?.uid,
+        createdBy: user.uid || '',
         createdAt: serverTimestamp()
       });
       toast({ title: "Channel Created" });
