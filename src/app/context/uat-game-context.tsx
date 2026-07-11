@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
@@ -121,6 +120,7 @@ interface UATGameContextType {
   user: FirebaseUser | null;
   userRole: "super_admin" | "league_admin" | "booth_admin" | "user" | null;
   userTeamId: string | null;
+  userProfile: any | null;
   teamData: Team | null;
   roster: Player[];
   organSongs: StadiumSong[];
@@ -160,6 +160,7 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [userRole, setUserRole] = useState<any>(null);
   const [userTeamId, setUserTeamId] = useState<string | null>(null);
+  const [userProfile, setUserProfile] = useState<any>(null);
   const [teamData, setTeamData] = useState<Team | null>(null);
   const [roster, setRoster] = useState<Player[]>([]);
   const [games, setGames] = useState<Game[]>([]);
@@ -184,6 +185,7 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
         unsubProfile = onSnapshot(doc(db, "users_UAT", authUser.uid), (snapshot) => {
           if (snapshot.exists()) {
             const data = snapshot.data();
+            setUserProfile(data);
             setUserRole(data.role);
             setUserTeamId(data.teamId);
             if (['super_admin', 'league_admin', 'booth_admin'].includes(data.role)) {
@@ -195,6 +197,7 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
         });
       } else {
         if (unsubProfile) unsubProfile();
+        setUserProfile(null);
         setUserRole(null);
         setUserTeamId(null);
         setIsAdmin(false);
@@ -401,6 +404,7 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
       user,
       userRole,
       userTeamId,
+      userProfile,
       teamData,
       roster: roster.map(p => ({ ...p, stats: gameStats.playerStats?.[p.id] || { ab: 0, h: 0, r: 0, rbi: 0 } })),
       games,

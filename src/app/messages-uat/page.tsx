@@ -41,7 +41,7 @@ import { useToast } from "@/hooks/use-toast";
 function UATMessagesContent() {
   const db = useFirestore();
   const auth = useAuth();
-  const { user, loading: authLoading } = useUser();
+  const { user: authUser, loading: authLoading } = useUser();
   const { userRole, userTeamId, teamData, isLoaded: gameLoaded, roster } = useUATGame();
   const { toast } = useToast();
   
@@ -58,6 +58,7 @@ function UATMessagesContent() {
   const isAnnouncements = selectedChannel?.name === "Announcements";
   const canPostInSelected = !isAnnouncements || (userRole === "super_admin" || userRole === "league_admin");
 
+  // Listen for Channels
   useEffect(() => {
     if (!db || !userTeamId) return;
     const q = query(collection(db, "channels_UAT"), where("teamId", "==", userTeamId), orderBy("name", "asc"));
@@ -68,6 +69,7 @@ function UATMessagesContent() {
     });
   }, [db, userTeamId, selectedChannelId]);
 
+  // Listen for User Profiles in the team to ensure real-time name updates
   useEffect(() => {
     if (!db || !userTeamId) return;
     const q = query(collection(db, "users_UAT"), where("teamId", "==", userTeamId));
@@ -78,6 +80,7 @@ function UATMessagesContent() {
     });
   }, [db, userTeamId]);
 
+  // Listen for Messages in selected channel
   useEffect(() => {
     if (!db || !selectedChannelId) return;
     setIsLoadingMessages(true);
@@ -89,20 +92,30 @@ function UATMessagesContent() {
     });
   }, [db, selectedChannelId]);
 
+  // Resolved dynamic name: [FirstName] [#Number PlayerName]
   const resolveRichName = (senderId: string) => {
     const profile = userProfiles[senderId];
     if (!profile) return "Unknown User";
     
-    const userFirstName = profile.firstName || "User";
-    if (!profile.playerId) return userFirstName;
+    const firstName = profile.firstName || "User";
+    if (!profile.playerId) return firstName;
 
     const player = roster.find(p => p.id === profile.playerId);
-    return player ? `${userFirstName} [#${player.number} ${player.name}]` : userFirstName;
+    return player ? `${firstName} [#${player.number} ${player.name}]` : firstName;
+  };
+
+  // Get dynamic initials for real-time update
+  const getInitials = (senderId: string) => {
+    const profile = userProfiles[senderId];
+    if (!profile) return "??";
+    const f = profile.firstName?.[0] || "";
+    const l = profile.lastName?.[0] || "";
+    return (f + l).toUpperCase() || "??";
   };
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    const activeUser = user || auth.currentUser;
+    const activeUser = authUser || auth.currentUser;
     if (!activeUser?.uid) {
       toast({ variant: "destructive", title: "Access Denied", description: "Authentication required." });
       return;
@@ -113,8 +126,6 @@ function UATMessagesContent() {
       await addDoc(collection(db, "channels_UAT", selectedChannelId, "messages_UAT"), {
         text: newMessage,
         senderId: activeUser.uid,
-        senderName: resolveRichName(activeUser.uid),
-        senderRole: userRole,
         timestamp: serverTimestamp(),
         teamId: userTeamId || ""
       });
@@ -125,7 +136,7 @@ function UATMessagesContent() {
   };
 
   const handleCreateChannel = async () => {
-    const activeUser = user || auth.currentUser;
+    const activeUser = authUser || auth.currentUser;
     if (!activeUser?.uid || !userTeamId) {
        toast({ variant: "destructive", title: "Action Blocked", description: "Authorization required to setup channels." });
        return;
@@ -148,10 +159,13 @@ function UATMessagesContent() {
   };
 
   if (!gameLoaded || authLoading) {
-    return <div className="min-h-screen flex items-center justify-center stadium-gradient"><Loader2 className="animate-spin" /></div>;
+    return <div className="min-h-screen flex flex-col items-center justify-center stadium-gradient gap-4">
+      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Syncing Communications...</span>
+    </div>;
   }
 
-  const activeUser = user || auth.currentUser;
+  const activeUser = authUser || auth.currentUser;
 
   return (
     <div className="flex flex-col h-screen bg-background text-foreground stadium-gradient overflow-hidden">
@@ -206,15 +220,25 @@ function UATMessagesContent() {
               {messages.map((msg) => (
                 <div key={msg.id} className="flex gap-4 group">
                   <Avatar className="h-10 w-10 border border-white/10 shadow-lg">
-                    <AvatarFallback className="bg-black/40 text-[10px] font-black uppercase">{msg.senderName?.substring(0, 2)}</AvatarFallback>
+                    <AvatarFallback className="bg-black/40 text-[10px] font-black uppercase">
+                      {getInitials(msg.senderId)}
+                    </AvatarFallback>
                   </Avatar>
                   <div className="flex flex-col flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[11px] font-black uppercase tracking-wider">{resolveRichName(msg.senderId)}</span>
-                      <Badge variant="secondary" className="text-[7px] font-black uppercase px-1.5 py-0 bg-white/5 text-muted-foreground">{msg.senderRole?.replace('_', ' ') || "User"}</Badge>
-                      <span className="text-[8px] text-muted-foreground opacity-40 uppercase">{msg.timestamp?.toDate ? msg.timestamp.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Just now"}</span>
+                      <span className="text-[11px] font-black uppercase tracking-wider">
+                        {resolveRichName(msg.senderId)}
+                      </span>
+                      <Badge variant="secondary" className="text-[7px] font-black uppercase px-1.5 py-0 bg-white/5 text-muted-foreground">
+                        {userProfiles[msg.senderId]?.role?.replace('_', ' ') || "User"}
+                      </Badge>
+                      <span className="text-[8px] text-muted-foreground opacity-40 uppercase">
+                        {msg.timestamp?.toDate ? msg.timestamp.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Just now"}
+                      </span>
                     </div>
-                    <div className="text-sm font-bold text-white/90 leading-relaxed break-words bg-white/5 p-3 rounded-2xl rounded-tl-none border border-white/5">{msg.text}</div>
+                    <div className="text-sm font-bold text-white/90 leading-relaxed break-words bg-white/5 p-3 rounded-2xl rounded-tl-none border border-white/5">
+                      {msg.text}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -226,7 +250,13 @@ function UATMessagesContent() {
             <form onSubmit={handleSendMessage} className="max-w-4xl mx-auto">
               <div className="flex items-center gap-3 bg-black/40 p-1.5 rounded-2xl border border-white/10">
                 <Button variant="ghost" size="icon" className="opacity-40" type="button"><Paperclip className="h-5 w-5" /></Button>
-                <Input disabled={!canPostInSelected || !activeUser} value={newMessage} onChange={(e) => setNewMessage(e.target.value)} placeholder={canPostInSelected ? (activeUser ? "Type a message..." : "Waiting for auth...") : "Announcements are read-only"} className="bg-transparent border-none focus-visible:ring-0 font-bold text-sm h-10 px-0" />
+                <Input 
+                  disabled={!canPostInSelected || !activeUser} 
+                  value={newMessage} 
+                  onChange={(e) => setNewMessage(e.target.value)} 
+                  placeholder={canPostInSelected ? (activeUser ? "Type a message..." : "Waiting for auth...") : "Announcements are read-only"} 
+                  className="bg-transparent border-none focus-visible:ring-0 font-bold text-sm h-10 px-0" 
+                />
                 <Button variant="ghost" size="icon" className="opacity-40" type="button"><Smile className="h-5 w-5" /></Button>
                 <Button disabled={!newMessage.trim() || !canPostInSelected || !activeUser} type="submit" size="icon" className="h-10 w-10 bg-[var(--tenant-primary)]"><Send className="h-4 w-4" /></Button>
               </div>
