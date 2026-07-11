@@ -1,4 +1,3 @@
-
 "use client";
 
 import React from "react";
@@ -16,7 +15,8 @@ import {
   Wifi,
   WifiOff,
   ShieldCheck,
-  MessageSquare
+  MessageSquare,
+  LayoutDashboard
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUATGame } from "@/app/context/uat-game-context";
@@ -40,6 +40,7 @@ export function UATNavbar() {
 
   const hasManagementAccess = ["super_admin", "league_admin", "booth_admin"].includes(userRole || "");
 
+  // Base navigation items for all team members
   const navItems = [
     { label: "Home", href: "/uat", icon: Home },
     { label: "Booth", href: "/booth-uat", icon: Zap },
@@ -48,9 +49,10 @@ export function UATNavbar() {
     { label: "Team Chat", href: "/messages-uat", icon: MessageSquare },
   ];
 
+  // Additional tools for verified administrators
   if (hasManagementAccess) {
     navItems.push({ label: "Analytics", href: "/analytics-uat", icon: Activity });
-    navItems.push({ label: "Admin Portal", href: "/admin-uat", icon: Settings });
+    navItems.push({ label: "Admin Portal", href: "/admin-uat", icon: LayoutDashboard });
   }
 
   return (
@@ -69,7 +71,7 @@ export function UATNavbar() {
           <div className="flex items-center justify-between">
             <SheetTitle className="text-left text-[10px] font-black uppercase tracking-[0.3em] text-[var(--tenant-primary)] flex items-center gap-3">
                <div className="h-1.5 w-1.5 rounded-full bg-[var(--tenant-primary)] animate-pulse" />
-               Navigation Menu
+               UAT Workspace
             </SheetTitle>
             <div className={cn(
               "flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[8px] font-black uppercase tracking-tighter",
@@ -117,7 +119,7 @@ export function UATNavbar() {
         {hasManagementAccess && (
           <div className="p-6 border-t border-white/5 bg-black/40">
             <div className="bg-primary/5 border border-primary/10 rounded-2xl p-4 flex flex-col gap-2">
-              <span className="text-[8px] font-black uppercase text-primary tracking-widest">Operator Access</span>
+              <span className="text-[8px] font-black uppercase text-primary tracking-widest">Operator Controls</span>
               <div className="flex items-center gap-2">
                  <ShieldCheck className="h-3 w-3 text-primary" />
                  <span className="text-[10px] font-bold text-white uppercase">{userRole?.replace('_', ' ')} Verified</span>
