@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
@@ -16,7 +15,8 @@ import {
   Loader2,
   Trash2,
   Lock,
-  Megaphone
+  Megaphone,
+  MessageSquare
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
