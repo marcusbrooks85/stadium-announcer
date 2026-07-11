@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "Player": {
@@ -53,7 +54,7 @@
       "type": "object",
       "properties": {
         "email": { "type": "string" },
-        "role": { "type": "string", "enum": ["admin", "user"] },
+        "role": { "type": "string", "enum": ["admin", "user", "super_admin", "league_admin", "booth_admin"] },
         "teamId": { "type": "string" }
       }
     },
@@ -66,6 +67,31 @@
         "code": { "type": "string" },
         "ownerUid": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Channel": {
+      "title": "Chat Channel",
+      "description": "A group chat channel for team communication.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["public", "private", "broadcast"] },
+        "teamId": { "type": "string" },
+        "createdBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "ChatMessage": {
+      "title": "Chat Message",
+      "description": "A message sent within a channel.",
+      "type": "object",
+      "properties": {
+        "text": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "senderRole": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "mediaUrl": { "type": "string" }
       }
     }
   },
@@ -84,6 +110,14 @@
     "/teams/{teamId}": {
       "schema": { "$ref": "#/backend/entities/Team" },
       "description": "League teams and their unique codes."
+    },
+    "/channels_UAT/{channelId}": {
+      "schema": { "$ref": "#/backend/entities/Channel" },
+      "description": "Group chat channels in UAT."
+    },
+    "/channels_UAT/{channelId}/messages_UAT/{messageId}": {
+      "schema": { "$ref": "#/backend/entities/ChatMessage" },
+      "description": "Messages within a specific UAT channel."
     }
   }
 }

@@ -1,3 +1,4 @@
+
 "use client";
 
 import React from "react";
@@ -14,7 +15,8 @@ import {
   Settings,
   Wifi,
   WifiOff,
-  ShieldCheck
+  ShieldCheck,
+  MessageSquare
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUATGame } from "@/app/context/uat-game-context";
@@ -43,6 +45,7 @@ export function UATNavbar() {
     { label: "Booth", href: "/booth-uat", icon: Zap },
     { label: "Stats", href: "/stats-uat", icon: BarChart3 },
     { label: "Schedule", href: "/schedule-uat", icon: Calendar },
+    { label: "Team Chat", href: "/messages-uat", icon: MessageSquare },
   ];
 
   if (hasManagementAccess) {
