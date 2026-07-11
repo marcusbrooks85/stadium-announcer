@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { 
@@ -19,12 +19,15 @@ import {
   Mic2,
   ChevronRight,
   ShieldAlert,
-  Music
+  Music,
+  Volume2,
+  Play,
+  Square
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Table, 
@@ -46,8 +49,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useUATGame, UATGameProvider } from "@/app/context/uat-game-context";
 import { UATNavbar } from "@/components/UATNavbar";
 import { useFirestore, useStorage, useAuth } from "@/firebase";
-import { collection, query, where, onSnapshot, doc, setDoc } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { collection, query, where, onSnapshot, doc, setDoc, addDoc, deleteDoc, orderBy, serverTimestamp } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { cn } from "@/lib/utils";
 
 function UATAdminPortalContent() {
@@ -72,6 +75,13 @@ function UATAdminPortalContent() {
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
+  // Sound FX State
+  const [soundEffects, setSoundEffects] = useState<any[]>([]);
+  const [fxForm, setFxForm] = useState({ name: "" });
+  const [fxFile, setFxFile] = useState<File | null>(null);
+  const [previewingId, setPreviewingId] = useState<string | null>(null);
+  const audioPreviewRef = useRef<HTMLAudioElement | null>(null);
+
   // Profile/Branding Form States
   const [profileForm, setProfileForm] = useState({ firstName: "", lastName: "", phoneNumber: "", playerId: "" });
   const [brandingForm, setBrandingForm] = useState({ name: "", primary: "", secondary: "", logoUrl: "" });
@@ -85,6 +95,11 @@ function UATAdminPortalContent() {
     songs: [{ name: "", videoId: "", startAt: 0 }]
   });
   const [audioFile, setAudioFile] = useState<File | null>(null);
+
+  // Determine environment-based collection/path suffixes
+  const suffix = userTeamId?.includes('uat') || true ? "_UAT" : "";
+  const FX_COLLECTION = `sound_fx${suffix}`;
+  const FX_STORAGE_PATH = `sound_fx${suffix}`;
 
   useEffect(() => {
     if (teamData) {
@@ -123,6 +138,20 @@ function UATAdminPortalContent() {
       });
     }
   }, [userRole, userTeamId, db]);
+
+  // Listen for Sound FX
+  useEffect(() => {
+    if (userTeamId && ["super_admin", "league_admin", "booth_admin"].includes(userRole || "")) {
+      const q = query(
+        collection(db, FX_COLLECTION), 
+        where("teamId", "==", userTeamId),
+        orderBy("name", "asc")
+      );
+      return onSnapshot(q, (snap) => {
+        setSoundEffects(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      });
+    }
+  }, [db, userTeamId, userRole, FX_COLLECTION]);
 
   const handleUpdateBranding = async () => {
     if (userRole !== "super_admin") return;
@@ -215,6 +244,63 @@ function UATAdminPortalContent() {
     } finally { setIsSaving(false); }
   };
 
+  const handleUploadFX = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!fxFile || !fxForm.name || !userTeamId) return;
+    
+    setIsUploading(true);
+    try {
+      const fileName = `${Date.now()}_${fxFile.name}`;
+      const storageRef = ref(storage, `${FX_STORAGE_PATH}/${fileName}`);
+      await uploadBytes(storageRef, fxFile);
+      const url = await getDownloadURL(storageRef);
+
+      await addDoc(collection(db, FX_COLLECTION), {
+        name: fxForm.name,
+        url: url,
+        storagePath: storageRef.fullPath,
+        teamId: userTeamId,
+        uploadedBy: auth.currentUser?.uid,
+        createdAt: serverTimestamp()
+      });
+
+      setFxForm({ name: "" });
+      setFxFile(null);
+      toast({ title: "Sound Effect Added" });
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Upload Failed", description: err.message });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleDeleteFX = async (fx: any) => {
+    if (!confirm(`Delete "${fx.name}"?`)) return;
+    try {
+      if (fx.storagePath) {
+        const storageRef = ref(storage, fx.storagePath);
+        await deleteObject(storageRef);
+      }
+      await deleteDoc(doc(db, FX_COLLECTION, fx.id));
+      toast({ title: "Effect Removed" });
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Delete Failed", description: err.message });
+    }
+  };
+
+  const togglePreview = (fx: any) => {
+    if (previewingId === fx.id) {
+      audioPreviewRef.current?.pause();
+      setPreviewingId(null);
+    } else {
+      if (audioPreviewRef.current) {
+        audioPreviewRef.current.src = fx.url;
+        audioPreviewRef.current.play();
+        setPreviewingId(fx.id);
+      }
+    }
+  };
+
   if (!isLoaded) {
     return <div className="min-h-screen flex flex-col items-center justify-center stadium-gradient gap-4">
       <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -259,6 +345,7 @@ function UATAdminPortalContent() {
             {isManagement && <TabsTrigger value="users" className="text-[10px] font-black uppercase tracking-widest px-6 h-10">Team Users</TabsTrigger>}
             {isManagement && <TabsTrigger value="logistics" className="text-[10px] font-black uppercase tracking-widest px-6 h-10">Team Roster</TabsTrigger>}
             {(isManagement || isBoothAdmin) && <TabsTrigger value="booth" className="text-[10px] font-black uppercase tracking-widest px-6 h-10">Booth Config</TabsTrigger>}
+            {(isManagement || isBoothAdmin) && <TabsTrigger value="soundfx" className="text-[10px] font-black uppercase tracking-widest px-6 h-10">Sound FX</TabsTrigger>}
           </TabsList>
 
           <TabsContent value="identity" className="space-y-8">
@@ -532,8 +619,93 @@ function UATAdminPortalContent() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          <TabsContent value="soundfx" className="space-y-8">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              <Card className="lg:col-span-1 bg-card/50 border-white/10 h-fit">
+                <CardHeader>
+                  <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-3">
+                    <Volume2 className="h-4 w-4 text-[var(--tenant-primary)]" /> Register Sound FX
+                  </CardTitle>
+                  <CardDescription className="text-[10px] font-bold uppercase">Add quick-hit audio clips to the booth.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={handleUploadFX} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Effect Name</Label>
+                      <Input placeholder="e.g. Mario Coin" value={fxForm.name} onChange={e => setFxForm({ ...fxForm, name: e.target.value })} className="h-11 bg-black/40 font-bold" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Audio File (MP3/WAV)</Label>
+                      <div className="relative group">
+                        <Input 
+                          type="file" 
+                          accept="audio/*" 
+                          onChange={e => setFxFile(e.target.files?.[0] || null)} 
+                          className="h-14 bg-black/40 font-bold opacity-0 absolute inset-0 z-10 cursor-pointer" 
+                        />
+                        <div className="h-14 border-2 border-dashed border-white/10 rounded-lg flex items-center justify-center bg-black/20 group-hover:border-[var(--tenant-primary)]/50 transition-colors">
+                          <span className="text-[10px] font-black uppercase text-muted-foreground">
+                            {fxFile ? fxFile.name : "Choose or Drop Audio"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <Button disabled={isUploading || !fxFile || !fxForm.name} type="submit" className="w-full h-12 bg-[var(--tenant-primary)] font-black uppercase tracking-widest text-[10px]">
+                      {isUploading ? <Loader2 className="animate-spin mr-2" /> : <Upload className="h-4 w-4 mr-2" />} Upload Sound FX
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
+
+              <Card className="lg:col-span-2 bg-card/50 border-white/10">
+                <CardHeader>
+                  <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-3">
+                    <Music className="h-4 w-4 text-[var(--tenant-primary)]" /> Soundboard Inventory
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {soundEffects.length === 0 ? (
+                      <div className="col-span-full py-20 text-center opacity-20">
+                        <Volume2 className="h-12 w-12 mx-auto mb-4" />
+                        <p className="text-[10px] font-black uppercase tracking-widest">No sound effects configured</p>
+                      </div>
+                    ) : (
+                      soundEffects.map((fx) => (
+                        <div key={fx.id} className="p-4 bg-black/30 border border-white/5 rounded-2xl flex items-center justify-between group hover:border-[var(--tenant-primary)]/30 transition-all">
+                          <div className="flex flex-col">
+                            <span className="text-xs font-black uppercase tracking-wider">{fx.name}</span>
+                            <span className="text-[8px] font-bold text-muted-foreground uppercase mt-1">Uploaded {fx.createdAt?.toDate ? fx.createdAt.toDate().toLocaleDateString() : "Just now"}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button 
+                              onClick={() => togglePreview(fx)} 
+                              variant="ghost" 
+                              size="icon" 
+                              className={cn(
+                                "h-10 w-10 rounded-full transition-all",
+                                previewingId === fx.id ? "bg-red-500/20 text-red-500" : "bg-[var(--tenant-primary)]/10 text-[var(--tenant-primary)]"
+                              )}
+                            >
+                              {previewingId === fx.id ? <Square className="h-4 w-4 fill-current" /> : <Play className="h-4 w-4 fill-current ml-0.5" />}
+                            </Button>
+                            <Button onClick={() => handleDeleteFX(fx)} variant="ghost" size="icon" className="h-10 w-10 text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
         </Tabs>
       </main>
+
+      <audio ref={audioPreviewRef} className="hidden" onEnded={() => setPreviewingId(null)} />
 
       <footer className="fixed bottom-0 left-0 right-0 p-4 bg-card/90 backdrop-blur-md border-t border-white/5 flex items-center justify-center gap-8">
         <div className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
