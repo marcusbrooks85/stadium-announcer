@@ -13,19 +13,21 @@ import {
   Save, 
   Loader2, 
   Palette,
-  AlertTriangle,
   FileAudio,
   ShieldAlert,
   Upload,
   Trophy,
   Phone,
   UserCircle,
-  Settings
+  Settings,
+  X,
+  Mic2,
+  ChevronRight
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Table, 
@@ -47,7 +49,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useUATGame, UATGameProvider } from "@/app/context/uat-game-context";
 import { UATNavbar } from "@/components/UATNavbar";
 import { useFirestore, useStorage, useAuth } from "@/firebase";
-import { collection, query, where, onSnapshot, doc, getDoc } from "firebase/firestore";
+import { collection, query, where, onSnapshot, doc, getDoc, setDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
@@ -79,8 +81,18 @@ function UATAdminPortalContent() {
   const [isUploading, setIsUploading] = useState(false);
 
   // Profile/Branding Form States
-  const [profileForm, setProfileForm] = useState({ fullName: "", phoneNumber: "" });
+  const [profileForm, setProfileForm] = useState({ fullName: "", phoneNumber: "", playerId: "" });
   const [brandingForm, setBrandingForm] = useState({ name: "", primary: "", secondary: "", logoUrl: "" });
+
+  // Player Editor State
+  const [editingPlayerId, setEditingPlayerId] = useState<string | null>(null);
+  const [playerForm, setPlayerForm] = useState({
+    name: "",
+    number: "",
+    announcementAudioUrl: "",
+    songs: [{ name: "", videoId: "", startAt: 0 }]
+  });
+  const [audioFile, setAudioFile] = useState<File | null>(null);
 
   useEffect(() => {
     if (teamData) {
@@ -93,7 +105,6 @@ function UATAdminPortalContent() {
     }
   }, [teamData]);
 
-  // Load active user's own profile info
   useEffect(() => {
     if (auth.currentUser && isLoaded) {
       const unsub = onSnapshot(doc(db, "users_UAT", auth.currentUser.uid), (snap) => {
@@ -101,7 +112,8 @@ function UATAdminPortalContent() {
           const data = snap.data();
           setProfileForm({
             fullName: data.fullName || "",
-            phoneNumber: data.phoneNumber || ""
+            phoneNumber: data.phoneNumber || "",
+            playerId: data.playerId || "none"
           });
         }
       });
@@ -109,7 +121,6 @@ function UATAdminPortalContent() {
     }
   }, [auth.currentUser, db, isLoaded]);
 
-  // Fetch users for authorized roles
   useEffect(() => {
     const isAdmin = ["super_admin", "league_admin"].includes(userRole || "");
     if (isAdmin && userTeamId) {
@@ -141,7 +152,8 @@ function UATAdminPortalContent() {
     try {
       await updateUserProfile(auth.currentUser.uid, {
         fullName: profileForm.fullName,
-        phoneNumber: profileForm.phoneNumber
+        phoneNumber: profileForm.phoneNumber,
+        playerId: profileForm.playerId === "none" ? null : profileForm.playerId
       });
       toast({ title: "Profile Updated" });
     } catch (e: any) {
@@ -168,21 +180,45 @@ function UATAdminPortalContent() {
     }
   };
 
-  const handleUpdateUserPlayer = async (userId: string, playerId: string) => {
-    try {
-      await updateUserProfile(userId, { playerId: playerId === "none" ? null : playerId });
-      toast({ title: "Profile Linked" });
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Update Failed" });
-    }
+  const handleEditPlayer = (player: any) => {
+    setEditingPlayerId(player.id);
+    setPlayerForm({
+      name: player.name || "",
+      number: player.number?.toString() || "",
+      announcementAudioUrl: player.announcementAudioUrl || "",
+      songs: player.songs?.length ? player.songs : [{ name: "", videoId: "", startAt: 0 }]
+    });
+    setAudioFile(null);
   };
 
-  const handleUpdateUserPhone = async (userId: string, phone: string) => {
+  const handleSavePlayerProfile = async () => {
+    if (!userTeamId) return;
+    setIsSaving(true);
     try {
-      await updateUserProfile(userId, { phoneNumber: phone });
+      let finalAudioUrl = playerForm.announcementAudioUrl;
+      const playerId = editingPlayerId || doc(collection(db, "players_UAT")).id;
+
+      if (audioFile) {
+        const audioRef = ref(storage, `announcement_audio_UAT/${playerId}_${Date.now()}`);
+        await uploadBytes(audioRef, audioFile);
+        finalAudioUrl = await getDownloadURL(audioRef);
+      }
+
+      const cleanSongs = playerForm.songs.filter(s => s.name && s.videoId);
+
+      await savePlayer({
+        name: playerForm.name,
+        number: parseInt(playerForm.number) || 0,
+        announcementAudioUrl: finalAudioUrl,
+        songs: cleanSongs,
+        teamId: userTeamId
+      }, playerId);
+
+      setEditingPlayerId(null);
+      toast({ title: "Player Saved Successfully" });
     } catch (e: any) {
-      toast({ variant: "destructive", title: "Update Failed" });
-    }
+      toast({ variant: "destructive", title: "Save Failed", description: e.message });
+    } finally { setIsSaving(false); }
   };
 
   if (!isLoaded) {
@@ -227,19 +263,17 @@ function UATAdminPortalContent() {
           <TabsList className="bg-black/20 p-1 border border-white/5 h-12 w-full justify-start overflow-x-auto whitespace-nowrap scrollbar-hide">
             <TabsTrigger value="identity" className="text-[10px] font-black uppercase tracking-widest px-6 h-10">Identity</TabsTrigger>
             {isManagement && <TabsTrigger value="users" className="text-[10px] font-black uppercase tracking-widest px-6 h-10">Team Users</TabsTrigger>}
-            {isManagement && <TabsTrigger value="logistics" className="text-[10px] font-black uppercase tracking-widest px-6 h-10">Logistics & Schedule</TabsTrigger>}
+            {isManagement && <TabsTrigger value="logistics" className="text-[10px] font-black uppercase tracking-widest px-6 h-10">Team Roster</TabsTrigger>}
             {(isManagement || isBoothAdmin) && <TabsTrigger value="booth" className="text-[10px] font-black uppercase tracking-widest px-6 h-10">Booth Config</TabsTrigger>}
           </TabsList>
 
           <TabsContent value="identity" className="space-y-8">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {/* Personal Profile Section */}
               <Card className="bg-card/50 border-white/10">
                 <CardHeader>
                   <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-3">
                     <UserCircle className="h-4 w-4 text-[var(--tenant-primary)]" /> Personal Profile
                   </CardTitle>
-                  <CardDescription className="text-[10px] uppercase font-bold">Manage your user information within this workspace.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
@@ -249,6 +283,20 @@ function UATAdminPortalContent() {
                   <div className="space-y-2">
                     <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Phone Number</Label>
                     <Input value={profileForm.phoneNumber} onChange={e => setProfileForm({...profileForm, phoneNumber: e.target.value})} className="h-11 bg-black/40 font-bold" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Associate with Player</Label>
+                    <Select value={profileForm.playerId} onValueChange={(val) => setProfileForm({ ...profileForm, playerId: val })}>
+                      <SelectTrigger className="h-11 bg-black/40 font-bold border-white/5">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none" className="font-bold">None / Official (No Associated Player)</SelectItem>
+                        {roster.map(p => (
+                          <SelectItem key={p.id} value={p.id} className="font-bold">{p.name} (Jersey #{p.number})</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <Button onClick={handleUpdateProfile} disabled={isSaving} className="w-full h-12 bg-secondary text-secondary-foreground font-black uppercase text-[10px] tracking-widest">
                     {isSaving ? <Loader2 className="animate-spin" /> : <Save className="h-4 w-4 mr-2" />} Save Profile
@@ -261,54 +309,35 @@ function UATAdminPortalContent() {
                           <code className="text-lg font-black tracking-[0.2em] text-white bg-black/40 px-4 py-2 rounded-lg border border-white/5 block flex-1 text-center mr-2">
                             {teamData?.code}
                           </code>
-                          <Button 
-                            variant="outline" 
-                            size="icon" 
-                            className="h-12 w-12 border-white/10" 
-                            onClick={() => { navigator.clipboard.writeText(teamData?.code || ""); toast({ title: "Code Copied" }); }}
-                          >
+                          <Button variant="outline" size="icon" className="h-12 w-12 border-white/10" onClick={() => { navigator.clipboard.writeText(teamData?.code || ""); toast({ title: "Code Copied" }); }}>
                              <Trophy className="h-4 w-4" />
                           </Button>
                         </div>
-                        <p className="text-[8px] font-bold text-muted-foreground uppercase text-center mt-3 tracking-widest">Share this code with team members to join.</p>
                      </div>
                   </div>
                 </CardContent>
               </Card>
 
-              {/* Team Branding - Super Admin Only */}
               <Card className={cn("bg-card/50 border-white/10", !isSuperAdmin && "opacity-50 pointer-events-none")}>
                 <CardHeader>
                   <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-3">
                     <Palette className="h-4 w-4 text-[var(--tenant-primary)]" /> Visual Identity
                   </CardTitle>
-                  {!isSuperAdmin && <Badge variant="secondary" className="w-fit text-[8px] font-black uppercase">Owner Only</Badge>}
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="space-y-2">
                     <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Team Logo</Label>
                     <div className="flex items-center gap-6">
                       <div className="relative w-20 h-20 rounded-2xl overflow-hidden border-2 border-white/5 bg-black/40 flex items-center justify-center">
-                        {brandingForm.logoUrl ? (
-                          <Image src={brandingForm.logoUrl} alt="Logo Preview" fill className="object-contain" />
-                        ) : (
-                          <Trophy className="h-8 w-8 opacity-20" />
-                        )}
+                        {brandingForm.logoUrl ? <Image src={brandingForm.logoUrl} alt="Logo" fill className="object-contain" /> : <Trophy className="h-8 w-8 opacity-20" />}
                         {isUploading && <div className="absolute inset-0 bg-black/60 flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>}
                       </div>
-                      <div className="flex-1 space-y-2">
-                         <div className="relative">
-                           <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" id="logo-upload" disabled={!isSuperAdmin} />
-                           <Label htmlFor="logo-upload">
-                             <Button asChild variant="outline" className="h-10 text-[10px] font-black uppercase border-white/10 w-full cursor-pointer">
-                               <span><Upload className="h-3 w-3 mr-2" /> Upload New Logo</span>
-                             </Button>
-                           </Label>
-                         </div>
+                      <div className="flex-1">
+                        <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" id="logo-upload" disabled={!isSuperAdmin} />
+                        <Label htmlFor="logo-upload"><Button asChild variant="outline" className="h-10 text-[10px] font-black uppercase border-white/10 w-full cursor-pointer"><span><Upload className="h-3 w-3 mr-2" /> Upload New Logo</span></Button></Label>
                       </div>
                     </div>
                   </div>
-
                   <div className="space-y-2">
                     <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Official Team Name</Label>
                     <Input value={brandingForm.name} onChange={e => setBrandingForm({...brandingForm, name: e.target.value})} className="h-11 bg-black/40 font-bold" />
@@ -343,7 +372,6 @@ function UATAdminPortalContent() {
                 <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-3">
                   <Users className="h-4 w-4 text-[var(--tenant-primary)]" /> User Management
                 </CardTitle>
-                <CardDescription className="text-[10px] uppercase font-bold">Manage permissions and profile links for team members.</CardDescription>
               </CardHeader>
               <CardContent>
                 <Table>
@@ -351,7 +379,6 @@ function UATAdminPortalContent() {
                     <TableRow className="border-white/5">
                       <TableHead className="text-[10px] font-black uppercase">User Profile</TableHead>
                       <TableHead className="text-[10px] font-black uppercase">Linked Player</TableHead>
-                      <TableHead className="text-[10px] font-black uppercase">Contact</TableHead>
                       <TableHead className="text-[10px] font-black uppercase">Role</TableHead>
                       <TableHead className="text-right text-[10px] font-black uppercase">Actions</TableHead>
                     </TableRow>
@@ -366,33 +393,19 @@ function UATAdminPortalContent() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Select defaultValue={u.playerId || "none"} onValueChange={(val) => handleUpdateUserPlayer(u.id, val)}>
-                            <SelectTrigger className="w-[180px] h-9 bg-black/40 text-[10px] font-black uppercase border-white/10">
+                          <Select defaultValue={u.playerId || "none"} onValueChange={(val) => updateUserProfile(u.id, { playerId: val === "none" ? null : val })}>
+                            <SelectTrigger className="w-[200px] h-9 bg-black/40 text-[10px] font-black uppercase border-white/10">
                                <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
                                <SelectItem value="none">None / Official</SelectItem>
-                               {roster.map(p => (
-                                 <SelectItem key={p.id} value={p.id}>#{p.number} - {p.name}</SelectItem>
-                               ))}
+                               {roster.map(p => <SelectItem key={p.id} value={p.id}>#{p.number} - {p.name}</SelectItem>)}
                             </SelectContent>
                           </Select>
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-2">
-                             <Phone className="h-3 w-3 opacity-40" />
-                             <Input 
-                               className="h-8 w-32 bg-black/20 text-[10px] border-white/5" 
-                               defaultValue={u.phoneNumber || ""} 
-                               onBlur={(e) => handleUpdateUserPhone(u.id, e.target.value)}
-                             />
-                          </div>
-                        </TableCell>
-                        <TableCell>
                           <Select defaultValue={u.role} onValueChange={(val) => updateUserProfile(u.id, { role: val })}>
-                            <SelectTrigger className="w-[140px] h-9 bg-black/40 text-[10px] font-black uppercase border-white/10">
-                              <SelectValue />
-                            </SelectTrigger>
+                            <SelectTrigger className="w-[140px] h-9 bg-black/40 text-[10px] font-black uppercase border-white/10"><SelectValue /></SelectTrigger>
                             <SelectContent>
                               <SelectItem value="user">User</SelectItem>
                               <SelectItem value="booth_admin">Booth Admin</SelectItem>
@@ -402,7 +415,7 @@ function UATAdminPortalContent() {
                           </Select>
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button variant="ghost" size="icon" className="text-destructive h-8 w-8" onClick={() => { if(confirm("Delete this user account?")) deleteUserAccount(u.id); }}><Trash2 className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" className="text-destructive h-8 w-8" onClick={() => { if(confirm("Delete user?")) deleteUserAccount(u.id); }}><Trash2 className="h-4 w-4" /></Button>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -415,35 +428,17 @@ function UATAdminPortalContent() {
           <TabsContent value="logistics" className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               <Card className="bg-card/50 border-white/10">
-                <CardHeader>
-                  <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-3">
-                    <Calendar className="h-4 w-4 text-[var(--tenant-primary)]" /> Season Timeline
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {games.map(g => (
-                    <div key={g.id} className="p-4 bg-black/20 rounded-xl border border-white/5 flex items-center justify-between">
-                      <div className="flex flex-col">
-                        <span className="text-[9px] font-black uppercase text-primary">Week {g.week} • {g.date}</span>
-                        <span className="text-xs font-bold">{g.away} vs {g.home}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                         <Button variant="outline" size="sm" className="h-8 text-[9px] font-black uppercase">Edit</Button>
-                         <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteGame(g.id)}><Trash2 className="h-4 w-4" /></Button>
-                      </div>
-                    </div>
-                  ))}
-                  <Button variant="outline" className="w-full border-dashed h-12 font-black uppercase text-[10px] tracking-widest">
-                    <Plus className="h-4 w-4 mr-2" /> Schedule New Game
-                  </Button>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-card/50 border-white/10">
-                <CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-3">
                     <Users className="h-4 w-4 text-[var(--tenant-primary)]" /> Team Roster
                   </CardTitle>
+                  <Button variant="outline" size="sm" className="h-8 text-[10px] font-black uppercase" onClick={() => {
+                    setEditingPlayerId(null);
+                    setPlayerForm({ name: "", number: "", announcementAudioUrl: "", songs: [{ name: "", videoId: "", startAt: 0 }] });
+                    setAudioFile(null);
+                  }}>
+                    <Plus className="h-3 w-3 mr-1" /> Add Player
+                  </Button>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {roster.map(p => (
@@ -452,11 +447,71 @@ function UATAdminPortalContent() {
                         <div className="h-8 w-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-[10px] font-black">#{p.number}</div>
                         <span className="text-xs font-bold uppercase">{p.name}</span>
                       </div>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => deletePlayer(p.id)}><Trash2 className="h-4 w-4" /></Button>
+                      <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                         <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => handleEditPlayer(p)}><ChevronRight className="h-4 w-4" /></Button>
+                         <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => { if(confirm("Delete player?")) deletePlayer(p.id); }}><Trash2 className="h-4 w-4" /></Button>
+                      </div>
                     </div>
                   ))}
-                  <Button variant="outline" className="w-full border-dashed h-12 font-black uppercase text-[10px] tracking-widest">
-                    <Plus className="h-4 w-4 mr-2" /> Add Player to Roster
+                </CardContent>
+              </Card>
+
+              <Card className="bg-card/50 border-white/10">
+                <CardHeader>
+                  <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-3">
+                    <Settings className="h-4 w-4 text-[var(--tenant-primary)]" /> 
+                    {editingPlayerId ? `Edit: ${playerForm.name}` : "Manage Player Profile"}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Full Name</Label>
+                      <Input value={playerForm.name} onChange={e => setPlayerForm({...playerForm, name: e.target.value})} className="h-11 bg-black/40 font-bold" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Jersey Number</Label>
+                      <Input type="number" value={playerForm.number} onChange={e => setPlayerForm({...playerForm, number: e.target.value})} className="h-11 bg-black/40 font-bold" />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 p-4 bg-primary/5 rounded-xl border border-primary/10">
+                    <Label className="text-[10px] font-black uppercase text-primary tracking-widest flex items-center gap-2">
+                      <Mic2 className="h-3 w-3" /> Announcement Audio
+                    </Label>
+                    <Input type="file" accept="audio/*" onChange={e => setAudioFile(e.target.files?.[0] || null)} className="bg-black/20 cursor-pointer border-dashed border-white/10" />
+                    {playerForm.announcementAudioUrl && <p className="text-[8px] font-black text-green-500 uppercase">Existing audio clip linked.</p>}
+                  </div>
+
+                  <div className="space-y-4">
+                    <Label className="text-[10px] font-black uppercase text-secondary tracking-widest flex items-center gap-2">
+                      <Music className="h-3 w-3" /> Walk-Up Tracks (YouTube)
+                    </Label>
+                    {playerForm.songs.map((song, idx) => (
+                      <div key={idx} className="grid grid-cols-12 gap-2 p-3 bg-black/20 rounded-lg border border-white/5 relative">
+                        <Input className="col-span-4 h-9 text-[10px] font-bold" placeholder="Track Name" value={song.name} onChange={e => {
+                          const n = [...playerForm.songs]; n[idx].name = e.target.value; setPlayerForm({...playerForm, songs: n});
+                        }} />
+                        <Input className="col-span-5 h-9 text-[10px] font-bold" placeholder="YouTube URL/ID" value={song.videoId} onChange={e => {
+                          const n = [...playerForm.songs]; n[idx].videoId = e.target.value; setPlayerForm({...playerForm, songs: n});
+                        }} />
+                        <Input className="col-span-3 h-9 text-[10px] font-bold" placeholder="Start (s)" type="number" value={song.startAt || ""} onChange={e => {
+                          const n = [...playerForm.songs]; n[idx].startAt = parseInt(e.target.value) || 0; setPlayerForm({...playerForm, songs: n});
+                        }} />
+                        {playerForm.songs.length > 1 && (
+                          <button onClick={() => {
+                            const n = playerForm.songs.filter((_, i) => i !== idx); setPlayerForm({...playerForm, songs: n});
+                          }} className="absolute -right-2 -top-2 bg-destructive text-white rounded-full p-1 shadow-lg"><X className="h-3 w-3" /></button>
+                        )}
+                      </div>
+                    ))}
+                    <Button variant="outline" className="w-full h-10 border-dashed text-[10px] font-black uppercase" onClick={() => setPlayerForm({...playerForm, songs: [...playerForm.songs, { name: "", videoId: "", startAt: 0 }]})}>
+                      <Plus className="h-3 w-3 mr-2" /> Add Track Option
+                    </Button>
+                  </div>
+
+                  <Button disabled={isSaving} onClick={handleSavePlayerProfile} className="w-full h-14 bg-primary text-white font-black uppercase text-[10px] tracking-widest">
+                    {isSaving ? <Loader2 className="animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />} Save Player Profile
                   </Button>
                 </CardContent>
               </Card>
@@ -469,20 +524,10 @@ function UATAdminPortalContent() {
                 <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-3">
                   <Music className="h-4 w-4 text-[var(--tenant-primary)]" /> Audio Configurations
                 </CardTitle>
-                <CardDescription className="text-[10px] uppercase font-bold">Assign walk-up music and stadium sound effects.</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid gap-6">
-                  <div className="p-6 bg-primary/5 rounded-2xl border border-primary/10 flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="h-12 w-12 rounded-full bg-primary/20 flex items-center justify-center"><FileAudio className="h-6 w-6 text-primary" /></div>
-                      <div className="flex flex-col">
-                        <span className="text-sm font-black uppercase tracking-widest">Dynamic Walk-Up Engine</span>
-                        <span className="text-[10px] text-muted-foreground uppercase font-bold">Integrated with workspace roster.</span>
-                      </div>
-                    </div>
-                    <Button className="bg-primary font-black uppercase text-[10px] tracking-widest h-10 px-6">Manage Audio</Button>
-                  </div>
+                <div className="p-12 text-center border-2 border-dashed border-white/5 rounded-3xl opacity-40">
+                   <p className="text-[10px] font-black uppercase tracking-widest">Booth Engine configuration pending deployment.</p>
                 </div>
               </CardContent>
             </Card>
