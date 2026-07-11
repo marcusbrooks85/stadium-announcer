@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
@@ -56,6 +55,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useGame, StadiumSong } from "@/app/context/game-context";
 import { AdminPanel } from "@/components/AdminPanel";
+import { Soundboard } from "@/components/Soundboard";
 
 export default function StadiumBoothDashboard() {
   const { 
@@ -525,6 +525,12 @@ export default function StadiumBoothDashboard() {
                     </Button>
                   </CardContent>
                 </Card>
+              </section>
+
+              <section className="flex justify-center">
+                <div className="w-full md:max-w-2xl">
+                  <Soundboard />
+                </div>
               </section>
 
               <section className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-8">

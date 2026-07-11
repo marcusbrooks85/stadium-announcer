@@ -36,6 +36,7 @@ import { useUATGame, StadiumSong, UATGameProvider } from "@/app/context/uat-game
 import { UATNavbar } from "@/components/UATNavbar";
 import { useFirestore, useAuth } from "@/firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { Soundboard } from "@/components/Soundboard";
 
 function UATBoothContent() {
   const db = useFirestore();
@@ -256,6 +257,12 @@ function UATBoothContent() {
                   </Button>
                 </CardContent>
               </Card>
+
+              <div className="flex justify-center">
+                <div className="w-full max-w-4xl">
+                  <Soundboard />
+                </div>
+              </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <Card className="bg-card/80 border-white/10">
