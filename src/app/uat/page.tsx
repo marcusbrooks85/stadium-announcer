@@ -36,10 +36,8 @@ import {
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword,
   sendEmailVerification,
-  User,
 } from "firebase/auth";
-import { doc, setDoc, collection, addDoc, serverTimestamp, getDoc, updateDoc, query, where, getDocs, limit, onSnapshot } from "firebase/firestore";
-import { cn } from "@/lib/utils";
+import { doc, setDoc, collection, addDoc, serverTimestamp, getDocs, updateDoc, query, where, limit, onSnapshot } from "firebase/firestore";
 
 type Step = "acknowledgement" | "auth" | "verification" | "team-setup" | "success" | "tutorial";
 
@@ -63,7 +61,8 @@ export default function UATOnboardingPage() {
     email: "",
     password: "",
     confirmPassword: "",
-    fullName: "",
+    firstName: "",
+    lastName: "",
     teamName: "",
     city: "",
     state: "",
@@ -128,7 +127,7 @@ export default function UATOnboardingPage() {
   const handleAuthAction = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isRegisterMode) {
-      if (!isPasswordStrong || !passwordsMatch || !formData.phoneNumber) {
+      if (!isPasswordStrong || !passwordsMatch || !formData.phoneNumber || !formData.firstName || !formData.lastName) {
         toast({ variant: "destructive", title: "Validation Error", description: "Please complete all fields and meet security requirements." });
         return;
       }
@@ -161,7 +160,8 @@ export default function UATOnboardingPage() {
 
         await setDoc(doc(db, "users_UAT", user.uid), {
           email: user.email,
-          fullName: formData.fullName,
+          firstName: formData.firstName,
+          lastName: formData.lastName,
           phoneNumber: formData.phoneNumber,
           playerId: formData.playerId === "none" ? null : formData.playerId,
           role: isJoinMode ? "user" : "super_admin",
@@ -174,7 +174,7 @@ export default function UATOnboardingPage() {
         await sendEmailVerification(user);
         if (isJoinMode) setStep("tutorial"); else setStep("team-setup");
       } else {
-        const userCredential = await signInWithEmailAndPassword(auth, formData.email, formData.password);
+        await signInWithEmailAndPassword(auth, formData.email, formData.password);
         router.push("/booth-uat");
       }
     } catch (error: any) {
@@ -253,9 +253,15 @@ export default function UATOnboardingPage() {
         <form onSubmit={handleAuthAction} className="space-y-4">
           {isRegisterMode && (
             <>
-              <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Full Name</Label>
-                <Input required value={formData.fullName} onChange={(e) => setFormData({ ...formData, fullName: e.target.value })} className="h-12 bg-black/40" />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">First Name</Label>
+                  <Input required value={formData.firstName} onChange={(e) => setFormData({ ...formData, firstName: e.target.value })} className="h-12 bg-black/40" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Last Name</Label>
+                  <Input required value={formData.lastName} onChange={(e) => setFormData({ ...formData, lastName: e.target.value })} className="h-12 bg-black/40" />
+                </div>
               </div>
               <div className="space-y-2">
                 <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1 flex items-center gap-2"><Phone className="h-3 w-3" /> Phone Number</Label>

@@ -6,28 +6,25 @@ import Image from "next/image";
 import { 
   ShieldCheck, 
   Users, 
-  Calendar, 
-  Music, 
   Plus, 
   Trash2, 
   Save, 
   Loader2, 
   Palette,
-  FileAudio,
-  ShieldAlert,
   Upload,
   Trophy,
-  Phone,
   UserCircle,
   Settings,
   X,
   Mic2,
-  ChevronRight
+  ChevronRight,
+  ShieldAlert,
+  Music
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Table, 
@@ -49,13 +46,11 @@ import { useToast } from "@/hooks/use-toast";
 import { useUATGame, UATGameProvider } from "@/app/context/uat-game-context";
 import { UATNavbar } from "@/components/UATNavbar";
 import { useFirestore, useStorage, useAuth } from "@/firebase";
-import { collection, query, where, onSnapshot, doc, getDoc, setDoc } from "firebase/firestore";
+import { collection, query, where, onSnapshot, doc, setDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { cn } from "@/lib/utils";
-import Link from "next/link";
 
 function UATAdminPortalContent() {
-  const router = useRouter();
   const db = useFirestore();
   const auth = useAuth();
   const storage = useStorage();
@@ -66,14 +61,11 @@ function UATAdminPortalContent() {
     userTeamId, 
     teamData, 
     roster, 
-    games,
     saveTeamBranding,
     updateUserProfile,
     deleteUserAccount,
     savePlayer,
     deletePlayer,
-    saveGame,
-    deleteGame
   } = useUATGame();
 
   const [teamUsers, setTeamUsers] = useState<any[]>([]);
@@ -81,7 +73,7 @@ function UATAdminPortalContent() {
   const [isUploading, setIsUploading] = useState(false);
 
   // Profile/Branding Form States
-  const [profileForm, setProfileForm] = useState({ fullName: "", phoneNumber: "", playerId: "" });
+  const [profileForm, setProfileForm] = useState({ firstName: "", lastName: "", phoneNumber: "", playerId: "" });
   const [brandingForm, setBrandingForm] = useState({ name: "", primary: "", secondary: "", logoUrl: "" });
 
   // Player Editor State
@@ -111,7 +103,8 @@ function UATAdminPortalContent() {
         if (snap.exists()) {
           const data = snap.data();
           setProfileForm({
-            fullName: data.fullName || "",
+            firstName: data.firstName || "",
+            lastName: data.lastName || "",
             phoneNumber: data.phoneNumber || "",
             playerId: data.playerId || "none"
           });
@@ -151,7 +144,8 @@ function UATAdminPortalContent() {
     setIsSaving(true);
     try {
       await updateUserProfile(auth.currentUser.uid, {
-        fullName: profileForm.fullName,
+        firstName: profileForm.firstName,
+        lastName: profileForm.lastName,
         phoneNumber: profileForm.phoneNumber,
         playerId: profileForm.playerId === "none" ? null : profileForm.playerId
       });
@@ -276,9 +270,15 @@ function UATAdminPortalContent() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Full Name</Label>
-                    <Input value={profileForm.fullName} onChange={e => setProfileForm({...profileForm, fullName: e.target.value})} className="h-11 bg-black/40 font-bold" />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">First Name</Label>
+                      <Input value={profileForm.firstName} onChange={e => setProfileForm({...profileForm, firstName: e.target.value})} className="h-11 bg-black/40 font-bold" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Last Name</Label>
+                      <Input value={profileForm.lastName} onChange={e => setProfileForm({...profileForm, lastName: e.target.value})} className="h-11 bg-black/40 font-bold" />
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Phone Number</Label>
@@ -388,7 +388,7 @@ function UATAdminPortalContent() {
                       <TableRow key={u.id} className="border-white/5">
                         <TableCell>
                           <div className="flex flex-col">
-                            <span className="font-bold text-sm">{u.fullName || "Unnamed User"}</span>
+                            <span className="font-bold text-sm">{u.firstName} {u.lastName}</span>
                             <span className="text-[10px] text-muted-foreground">{u.email}</span>
                           </div>
                         </TableCell>

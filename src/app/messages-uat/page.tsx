@@ -6,15 +6,12 @@ import {
   Send, 
   Hash, 
   Plus, 
-  MoreVertical, 
   Paperclip, 
   Smile, 
   ShieldCheck,
-  Search,
   Loader2,
   Megaphone,
   MessageSquare,
-  User as UserIcon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -96,11 +93,11 @@ function UATMessagesContent() {
     const profile = userProfiles[senderId];
     if (!profile) return "Unknown User";
     
-    const standardName = profile.fullName || "User";
-    if (!profile.playerId) return standardName;
+    const userFirstName = profile.firstName || "User";
+    if (!profile.playerId) return userFirstName;
 
     const player = roster.find(p => p.id === profile.playerId);
-    return player ? `${standardName} (${player.name} [#${player.number}])` : standardName;
+    return player ? `${userFirstName} [#${player.number} ${player.name}]` : userFirstName;
   };
 
   const handleSendMessage = async (e: React.FormEvent) => {
@@ -203,7 +200,7 @@ function UATMessagesContent() {
               {messages.length === 0 && !isLoadingMessages && (
                 <div className="h-full flex flex-col items-center justify-center opacity-20 py-20">
                   <MessageSquare className="h-12 w-12 mb-4" />
-                  <p className="text-[10px] font-black uppercase tracking-widest">No messages yet</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest">No messages in this workspace yet</p>
                 </div>
               )}
               {messages.map((msg) => (
