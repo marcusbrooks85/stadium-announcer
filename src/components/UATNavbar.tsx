@@ -11,12 +11,11 @@ import {
   Activity, 
   Menu, 
   ChevronRight,
-  Settings,
-  Wifi,
-  WifiOff,
   ShieldCheck,
   MessageSquare,
-  LayoutDashboard
+  LayoutDashboard,
+  Wifi,
+  WifiOff
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUATGame } from "@/app/context/uat-game-context";
@@ -33,10 +32,11 @@ import { Button } from "@/components/ui/button";
 /**
  * A shared navigation bar for the UAT environment.
  * Consolidates all links into a slide-out hamburger menu.
+ * Refactored to make "Workspace" visible to all users.
  */
 export function UATNavbar() {
   const pathname = usePathname();
-  const { userRole, isOnline } = useUATGame();
+  const { userRole, isOnline, teamData } = useUATGame();
 
   const hasManagementAccess = ["super_admin", "league_admin", "booth_admin"].includes(userRole || "");
 
@@ -47,12 +47,12 @@ export function UATNavbar() {
     { label: "Stats", href: "/stats-uat", icon: BarChart3 },
     { label: "Schedule", href: "/schedule-uat", icon: Calendar },
     { label: "Team Chat", href: "/messages-uat", icon: MessageSquare },
+    { label: "Workspace", href: "/admin-uat", icon: LayoutDashboard },
   ];
 
-  // Additional tools for verified administrators
+  // Analytics for management only
   if (hasManagementAccess) {
-    navItems.push({ label: "Analytics", href: "/analytics-uat", icon: Activity });
-    navItems.push({ label: "Admin Portal", href: "/admin-uat", icon: LayoutDashboard });
+    navItems.splice(5, 0, { label: "Analytics", href: "/analytics-uat", icon: Activity });
   }
 
   return (
@@ -71,7 +71,7 @@ export function UATNavbar() {
           <div className="flex items-center justify-between">
             <SheetTitle className="text-left text-[10px] font-black uppercase tracking-[0.3em] text-[var(--tenant-primary)] flex items-center gap-3">
                <div className="h-1.5 w-1.5 rounded-full bg-[var(--tenant-primary)] animate-pulse" />
-               UAT Workspace
+               {teamData?.name || "UAT Workspace"}
             </SheetTitle>
             <div className={cn(
               "flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[8px] font-black uppercase tracking-tighter",
@@ -116,17 +116,15 @@ export function UATNavbar() {
           })}
         </nav>
 
-        {hasManagementAccess && (
-          <div className="p-6 border-t border-white/5 bg-black/40">
-            <div className="bg-primary/5 border border-primary/10 rounded-2xl p-4 flex flex-col gap-2">
-              <span className="text-[8px] font-black uppercase text-primary tracking-widest">Operator Controls</span>
-              <div className="flex items-center gap-2">
-                 <ShieldCheck className="h-3 w-3 text-primary" />
-                 <span className="text-[10px] font-bold text-white uppercase">{userRole?.replace('_', ' ')} Verified</span>
-              </div>
+        <div className="p-6 border-t border-white/5 bg-black/40">
+          <div className="bg-primary/5 border border-primary/10 rounded-2xl p-4 flex flex-col gap-2">
+            <span className="text-[8px] font-black uppercase text-primary tracking-widest">Operator Status</span>
+            <div className="flex items-center gap-2">
+               <ShieldCheck className="h-3 w-3 text-primary" />
+               <span className="text-[10px] font-bold text-white uppercase">{userRole?.replace('_', ' ') || 'User'} Verified</span>
             </div>
           </div>
-        )}
+        </div>
       </SheetContent>
     </Sheet>
   );

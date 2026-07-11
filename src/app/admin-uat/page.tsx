@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -20,7 +19,8 @@ import {
   Upload,
   Trophy,
   Phone,
-  UserCircle
+  UserCircle,
+  Settings
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,14 +45,15 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useUATGame, UATGameProvider } from "@/app/context/uat-game-context";
 import { UATNavbar } from "@/components/UATNavbar";
-import { useFirestore, useStorage } from "@/firebase";
-import { collection, query, where, onSnapshot } from "firebase/firestore";
+import { useFirestore, useStorage, useAuth } from "@/firebase";
+import { collection, query, where, onSnapshot, doc, getDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import Link from "next/link";
 
 function UATAdminPortalContent() {
   const router = useRouter();
   const db = useFirestore();
+  const auth = useAuth();
   const storage = useStorage();
   const { toast } = useToast();
   const { 
@@ -75,7 +76,8 @@ function UATAdminPortalContent() {
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
-  // Form States
+  // Profile/Branding Form States
+  const [profileForm, setProfileForm] = useState({ fullName: "", phoneNumber: "" });
   const [brandingForm, setBrandingForm] = useState({ name: "", primary: "", secondary: "", logoUrl: "" });
 
   useEffect(() => {
@@ -89,9 +91,26 @@ function UATAdminPortalContent() {
     }
   }, [teamData]);
 
-  // Fetch users for Super Admin
+  // Load active user's own profile info
   useEffect(() => {
-    if (userRole === "super_admin" && userTeamId) {
+    if (auth.currentUser && isLoaded) {
+      const unsub = onSnapshot(doc(db, "users_UAT", auth.currentUser.uid), (snap) => {
+        if (snap.exists()) {
+          const data = snap.data();
+          setProfileForm({
+            fullName: data.fullName || "",
+            phoneNumber: data.phoneNumber || ""
+          });
+        }
+      });
+      return () => unsub();
+    }
+  }, [auth.currentUser, db, isLoaded]);
+
+  // Fetch users for authorized roles
+  useEffect(() => {
+    const isAdmin = ["super_admin", "league_admin"].includes(userRole || "");
+    if (isAdmin && userTeamId) {
       const q = query(collection(db, "users_UAT"), where("teamId", "==", userTeamId));
       return onSnapshot(q, (snap) => {
         setTeamUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
@@ -100,6 +119,7 @@ function UATAdminPortalContent() {
   }, [userRole, userTeamId, db]);
 
   const handleUpdateBranding = async () => {
+    if (userRole !== "super_admin") return;
     setIsSaving(true);
     try {
       await saveTeamBranding({
@@ -107,15 +127,29 @@ function UATAdminPortalContent() {
         primaryColor: brandingForm.primary,
         secondaryColor: brandingForm.secondary
       });
-      toast({ title: "Identity Updated" });
+      toast({ title: "Workspace Updated" });
     } catch (e: any) {
       toast({ variant: "destructive", title: "Update Failed", description: e.message });
     } finally { setIsSaving(false); }
   };
 
+  const handleUpdateProfile = async () => {
+    if (!auth.currentUser) return;
+    setIsSaving(true);
+    try {
+      await updateUserProfile(auth.currentUser.uid, {
+        fullName: profileForm.fullName,
+        phoneNumber: profileForm.phoneNumber
+      });
+      toast({ title: "Profile Updated" });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Update Failed" });
+    } finally { setIsSaving(false); }
+  };
+
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !userTeamId) return;
+    if (!file || !userTeamId || userRole !== "super_admin") return;
     
     setIsUploading(true);
     try {
@@ -152,30 +186,14 @@ function UATAdminPortalContent() {
   if (!isLoaded) {
     return <div className="min-h-screen flex flex-col items-center justify-center stadium-gradient gap-4">
       <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Initializing Admin Environment...</span>
+      <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Initializing Workspace...</span>
     </div>;
   }
 
-  const hasAccess = ["super_admin", "league_admin", "booth_admin"].includes(userRole || "");
-  
-  if (!hasAccess) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center stadium-gradient p-4 text-center">
-        <div className="bg-card/50 border border-white/10 p-12 rounded-3xl backdrop-blur-xl max-w-md w-full shadow-2xl">
-          <ShieldAlert className="h-16 w-16 text-destructive mx-auto mb-6" />
-          <h1 className="text-2xl font-black uppercase tracking-widest mb-2">Access Denied</h1>
-          <p className="text-sm font-bold text-muted-foreground uppercase leading-relaxed mb-8">
-            You do not have administrative clearance to access the management workspace.
-          </p>
-          <Link href="/uat">
-            <Button className="w-full h-14 font-black uppercase tracking-widest bg-primary">
-              Return to Home
-            </Button>
-          </Link>
-        </div>
-      </div>
-    );
-  }
+  const isSuperAdmin = userRole === "super_admin";
+  const isLeagueAdmin = userRole === "league_admin";
+  const isBoothAdmin = userRole === "booth_admin";
+  const isManagement = isSuperAdmin || isLeagueAdmin;
 
   return (
     <div className="min-h-screen bg-background text-foreground stadium-gradient overflow-hidden flex flex-col">
@@ -192,10 +210,10 @@ function UATAdminPortalContent() {
           )}
           <div className="flex flex-col">
             <h1 className="font-headline font-black uppercase tracking-[0.2em] text-[10px] md:text-sm">
-              {teamData?.name || "UAT ADMIN PORTAL"}
+              {teamData?.name || "UAT WORKSPACE"}
             </h1>
             <div className="flex items-center gap-1.5">
-              <span className="text-[8px] font-black uppercase text-[var(--tenant-primary)] tracking-tighter">Verified: {userRole?.replace('_', ' ')}</span>
+              <span className="text-[8px] font-black uppercase text-[var(--tenant-primary)] tracking-tighter">Verified {userRole?.replace('_', ' ') || "User"}</span>
             </div>
           </div>
         </div>
@@ -203,79 +221,118 @@ function UATAdminPortalContent() {
       </header>
 
       <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full overflow-y-auto pb-24">
-        <Tabs defaultValue="branding" className="space-y-8">
+        <Tabs defaultValue="identity" className="space-y-8">
           <TabsList className="bg-black/20 p-1 border border-white/5 h-12 w-full justify-start overflow-x-auto whitespace-nowrap scrollbar-hide">
-            {(userRole === "super_admin") && <TabsTrigger value="branding" className="text-[10px] font-black uppercase tracking-widest px-6 h-10">Branding</TabsTrigger>}
-            {(userRole === "super_admin") && <TabsTrigger value="users" className="text-[10px] font-black uppercase tracking-widest px-6 h-10">Team Users</TabsTrigger>}
-            {(userRole === "super_admin" || userRole === "league_admin") && <TabsTrigger value="logistics" className="text-[10px] font-black uppercase tracking-widest px-6 h-10">Logistics & Schedule</TabsTrigger>}
-            {(userRole === "super_admin" || userRole === "booth_admin") && <TabsTrigger value="booth" className="text-[10px] font-black uppercase tracking-widest px-6 h-10">Booth Config</TabsTrigger>}
+            <TabsTrigger value="identity" className="text-[10px] font-black uppercase tracking-widest px-6 h-10">Identity</TabsTrigger>
+            {isManagement && <TabsTrigger value="users" className="text-[10px] font-black uppercase tracking-widest px-6 h-10">Team Users</TabsTrigger>}
+            {isManagement && <TabsTrigger value="logistics" className="text-[10px] font-black uppercase tracking-widest px-6 h-10">Logistics & Schedule</TabsTrigger>}
+            {(isManagement || isBoothAdmin) && <TabsTrigger value="booth" className="text-[10px] font-black uppercase tracking-widest px-6 h-10">Booth Config</TabsTrigger>}
           </TabsList>
 
-          <TabsContent value="branding" className="space-y-6">
-            <Card className="bg-card/50 border-white/10 max-w-2xl">
-              <CardHeader>
-                <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-3">
-                  <Palette className="h-4 w-4 text-[var(--tenant-primary)]" /> Visual Identity
-                </CardTitle>
-                <CardDescription className="text-[10px] uppercase font-bold">Configure workspace branding and name.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Team Logo</Label>
-                  <div className="flex items-center gap-6">
-                    <div className="relative w-24 h-24 rounded-2xl overflow-hidden border-2 border-white/5 bg-black/40 flex items-center justify-center">
-                      {brandingForm.logoUrl ? (
-                        <Image src={brandingForm.logoUrl} alt="Logo Preview" fill className="object-contain" />
-                      ) : (
-                        <Trophy className="h-8 w-8 opacity-20" />
-                      )}
-                      {isUploading && <div className="absolute inset-0 bg-black/60 flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>}
-                    </div>
-                    <div className="flex-1 space-y-2">
-                       <p className="text-[9px] font-bold text-muted-foreground uppercase leading-relaxed">Upload a PNG or SVG to replace the default icon across the entire booth environment.</p>
-                       <div className="relative">
-                         <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" id="logo-upload" />
-                         <Label htmlFor="logo-upload">
-                           <Button asChild variant="outline" className="h-10 text-[10px] font-black uppercase border-white/10 w-full cursor-pointer">
-                             <span><Upload className="h-3 w-3 mr-2" /> Upload New Logo</span>
-                           </Button>
-                         </Label>
-                       </div>
-                    </div>
+          <TabsContent value="identity" className="space-y-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Personal Profile Section */}
+              <Card className="bg-card/50 border-white/10">
+                <CardHeader>
+                  <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-3">
+                    <UserCircle className="h-4 w-4 text-[var(--tenant-primary)]" /> Personal Profile
+                  </CardTitle>
+                  <CardDescription className="text-[10px] uppercase font-bold">Manage your user information within this workspace.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Full Name</Label>
+                    <Input value={profileForm.fullName} onChange={e => setProfileForm({...profileForm, fullName: e.target.value})} className="h-11 bg-black/40 font-bold" />
                   </div>
-                </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Phone Number</Label>
+                    <Input value={profileForm.phoneNumber} onChange={e => setProfileForm({...profileForm, phoneNumber: e.target.value})} className="h-11 bg-black/40 font-bold" />
+                  </div>
+                  <Button onClick={handleUpdateProfile} disabled={isSaving} className="w-full h-12 bg-secondary text-secondary-foreground font-black uppercase text-[10px] tracking-widest">
+                    {isSaving ? <Loader2 className="animate-spin" /> : <Save className="h-4 w-4 mr-2" />} Save Profile
+                  </Button>
 
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Official Team Name</Label>
-                  <Input value={brandingForm.name} onChange={e => setBrandingForm({...brandingForm, name: e.target.value})} className="h-12 bg-black/40 font-bold" />
-                </div>
-                <div className="grid grid-cols-2 gap-6">
+                  <div className="pt-6 border-t border-white/5 space-y-4">
+                     <div className="p-4 bg-primary/5 rounded-xl border border-primary/20">
+                        <Label className="text-[10px] font-black uppercase text-primary mb-2 block">Team Workspace Access Code</Label>
+                        <div className="flex items-center justify-between">
+                          <code className="text-lg font-black tracking-[0.2em] text-white bg-black/40 px-4 py-2 rounded-lg border border-white/5 block flex-1 text-center mr-2">
+                            {teamData?.code}
+                          </code>
+                          <Button 
+                            variant="outline" 
+                            size="icon" 
+                            className="h-12 w-12 border-white/10" 
+                            onClick={() => { navigator.clipboard.writeText(teamData?.code || ""); toast({ title: "Code Copied" }); }}
+                          >
+                             <Trophy className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <p className="text-[8px] font-bold text-muted-foreground uppercase text-center mt-3 tracking-widest">Share this code with team members to join.</p>
+                     </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Team Branding - Super Admin Only */}
+              <Card className={cn("bg-card/50 border-white/10", !isSuperAdmin && "opacity-50 pointer-events-none")}>
+                <CardHeader>
+                  <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-3">
+                    <Palette className="h-4 w-4 text-[var(--tenant-primary)]" /> Visual Identity
+                  </CardTitle>
+                  {!isSuperAdmin && <Badge variant="secondary" className="w-fit text-[8px] font-black uppercase">Owner Only</Badge>}
+                </CardHeader>
+                <CardContent className="space-y-6">
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Primary Color</Label>
-                    <div className="flex gap-3">
-                      <Input type="color" value={brandingForm.primary} onChange={e => setBrandingForm({...brandingForm, primary: e.target.value})} className="w-12 h-12 p-1" />
-                      <Input value={brandingForm.primary} onChange={e => setBrandingForm({...brandingForm, primary: e.target.value})} className="h-12 uppercase font-mono" />
+                    <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Team Logo</Label>
+                    <div className="flex items-center gap-6">
+                      <div className="relative w-20 h-20 rounded-2xl overflow-hidden border-2 border-white/5 bg-black/40 flex items-center justify-center">
+                        {brandingForm.logoUrl ? (
+                          <Image src={brandingForm.logoUrl} alt="Logo Preview" fill className="object-contain" />
+                        ) : (
+                          <Trophy className="h-8 w-8 opacity-20" />
+                        )}
+                        {isUploading && <div className="absolute inset-0 bg-black/60 flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>}
+                      </div>
+                      <div className="flex-1 space-y-2">
+                         <div className="relative">
+                           <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" id="logo-upload" disabled={!isSuperAdmin} />
+                           <Label htmlFor="logo-upload">
+                             <Button asChild variant="outline" className="h-10 text-[10px] font-black uppercase border-white/10 w-full cursor-pointer">
+                               <span><Upload className="h-3 w-3 mr-2" /> Upload New Logo</span>
+                             </Button>
+                           </Label>
+                         </div>
+                      </div>
                     </div>
                   </div>
+
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Secondary Color</Label>
-                    <div className="flex gap-3">
-                      <Input type="color" value={brandingForm.secondary} onChange={e => setBrandingForm({...brandingForm, secondary: e.target.value})} className="w-12 h-12 p-1" />
-                      <Input value={brandingForm.secondary} onChange={e => setBrandingForm({...brandingForm, secondary: e.target.value})} className="h-12 uppercase font-mono" />
+                    <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Official Team Name</Label>
+                    <Input value={brandingForm.name} onChange={e => setBrandingForm({...brandingForm, name: e.target.value})} className="h-11 bg-black/40 font-bold" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Primary Color</Label>
+                      <div className="flex gap-2">
+                        <Input type="color" value={brandingForm.primary} onChange={e => setBrandingForm({...brandingForm, primary: e.target.value})} className="w-10 h-10 p-1" />
+                        <Input value={brandingForm.primary} onChange={e => setBrandingForm({...brandingForm, primary: e.target.value})} className="h-10 uppercase font-mono text-[10px]" />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Secondary Color</Label>
+                      <div className="flex gap-2">
+                        <Input type="color" value={brandingForm.secondary} onChange={e => setBrandingForm({...brandingForm, secondary: e.target.value})} className="w-10 h-10 p-1" />
+                        <Input value={brandingForm.secondary} onChange={e => setBrandingForm({...brandingForm, secondary: e.target.value})} className="h-10 uppercase font-mono text-[10px]" />
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="p-4 bg-primary/5 rounded-xl border border-primary/20">
-                   <Label className="text-[10px] font-black uppercase text-primary mb-2 block">Workspace Access Code</Label>
-                   <code className="text-xl font-black tracking-[0.2em] text-white bg-black/40 px-4 py-2 rounded-lg border border-white/5 block text-center">
-                     {teamData?.code}
-                   </code>
-                </div>
-                <Button onClick={handleUpdateBranding} disabled={isSaving} className="w-full h-14 bg-primary font-black uppercase tracking-widest">
-                  {isSaving ? <Loader2 className="animate-spin" /> : <Save className="h-4 w-4 mr-2" />} Save Identity
-                </Button>
-              </CardContent>
-            </Card>
+                  <Button onClick={handleUpdateBranding} disabled={isSaving || !isSuperAdmin} className="w-full h-12 bg-primary font-black uppercase tracking-widest text-[10px]">
+                    {isSaving ? <Loader2 className="animate-spin" /> : <Save className="h-4 w-4 mr-2" />} Update Identity
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
           <TabsContent value="users" className="space-y-6">
@@ -343,7 +400,7 @@ function UATAdminPortalContent() {
                           </Select>
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button variant="ghost" size="icon" className="text-destructive h-8 w-8" onClick={() => deleteUserAccount(u.id)}><Trash2 className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" className="text-destructive h-8 w-8" onClick={() => { if(confirm("Delete this user account?")) deleteUserAccount(u.id); }}><Trash2 className="h-4 w-4" /></Button>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -433,7 +490,7 @@ function UATAdminPortalContent() {
 
       <footer className="fixed bottom-0 left-0 right-0 p-4 bg-card/90 backdrop-blur-md border-t border-white/5 flex items-center justify-center gap-8">
         <div className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-           <AlertTriangle className="h-3 w-3 text-amber-500" /> Administrative Sandbox
+           <ShieldAlert className="h-3 w-3 text-primary" /> Workspace Access Control Active
         </div>
       </footer>
     </div>
