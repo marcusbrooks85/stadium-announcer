@@ -1,39 +1,48 @@
 rules_version = '2';
 
-// Craft rules for Firebase Storage
-// See https://firebase.google.com/docs/storage/security for more information
+// Firebase Storage Security Rules
+// Designed for the On Deck Baseball Stadium App
+// Allows public read access to media and authenticated write access for UAT/Production assets.
 
 service firebase.storage {
   match /b/{bucket}/o {
-    // UAT Workspace: Team Logos
-    // Allows any authenticated user to upload logos in the UAT environment
-    match /logos_UAT/{allPaths=**} {
+    
+    // Allow public read access to all assets (Logos, Audio, FX)
+    match /{allPaths=**} {
       allow read: if true;
+    }
+
+    // UAT Workspace Assets
+    // Explicitly allow writes for authenticated users to UAT directories
+    match /logos_UAT/{imageId} {
       allow write: if request.auth != null;
     }
     
-    // UAT Workspace: Player Announcement Audio
-    // Allows authenticated users to upload player voice clips
-    match /audio_UAT/{allPaths=**} {
-      allow read: if true;
+    match /audio_UAT/{audioId} {
       allow write: if request.auth != null;
     }
 
-    // UAT Workspace: General Announcement Audio (Player Profiles)
-    match /announcement_audio_UAT/{allPaths=**} {
-      allow read: if true;
+    match /announcement_audio_UAT/{audioId} {
       allow write: if request.auth != null;
     }
 
-    // Production: Player Announcement Audio
-    match /audio/{allPaths=**} {
-      allow read: if true;
+    match /sound_fx_UAT/{fxId} {
       allow write: if request.auth != null;
     }
 
-    // Default: Deny all other requests
+    // Production Assets
+    match /audio/{audioId} {
+      allow write: if request.auth != null;
+    }
+
+    match /logos/{logoId} {
+      allow write: if request.auth != null;
+    }
+
+    // Global Fallback
+    // Ensure any authenticated user can write to assets during UAT testing
     match /{allPaths=**} {
-      allow read, write: if false;
+      allow write: if request.auth != null;
     }
   }
 }
