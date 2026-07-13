@@ -6,16 +6,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const SOUND_FX = [
-  { id: 'coin', name: 'MARIO STAR', emoji: '⭐', url: 'https://www.myinstants.com/media/sounds/mario-star-power.mp3' },
-  { id: 'airhorn', name: 'DJ AIRHORN', emoji: '📣', url: 'https://www.myinstants.com/media/sounds/dj-airhorn.mp3' },
-  { id: 'cheer', name: 'ANIME WOW', emoji: '😮', url: 'https://www.myinstants.com/media/sounds/anime-wow.mp3' },
-  { id: 'powerup', name: 'DBZ AURA', emoji: '⚡', url: 'https://www.myinstants.com/media/sounds/super-saiyan-aura.mp3' },
-  { id: 'gokuyell', name: 'GOKU YELL', emoji: '🗣️', url: 'https://www.myinstants.com/media/sounds/goku-yelling-drip-31605.mp3' },
-  { id: 'gokudrip', name: 'GOKU DRIP', emoji: '🧥', url: 'https://www.myinstants.com/media/sounds/goku-drip-99617.mp3' },
-  { id: 'amongus', name: 'ROLE REVEAL', emoji: '🕵️', url: 'https://www.myinstants.com/media/sounds/among-us-role-reveal-sound-34956.mp3' },
-  { id: 'badbone', name: 'BAD TO BONE', emoji: '💀', url: 'https://www.myinstants.com/media/sounds/bad-to-the-bone-meme-22189.mp3' },
-  { id: 'bighit', name: 'VINE BOOM', emoji: '💥', url: 'https://www.myinstants.com/media/sounds/vine-boom-sound-effect-full-16880.mp3' },
-  { id: 'sonic', name: 'SONIC BOOM', emoji: '🦔', url: 'https://www.myinstants.com/media/sounds/sonic-boom.mp3' }
+  { id: 'powerup', name: 'DBZ AURA', emoji: '🔊', url: 'https://www.myinstants.com/media/sounds/saiyan.mp3' },
+  { id: 'gokuyell', name: 'GOKU YELL', emoji: '🔊', url: 'https://www.myinstants.com/media/sounds/goku-yelling-drip.mp3' },
+  { id: 'wow', name: 'ANIME WOW', emoji: '🔊', url: 'https://www.myinstants.com/media/sounds/anime-wow-sound-effect.mp3' },
+  { id: 'amongus', name: 'ROLE REVEAL', emoji: '🔊', url: 'https://www.myinstants.com/media/sounds/among-us-role-reveal-sound.mp3' },
+  { id: 'mariostar', name: 'MARIO STAR', emoji: '🔊', url: 'https://www.myinstants.com/media/sounds/super-mario-bros-nes-music-star-theme-cut-mp3.mp3' },
+  { id: 'gokudrip', name: 'GOKU DRIP', emoji: '🔊', url: 'https://www.myinstants.com/media/sounds/drip-goku-meme-song-original-dragon-ball-super-music-clash-of-gods-in-description.mp3' },
+  { id: 'badbone', name: 'BAD TO BONE', emoji: '🔊', url: 'https://www.myinstants.com/media/sounds/bad-to-the-bone-meme.mp3' },
+  { id: 'airhorn', name: 'DJ AIRHORN', emoji: '🔊', url: 'https://www.myinstants.com/media/sounds/dj-airhorn-sound-effect-kingbeatz_1.mp3' },
+  { id: 'vineboom', name: 'VINE BOOM', emoji: '🔊', url: 'https://www.myinstants.com/media/sounds/vine-boom-sound-effect-full.mp3' },
+  { id: 'sonic', name: 'SONIC BOOM', emoji: '🔊', url: 'https://www.myinstants.com/media/sounds/sonicboom.mp3' }
 ];
 
 /**
@@ -45,7 +45,7 @@ export function Soundboard() {
 
     // Reset playing state when the clip finishes
     audio.onended = () => {
-      if (playingId === id) setPlayingId(null);
+      setPlayingId((prev) => (prev === id ? null : prev));
     };
   };
 
@@ -57,13 +57,13 @@ export function Soundboard() {
         </CardTitle>
       </CardHeader>
       <CardContent className="p-4">
-        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
           {SOUND_FX.map((fx) => (
             <Button
               key={fx.id}
               variant="outline"
               onClick={() => playSound(fx.id, fx.url)}
-              className={`h-16 flex flex-col items-center justify-center gap-1 border-white/5 bg-black/20 hover:bg-primary/10 hover:border-primary/30 transition-all group ${
+              className={`h-20 flex flex-col items-center justify-center gap-1 border-white/5 bg-black/20 hover:bg-primary/10 hover:border-primary/30 transition-all group ${
                 playingId === fx.id ? "border-primary/50 bg-primary/10 ring-1 ring-primary/20" : ""
               }`}
             >
