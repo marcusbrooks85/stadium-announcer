@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const SOUND_FX = [
   { id: 'powerup', name: 'DBZ AURA', emoji: '🔊', url: 'https://www.myinstants.com/media/sounds/saiyan.mp3' },
-  { id: 'gokuyell', name: 'GOKU YELL', emoji: '🔊', url: 'https://www.myinstants.com/media/sounds/goku-yelling-drip.mp3' },
+  { id: 'mariocoin', name: 'MARIO COIN', emoji: '🔊', url: 'https://www.myinstants.com/media/sounds/mario_coin_sound.mp3' },
   { id: 'wow', name: 'ANIME WOW', emoji: '🔊', url: 'https://www.myinstants.com/media/sounds/anime-wow-sound-effect.mp3' },
   { id: 'amongus', name: 'ROLE REVEAL', emoji: '🔊', url: 'https://www.myinstants.com/media/sounds/among-us-role-reveal-sound.mp3' },
   { id: 'mariostar', name: 'MARIO STAR', emoji: '🔊', url: 'https://www.myinstants.com/media/sounds/super-mario-bros-nes-music-star-theme-cut-mp3.mp3' },
