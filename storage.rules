@@ -6,15 +6,21 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
     // UAT Workspace: Team Logos
-    // Allows any authenticated user with a verified email to upload logos
+    // Allows any authenticated user to upload logos in the UAT environment
     match /logos_UAT/{allPaths=**} {
       allow read: if true;
-      allow write: if request.auth != null && request.auth.token.email_verified == true;
+      allow write: if request.auth != null;
     }
     
     // UAT Workspace: Player Announcement Audio
     // Allows authenticated users to upload player voice clips
     match /audio_UAT/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    // UAT Workspace: General Announcement Audio (Player Profiles)
+    match /announcement_audio_UAT/{allPaths=**} {
       allow read: if true;
       allow write: if request.auth != null;
     }
