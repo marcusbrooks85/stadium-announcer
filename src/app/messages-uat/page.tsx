@@ -89,9 +89,12 @@ function UATMessagesContent() {
   // Listen for Channels
   useEffect(() => {
     if (!db || !userTeamId) return;
-    const q = query(collection(db, "channels_UAT"), where("teamId", "==", userTeamId), orderBy("name", "asc"));
+    // Fix: Removed orderBy to avoid missing index error
+    const q = query(collection(db, "channels_UAT"), where("teamId", "==", userTeamId));
     return onSnapshot(q, (snap) => {
       const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      // Client-side sort
+      list.sort((a: any, b: any) => (a.name || "").localeCompare(b.name || ""));
       setChannels(list);
       if (!selectedChannelId && list.length > 0) setSelectedChannelId(list[0].id);
     });

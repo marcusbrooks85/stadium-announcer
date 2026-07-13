@@ -257,23 +257,33 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
       setRoster(snap.docs.map(d => ({ id: d.id, ...d.data() })) as Player[]);
     });
 
-    const qGames = query(collection(db, "games_UAT"), where("teamId", "==", userTeamId), orderBy("date", "asc"));
+    // Fix: Removed orderBy from Firestore queries requiring composite indexes
+    const qGames = query(collection(db, "games_UAT"), where("teamId", "==", userTeamId));
     const unsubGames = onSnapshot(qGames, (snap) => {
-      setGames(snap.docs.map(d => ({ id: d.id, ...d.data() })) as Game[]);
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() })) as Game[];
+      // Client-side sort
+      data.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+      setGames(data);
     });
 
     const unsubTeam = onSnapshot(doc(db, "teams_UAT", userTeamId), (doc) => {
       if (doc.exists()) setTeamData({ id: doc.id, ...doc.data() } as Team);
     });
 
-    const qOrgan = query(collection(db, "organ_songs_UAT"), where("teamId", "==", userTeamId), orderBy("order", "asc"));
+    const qOrgan = query(collection(db, "organ_songs_UAT"), where("teamId", "==", userTeamId));
     const unsubOrgan = onSnapshot(qOrgan, (snap) => {
-      setOrganSongs(snap.docs.map(d => ({ id: d.id, ...d.data() })) as StadiumSong[]);
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() })) as StadiumSong[];
+      // Client-side sort
+      data.sort((a, b) => (a.order || 0) - (b.order || 0));
+      setOrganSongs(data);
     });
 
-    const qPump = query(collection(db, "pump_up_songs_UAT"), where("teamId", "==", userTeamId), orderBy("order", "asc"));
+    const qPump = query(collection(db, "pump_up_songs_UAT"), where("teamId", "==", userTeamId));
     const unsubPump = onSnapshot(qPump, (snap) => {
-      setPumpUpSongs(snap.docs.map(d => ({ id: d.id, ...d.data() })) as StadiumSong[]);
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() })) as StadiumSong[];
+      // Client-side sort
+      data.sort((a, b) => (a.order || 0) - (b.order || 0));
+      setPumpUpSongs(data);
     });
 
     const unsubAllStats = onSnapshot(collection(db, "game_stats_UAT"), (snap) => {

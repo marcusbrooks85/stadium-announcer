@@ -142,13 +142,16 @@ function UATAdminPortalContent() {
   // Listen for Sound FX
   useEffect(() => {
     if (userTeamId && ["super_admin", "league_admin", "booth_admin"].includes(userRole || "")) {
+      // Fix: Removed orderBy("name", "asc") to avoid index requirement
       const q = query(
         collection(db, FX_COLLECTION), 
-        where("teamId", "==", userTeamId),
-        orderBy("name", "asc")
+        where("teamId", "==", userTeamId)
       );
       return onSnapshot(q, (snap) => {
-        setSoundEffects(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        // Client-side sort
+        data.sort((a: any, b: any) => (a.name || "").localeCompare(b.name || ""));
+        setSoundEffects(data);
       });
     }
   }, [db, userTeamId, userRole, FX_COLLECTION]);
