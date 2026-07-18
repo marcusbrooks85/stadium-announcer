@@ -171,14 +171,15 @@ function ResetPasswordForm() {
                 placeholder="8+ characters required" 
                 value={newPassword} 
                 onChange={(e) => setNewPassword(e.target.value)} 
-                className="h-12 bg-black/40 pr-10" 
+                className="h-12 bg-black/40 pr-12" 
               />
               <button 
                 type="button" 
                 onClick={() => setShowPassword(!showPassword)} 
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white"
+                onMouseDown={(e) => e.preventDefault()}
+                className="absolute right-0 top-0 h-full w-12 flex items-center justify-center text-muted-foreground hover:text-white z-20"
               >
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
               </button>
             </div>
             
@@ -199,14 +200,15 @@ function ResetPasswordForm() {
                 placeholder="Repeat new password" 
                 value={confirmPassword} 
                 onChange={(e) => setConfirmPassword(e.target.value)} 
-                className="h-12 bg-black/40 pr-10" 
+                className="h-12 bg-black/40 pr-12" 
               />
               <button 
                 type="button" 
                 onClick={() => setShowConfirmPassword(!showConfirmPassword)} 
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white"
+                onMouseDown={(e) => e.preventDefault()}
+                className="absolute right-0 top-0 h-full w-12 flex items-center justify-center text-muted-foreground hover:text-white z-20"
               >
-                {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
               </button>
             </div>
             {confirmPassword && !passwordsMatch && (
@@ -237,8 +239,8 @@ function ResetPasswordForm() {
 
 export default function ResetPasswordPage() {
   return (
-    <div className="min-h-screen bg-background stadium-gradient flex items-center justify-center p-4">
-      <div className="w-full flex items-center justify-center animate-in fade-in duration-700">
+    <div className="min-h-screen bg-background stadium-gradient flex items-center justify-center p-4 overflow-y-auto">
+      <div className="w-full flex items-center justify-center animate-in fade-in duration-700 py-10">
         <Suspense fallback={<Loader2 className="animate-spin text-primary" />}>
           <ResetPasswordForm />
         </Suspense>

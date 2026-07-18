@@ -214,8 +214,6 @@ export default function UATOnboardingPage() {
 
       await sendPasswordResetEmail(auth, formData.email, actionCodeSettings);
       
-      console.log(`Password reset email triggered for: ${formData.email} with custom redirect URL.`);
-      
       toast({ 
         title: "Reset Email Sent", 
         description: "A secure link has been sent to your email to update your password. Please also check your spam folder." 
@@ -223,7 +221,6 @@ export default function UATOnboardingPage() {
       setStep("auth");
       setIsRegisterMode(false);
     } catch (err: any) {
-      console.error("Failed to trigger password reset email:", err);
       toast({ variant: "destructive", title: "Error", description: err.message });
     } finally { setLoading(false); }
   };
@@ -344,9 +341,16 @@ export default function UATOnboardingPage() {
                 placeholder="8+ characters required" 
                 value={formData.password} 
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })} 
-                className="h-12 bg-black/40 pr-10" 
+                className="h-12 bg-black/40 pr-12" 
               />
-              <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white" >{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button>
+              <button 
+                type="button" 
+                onClick={() => setShowPassword(!showPassword)} 
+                onMouseDown={(e) => e.preventDefault()}
+                className="absolute right-0 top-0 h-full w-12 flex items-center justify-center text-muted-foreground hover:text-white z-20"
+              >
+                {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+              </button>
             </div>
             
             {isRegisterMode && (
@@ -362,8 +366,22 @@ export default function UATOnboardingPage() {
             <div className="space-y-2">
               <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Confirm Password</Label>
               <div className="relative">
-                <Input required type={showConfirmPassword ? "text" : "password"} placeholder="Repeat password" value={formData.confirmPassword} onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })} className="h-12 bg-black/40 pr-10" />
-                <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white" >{showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button>
+                <Input 
+                  required 
+                  type={showConfirmPassword ? "text" : "password"} 
+                  placeholder="Repeat password" 
+                  value={formData.confirmPassword} 
+                  onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })} 
+                  className="h-12 bg-black/40 pr-12" 
+                />
+                <button 
+                  type="button" 
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)} 
+                  onMouseDown={(e) => e.preventDefault()}
+                  className="absolute right-0 top-0 h-full w-12 flex items-center justify-center text-muted-foreground hover:text-white z-20"
+                >
+                  {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                </button>
               </div>
               {formData.confirmPassword && !passwordsMatch && <p className="text-[8px] font-black text-red-500 uppercase ml-1">Passwords do not match</p>}
             </div>
@@ -482,8 +500,8 @@ export default function UATOnboardingPage() {
   );
 
   return (
-    <div className="min-h-screen bg-background stadium-gradient flex items-center justify-center p-4">
-      <div className="w-full flex items-center justify-center animate-in fade-in duration-700">
+    <div className="min-h-screen bg-background stadium-gradient flex items-center justify-center p-4 overflow-y-auto">
+      <div className="w-full flex items-center justify-center animate-in fade-in duration-700 py-10">
         {step === "acknowledgement" && renderAcknowledgement()}
         {step === "auth" && renderAuth()}
         {step === "forgot-password" && renderForgotPassword()}
