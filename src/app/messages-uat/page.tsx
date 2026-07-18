@@ -106,7 +106,7 @@ function UATMessagesContent() {
     const q = query(collection(db, "users_UAT"), where("teamId", "==", userTeamId));
     return onSnapshot(q, (snap) => {
       const profiles: Record<string, any> = {};
-      snap.forEach(d => profiles[d.id] = d.data());
+      snap.forEach(d => profiles[d.id] = { id: d.id, ...d.data() });
       setUserProfiles(profiles);
     });
   }, [db, userTeamId]);
@@ -431,7 +431,7 @@ function UATMessagesContent() {
                 ) : (
                   filteredMentions.map((p: any) => (
                     <button 
-                      key={p.uid || p.id} 
+                      key={p.id} 
                       onClick={() => selectMention(p)}
                       className="w-full flex items-center gap-3 p-3 hover:bg-primary/10 transition-colors text-left border-b border-white/5 last:border-0"
                     >
