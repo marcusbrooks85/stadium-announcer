@@ -48,7 +48,6 @@ type Step = "acknowledgement" | "auth" | "verification" | "team-setup" | "succes
 
 export default function UATOnboardingPage() {
   const router = useRouter();
-  // Changed: First screen is now login screen (auth step, registerMode false)
   const [step, setStep] = useState<Step>("auth");
   const [isRegisterMode, setIsRegisterMode] = useState(false);
   const [isJoinMode, setIsJoinMode] = useState(true);
@@ -198,7 +197,6 @@ export default function UATOnboardingPage() {
     if (!formData.email) return;
     setLoading(true);
     try {
-      // Check if email exists in database first per instructions
       const q = query(collection(db, "users_UAT"), where("email", "==", formData.email), limit(1));
       const snap = await getDocs(q);
       
@@ -209,8 +207,10 @@ export default function UATOnboardingPage() {
       }
 
       await sendPasswordResetEmail(auth, formData.email);
-      toast({ title: "Reset Email Sent", description: "Check your inbox for password reset instructions." });
-      // Redirect to login after successful reset initiation
+      toast({ 
+        title: "Reset Email Sent", 
+        description: "Check your inbox for a secure link to update your password." 
+      });
       setStep("auth");
       setIsRegisterMode(false);
     } catch (err: any) {
@@ -407,7 +407,7 @@ export default function UATOnboardingPage() {
         <CardTitle className="text-xl font-black uppercase tracking-widest flex items-center gap-3">
           <Mail className="w-6 h-6 text-primary" /> Reset Password
         </CardTitle>
-        <CardDescription className="text-[10px] font-bold uppercase">Enter your email to receive a recovery link.</CardDescription>
+        <CardDescription className="text-[10px] font-bold uppercase">Enter your email to receive a secure recovery link.</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleResetPassword} className="space-y-6">
