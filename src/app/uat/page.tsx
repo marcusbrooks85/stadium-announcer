@@ -39,7 +39,8 @@ import {
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword,
   sendEmailVerification,
-  sendPasswordResetEmail
+  sendPasswordResetEmail,
+  ActionCodeSettings
 } from "firebase/auth";
 import { doc, setDoc, collection, addDoc, serverTimestamp, getDocs, updateDoc, query, where, limit, onSnapshot } from "firebase/firestore";
 import { cn } from "@/lib/utils";
@@ -129,7 +130,6 @@ export default function UATOnboardingPage() {
   };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Only allow numbers
     const digits = e.target.value.replace(/\D/g, "");
     const formatted = formatPhoneNumber(digits);
     setFormData({ ...formData, phoneNumber: formatted });
@@ -207,7 +207,15 @@ export default function UATOnboardingPage() {
         return;
       }
 
-      await sendPasswordResetEmail(auth, formData.email);
+      const actionCodeSettings: ActionCodeSettings = {
+        url: 'https://stadium-announcer.vercel.app/auth/reset-password',
+        handleCodeInApp: true,
+      };
+
+      await sendPasswordResetEmail(auth, formData.email, actionCodeSettings);
+      
+      console.log(`Password reset email triggered for: ${formData.email} with custom redirect URL.`);
+      
       toast({ 
         title: "Reset Email Sent", 
         description: "A secure link has been sent to your email to update your password. Please also check your spam folder." 
@@ -215,6 +223,7 @@ export default function UATOnboardingPage() {
       setStep("auth");
       setIsRegisterMode(false);
     } catch (err: any) {
+      console.error("Failed to trigger password reset email:", err);
       toast({ variant: "destructive", title: "Error", description: err.message });
     } finally { setLoading(false); }
   };
