@@ -42,6 +42,7 @@ export async function POST(req: NextRequest) {
     const s3Client = new S3Client({
       region: 'auto',
       endpoint: `https://${accountId.trim()}.r2.cloudflarestorage.com`,
+      forcePathStyle: true, // Required for certain R2 configurations to ensure correct pathing
       credentials: {
         accessKeyId: accessKeyId.trim(),
         secretAccessKey: secretAccessKey.trim(),
