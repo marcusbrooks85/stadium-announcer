@@ -24,7 +24,8 @@ import {
   Archive,
   MoreHorizontal,
   ChevronLeft,
-  FolderArchive
+  FolderArchive,
+  MessagesSquare
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -473,15 +474,37 @@ function UATMessagesContent() {
 
   return (
     <div className="flex flex-col h-screen bg-background text-foreground stadium-gradient overflow-hidden">
+      {/* Dynamic Header */}
       <header className="sticky top-0 z-50 flex items-center justify-between p-4 border-b border-border shadow-2xl bg-card/95 backdrop-blur-md">
         <div className="flex items-center gap-3">
           {selectedChannelId && (
-            <Button variant="ghost" size="icon" onClick={() => setSelectedChannelId(null)} className="lg:hidden h-8 w-8 mr-1">
-              <ChevronLeft className="h-5 w-5" />
+            <Button variant="ghost" size="icon" onClick={() => setSelectedChannelId(null)} className="lg:hidden h-9 w-9 mr-1 text-primary hover:bg-primary/10">
+              <ChevronLeft className="h-6 w-6" />
             </Button>
           )}
-          {teamData?.logoUrl ? <div className="relative w-6 h-6"><Image src={teamData.logoUrl} alt="Logo" fill className="object-contain" /></div> : <ShieldCheck className="h-5 w-5 text-primary" />}
-          <div className="flex flex-col"><h1 className="font-headline font-black uppercase tracking-[0.2em] text-[10px] md:text-sm">Team Chat</h1><span className="text-[8px] font-black uppercase text-primary tracking-tighter">{teamData?.name || "Workspace"}</span></div>
+          {!selectedChannelId ? (
+            <div className="flex items-center gap-3">
+               <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                  <MessagesSquare className="h-5 w-5" />
+               </div>
+               <div className="flex flex-col">
+                  <h1 className="font-headline font-black uppercase tracking-[0.1em] text-xs md:text-sm">MESSAGES</h1>
+                  <span className="text-[8px] font-black uppercase text-muted-foreground tracking-widest">{teamData?.name || "Team Workspace"}</span>
+               </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3">
+               <Avatar className="h-9 w-9 border border-white/10">
+                  <AvatarFallback className="text-[10px] font-black bg-primary/10 text-primary">
+                    {activeChannel?.isDM ? <User className="h-4 w-4" /> : (activeChannel?.name?.[0] || "#").toUpperCase()}
+                  </AvatarFallback>
+               </Avatar>
+               <div className="flex flex-col">
+                  <span className="text-xs font-black uppercase tracking-wider">{activeChannel?.name || "Chat"}</span>
+                  <span className="text-[8px] text-green-500 font-bold uppercase tracking-tighter">Active Thread</span>
+               </div>
+            </div>
+          )}
         </div>
         <UATNavbar />
       </header>
@@ -489,31 +512,33 @@ function UATMessagesContent() {
       <div className="flex-1 flex overflow-hidden">
         {/* Chat List View / Sidebar */}
         <aside className={cn(
-          "w-full lg:w-72 bg-card/40 border-r border-border backdrop-blur-sm flex flex-col transition-all duration-300",
+          "w-full lg:w-80 bg-card/40 border-r border-border backdrop-blur-sm flex flex-col transition-all duration-300",
           selectedChannelId ? "hidden lg:flex" : "flex"
         )}>
-          <div className="p-4 border-b border-white/5 space-y-3">
+          <div className="p-4 border-b border-white/5 space-y-4">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
-              <Input placeholder="Search people..." className="h-9 bg-black/20 text-xs font-bold pl-9" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input placeholder="Search threads..." className="h-10 bg-black/20 text-xs font-bold pl-10 border-white/5" />
             </div>
-            <div className="flex items-center justify-between px-2">
-              <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">View: {showArchived ? "Archived" : "Active"}</span>
-              <Button variant="ghost" size="sm" onClick={() => setShowArchived(!showArchived)} className="h-6 text-[8px] font-black uppercase tracking-widest px-2">
-                <Archive className="h-3 w-3 mr-1" /> {showArchived ? "EXIT ARCHIVE" : "ARCHIVED"}
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">View: {showArchived ? "Archived" : "Inbox"}</span>
+              <Button variant="ghost" size="sm" onClick={() => setShowArchived(!showArchived)} className="h-7 text-[8px] font-black uppercase tracking-widest px-3 bg-white/5">
+                {showArchived ? "BACK TO ACTIVE" : "VIEW ARCHIVE"}
               </Button>
             </div>
           </div>
           
           <ScrollArea className="flex-1">
-            <div className="p-4 space-y-6">
+            <div className="p-4 space-y-8">
               <section className="space-y-2">
-                <div className="flex items-center justify-between px-2 mb-3">
-                  <h3 className="text-[10px] font-black uppercase text-muted-foreground tracking-[0.2em]">Team Channels</h3>
-                  <Plus className="h-3 w-3 opacity-20 hover:opacity-100 cursor-pointer" />
+                <div className="flex items-center justify-between px-2 mb-4">
+                  <h3 className="text-[10px] font-black uppercase text-primary tracking-[0.2em]">Group Channels</h3>
+                  <Button variant="ghost" size="icon" className="h-6 w-6 opacity-40 hover:opacity-100">
+                    <Plus className="h-4 w-4" />
+                  </Button>
                 </div>
                 {filteredChannels.length === 0 && (
-                  <p className="text-[8px] text-center py-4 opacity-30 font-black uppercase tracking-widest">No {showArchived ? "archived" : "active"} channels</p>
+                  <p className="text-[9px] text-center py-8 opacity-30 font-black uppercase tracking-widest border border-dashed border-white/5 rounded-2xl">No {showArchived ? "archived" : "active"} groups</p>
                 )}
                 {filteredChannels.map(c => (
                   <ChannelListItem 
@@ -529,7 +554,12 @@ function UATMessagesContent() {
 
               {!showArchived && (
                 <section className="space-y-2">
-                  <h3 className="text-[10px] font-black uppercase text-muted-foreground tracking-[0.2em] px-2 mb-3">Direct Messages</h3>
+                  <div className="px-2 mb-4">
+                    <h3 className="text-[10px] font-black uppercase text-secondary tracking-[0.2em]">Direct Threads</h3>
+                  </div>
+                  {directMessages.length === 0 && (
+                     <p className="text-[9px] text-center py-8 opacity-30 font-black uppercase tracking-widest border border-dashed border-white/5 rounded-2xl">Invite teammates to chat</p>
+                  )}
                   {directMessages.map(p => {
                     const dmId = `dm_${[auth.currentUser?.uid, p.id].sort().join('_')}`;
                     const isActive = selectedChannelId === dmId;
@@ -538,14 +568,20 @@ function UATMessagesContent() {
                         key={p.id} 
                         onClick={() => startDM(p.id)} 
                         className={cn(
-                          "w-full flex items-center gap-3 p-3 rounded-xl transition-all text-left",
-                          isActive ? "bg-primary text-white shadow-lg" : "hover:bg-white/5"
+                          "w-full flex items-center gap-4 p-4 rounded-2xl transition-all text-left relative",
+                          isActive ? "bg-primary text-white shadow-xl translate-x-1" : "hover:bg-white/5"
                         )}
                       >
-                        <Avatar className="h-6 w-6 border border-white/10">
-                          <AvatarFallback className="text-[8px] font-black">{(p.firstName?.[0] || "?").toUpperCase()}</AvatarFallback>
+                        <Avatar className="h-10 w-10 border border-white/10 shadow-lg">
+                          <AvatarFallback className={cn("text-[10px] font-black", isActive ? "bg-white/20" : "bg-secondary/10 text-secondary")}>
+                            {(p.firstName?.[0] || "?").toUpperCase()}
+                          </AvatarFallback>
                         </Avatar>
-                        <span className="text-xs font-bold">{p.firstName} {p.lastName}</span>
+                        <div className="flex flex-col overflow-hidden">
+                          <span className="text-xs font-black uppercase tracking-wider truncate">{p.firstName} {p.lastName}</span>
+                          <span className="text-[8px] font-bold opacity-40 uppercase truncate">Start a private message</span>
+                        </div>
+                        {isActive && <div className="absolute right-4 w-1.5 h-1.5 rounded-full bg-white animate-pulse" />}
                       </button>
                     );
                   })}
@@ -561,37 +597,28 @@ function UATMessagesContent() {
           !selectedChannelId ? "hidden lg:flex" : "flex"
         )}>
           {!selectedChannelId ? (
-            <div className="flex-1 flex flex-col items-center justify-center opacity-30 gap-4">
-              <div className="h-16 w-16 rounded-full bg-white/5 flex items-center justify-center">
-                <MessageSquare className="h-8 w-8" />
+            <div className="flex-1 flex flex-col items-center justify-center opacity-30 gap-6 p-8 text-center">
+              <div className="h-24 w-24 rounded-full bg-white/5 flex items-center justify-center border border-white/10">
+                <MessagesSquare className="h-12 w-12" />
               </div>
-              <p className="text-[10px] font-black uppercase tracking-[0.3em]">Select a chat to begin</p>
+              <div className="space-y-2">
+                <p className="text-sm font-black uppercase tracking-[0.3em]">No Thread Selected</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest max-w-[200px]">Select a group or teammate to view the conversation</p>
+              </div>
             </div>
           ) : (
             <>
-              {/* Active Chat Header */}
-              <div className="p-3 border-b border-white/5 bg-black/20 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                    {activeChannel?.isDM ? <User className="h-4 w-4" /> : <Hash className="h-4 w-4" />}
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-xs font-black uppercase tracking-wider">{activeChannel?.name || "Chat"}</span>
-                    <span className="text-[8px] text-muted-foreground font-bold uppercase tracking-tighter">
-                      {activeChannel?.isArchived ? "Archived Session" : "Active Session"}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button variant="ghost" size="icon" className="h-8 w-8 opacity-40"><MoreHorizontal className="h-4 w-4" /></Button>
-                </div>
-              </div>
-
-              <ScrollArea className="flex-1 p-4 pb-12">
-                <div className="space-y-8 pl-4 pr-4">
+              <ScrollArea className="flex-1 p-4 pb-20">
+                <div className="max-w-4xl mx-auto space-y-10 py-6">
                   {Object.entries(groupedMessages).map(([date, msgs]) => (
-                    <div key={date} className="space-y-6">
-                      <div className="flex justify-center"><div className="bg-white/5 border border-white/10 px-4 py-1 rounded-full"><span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">{date === new Date().toDateString() ? "TODAY" : date}</span></div></div>
+                    <div key={date} className="space-y-8">
+                      <div className="flex justify-center">
+                        <div className="bg-white/5 border border-white/10 px-5 py-1.5 rounded-full backdrop-blur-md">
+                          <span className="text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground">
+                            {date === new Date().toDateString() ? "TODAY" : date}
+                          </span>
+                        </div>
+                      </div>
                       {msgs.map(m => (
                         <MessageItem 
                           key={m.id} 
@@ -612,42 +639,47 @@ function UATMessagesContent() {
                 </div>
               </ScrollArea>
 
-              <div className="p-4 bg-card/50 backdrop-blur-xl border-t border-white/5 space-y-3">
+              {/* Chat Input Area */}
+              <div className="p-4 bg-card/60 backdrop-blur-3xl border-t border-white/5 space-y-4">
                 {replyingTo && (
-                  <div className="flex items-center justify-between p-2 bg-primary/10 rounded-lg border border-primary/20 animate-in slide-in-from-bottom-2">
-                    <div className="flex flex-col">
-                      <span className="text-[8px] font-black uppercase text-primary">Replying to {userProfiles[replyingTo.senderId]?.firstName}</span>
-                      <span className="text-[10px] font-bold line-clamp-1">{replyingTo.text || "Media"}</span>
+                  <div className="max-w-4xl mx-auto flex items-center justify-between p-3 bg-primary/10 rounded-2xl border border-primary/20 animate-in slide-in-from-bottom-4 duration-300">
+                    <div className="flex flex-col pl-2">
+                      <span className="text-[9px] font-black uppercase text-primary tracking-widest flex items-center gap-2">
+                        <Reply className="h-3 w-3" /> Replying to {userProfiles[replyingTo.senderId]?.firstName}
+                      </span>
+                      <span className="text-[11px] font-bold line-clamp-1 opacity-70 mt-0.5">{replyingTo.text || "Attached Media"}</span>
                     </div>
-                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setReplyingTo(null)}><X className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => setReplyingTo(null)}><X className="h-4 w-4" /></Button>
                   </div>
                 )}
                 
                 {attachmentUrl && (
-                  <div className="flex items-center gap-3 bg-white/5 p-2 rounded-lg border border-white/10 w-fit">
-                    <div className="relative w-12 h-12 rounded overflow-hidden border border-white/10">
+                  <div className="max-w-4xl mx-auto flex items-center gap-4 bg-white/5 p-3 rounded-2xl border border-white/10 w-fit animate-in zoom-in-95 duration-200">
+                    <div className="relative w-16 h-16 rounded-xl overflow-hidden border-2 border-white/10 shadow-2xl">
                       <Image src={attachmentUrl} alt="Preview" fill className="object-cover" unoptimized />
                     </div>
-                    <div className="flex flex-col gap-1">
-                      <span className="text-[8px] font-black text-green-500 uppercase">Ready to send</span>
-                      <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => setAttachmentUrl(null)}><X className="h-4 w-4" /></Button>
+                    <div className="flex flex-col gap-1.5">
+                      <span className="text-[9px] font-black text-green-500 uppercase tracking-widest">Image Ready</span>
+                      <Button variant="destructive" size="sm" className="h-7 text-[8px] font-black uppercase px-3" onClick={() => setAttachmentUrl(null)}>Discard</Button>
                     </div>
                   </div>
                 )}
 
-                <form onSubmit={handleSendMessage} className="flex items-center gap-3 bg-black/40 p-1.5 rounded-2xl border border-white/10 max-w-4xl mx-auto w-full">
+                <form onSubmit={handleSendMessage} className="flex items-center gap-3 bg-black/50 p-2 rounded-[24px] border border-white/10 max-w-4xl mx-auto w-full shadow-2xl">
                   <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
-                  <Button variant="ghost" size="icon" className={cn("opacity-40", isUploading && "animate-spin")} type="button" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
+                  <Button variant="ghost" size="icon" className={cn("h-11 w-11 rounded-full text-muted-foreground hover:text-white", isUploading && "animate-spin")} type="button" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
                     {isUploading ? <Loader2 className="h-5 w-5" /> : <Paperclip className="h-5 w-5" />}
                   </Button>
-                  <Input value={newMessage} onChange={e => setNewMessage(e.target.value)} placeholder="Type a message..." className="bg-transparent border-none focus-visible:ring-0 font-bold text-[13px] h-10 px-0" />
+                  <Input value={newMessage} onChange={e => setNewMessage(e.target.value)} placeholder="Send a message..." className="bg-transparent border-none focus-visible:ring-0 font-bold text-sm h-12 px-2" />
                   <Popover>
-                    <PopoverTrigger asChild><Button variant="ghost" size="icon" className="opacity-40" type="button"><Smile className="h-5 w-5" /></Button></PopoverTrigger>
-                    <PopoverContent className="w-auto p-2 grid grid-cols-6 gap-1 bg-card border-white/10">
-                      {COMMON_EMOJIS.map(e => <button key={e} onClick={() => setNewMessage(p => p + e)} className="h-8 w-8 hover:bg-white/10 rounded text-lg">{e}</button>)}
+                    <PopoverTrigger asChild><Button variant="ghost" size="icon" className="h-11 w-11 rounded-full text-muted-foreground hover:text-white" type="button"><Smile className="h-5 w-5" /></Button></PopoverTrigger>
+                    <PopoverContent className="w-auto p-3 grid grid-cols-6 gap-2 bg-card/95 backdrop-blur-xl border-white/10 shadow-2xl">
+                      {COMMON_EMOJIS.map(e => <button key={e} onClick={() => setNewMessage(p => p + e)} className="h-9 w-9 hover:bg-white/10 rounded-xl text-xl transition-all transform active:scale-90">{e}</button>)}
                     </PopoverContent>
                   </Popover>
-                  <Button disabled={(!newMessage.trim() && !attachmentUrl) || isUploading} type="submit" size="icon" className="h-10 w-10 bg-primary"><Send className="h-4 w-4" /></Button>
+                  <Button disabled={(!newMessage.trim() && !attachmentUrl) || isUploading} type="submit" size="icon" className="h-11 w-11 rounded-full bg-primary shadow-lg shadow-primary/30 transition-all transform active:scale-90">
+                    <Send className="h-4 w-4" />
+                  </Button>
                 </form>
               </div>
             </>
@@ -657,32 +689,32 @@ function UATMessagesContent() {
 
       {/* Channel Management Dialogs */}
       <Dialog open={!!manageTarget && !isRenaming} onOpenChange={(val) => !val && setManageTarget(null)}>
-        <DialogContent className="bg-card border-white/10 max-w-xs p-6">
+        <DialogContent className="bg-card border-white/10 max-w-xs p-6 rounded-3xl">
           <DialogHeader>
-            <DialogTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-2">
+            <DialogTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-3">
               <Hash className="h-4 w-4 text-primary" /> {manageTarget?.name}
             </DialogTitle>
           </DialogHeader>
-          <div className="flex flex-col gap-2 py-4">
+          <div className="flex flex-col gap-3 py-4">
              <Button 
                variant="outline" 
-               className="justify-start h-12 font-bold text-xs border-white/5 bg-black/20" 
+               className="justify-start h-14 rounded-2xl font-black text-[10px] uppercase tracking-widest border-white/5 bg-black/20 hover:bg-primary/10 hover:text-primary transition-all" 
                onClick={() => { setIsRenaming(true); setRenameValue(manageTarget?.name || ""); }}
              >
-                <Pencil className="h-4 w-4 mr-3 text-muted-foreground" /> Rename Channel
+                <Pencil className="h-4 w-4 mr-3" /> Rename Group
              </Button>
              <Button 
                variant="outline" 
-               className="justify-start h-12 font-bold text-xs border-white/5 bg-black/20" 
+               className="justify-start h-14 rounded-2xl font-black text-[10px] uppercase tracking-widest border-white/5 bg-black/20 hover:bg-secondary/10 hover:text-secondary transition-all" 
                onClick={() => handleArchiveChannel(manageTarget?.id, manageTarget?.isArchived)}
              >
-                <Archive className="h-4 w-4 mr-3 text-muted-foreground" /> 
-                {manageTarget?.isArchived ? "Restore Channel" : "Archive Channel"}
+                <Archive className="h-4 w-4 mr-3" /> 
+                {manageTarget?.isArchived ? "Restore Thread" : "Archive Thread"}
              </Button>
-             <DropdownMenuSeparator className="bg-white/5" />
+             <div className="h-px bg-white/5 my-1" />
              <Button 
                variant="outline" 
-               className="justify-start h-12 font-bold text-xs border-red-500/20 bg-red-500/5 text-red-500 hover:bg-red-500/10" 
+               className="justify-start h-14 rounded-2xl font-black text-[10px] uppercase tracking-widest border-red-500/20 bg-red-500/5 text-red-500 hover:bg-red-500/10 transition-all" 
                onClick={() => handleDeleteChannel(manageTarget?.id)}
              >
                 <Trash2 className="h-4 w-4 mr-3" /> Delete Permanently
@@ -692,12 +724,12 @@ function UATMessagesContent() {
       </Dialog>
 
       <Dialog open={isRenaming} onOpenChange={setIsRenaming}>
-        <DialogContent className="bg-card border-white/10 max-w-sm">
-          <DialogHeader><DialogTitle className="text-xs font-black uppercase">Rename Channel</DialogTitle></DialogHeader>
-          <div className="py-4"><Input value={renameValue} onChange={e => setRenameValue(e.target.value)} className="bg-black/20 h-12" /></div>
-          <DialogFooter className="gap-2">
-            <Button variant="ghost" className="font-black uppercase text-[10px]" onClick={() => setIsRenaming(false)}>Cancel</Button>
-            <Button className="font-black uppercase text-[10px]" onClick={handleRenameChannel}>Save Changes</Button>
+        <DialogContent className="bg-card border-white/10 max-w-sm rounded-3xl">
+          <DialogHeader><DialogTitle className="text-[10px] font-black uppercase tracking-widest">Rename Thread</DialogTitle></DialogHeader>
+          <div className="py-6"><Input value={renameValue} onChange={e => setRenameValue(e.target.value)} className="bg-black/20 h-14 rounded-2xl font-bold px-5" /></div>
+          <DialogFooter className="gap-3">
+            <Button variant="ghost" className="font-black uppercase text-[10px] tracking-widest h-12" onClick={() => setIsRenaming(false)}>Cancel</Button>
+            <Button className="font-black uppercase text-[10px] tracking-widest h-12 bg-primary px-8" onClick={handleRenameChannel}>Update</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -715,22 +747,35 @@ function ChannelListItem({ channel, isActive, onClick, isAdmin, onManage }: any)
         onContextMenu={(e) => { e.preventDefault(); onManage(channel); }}
         {...longPress}
         className={cn(
-          "w-full flex items-center justify-between gap-3 p-3 rounded-xl transition-all text-left group",
-          isActive ? "bg-primary text-white shadow-xl" : "hover:bg-white/5"
+          "w-full flex items-center justify-between gap-4 p-4 rounded-[20px] transition-all text-left relative",
+          isActive ? "bg-primary text-white shadow-2xl translate-x-1" : "hover:bg-white/5"
         )}
       >
-        <div className="flex items-center gap-3 overflow-hidden">
-          <Hash className={cn("h-4 w-4 shrink-0", isActive ? "text-white" : "opacity-40")} />
-          <span className="text-xs font-bold uppercase tracking-wider truncate">{channel.name}</span>
+        <div className="flex items-center gap-4 overflow-hidden">
+          <div className={cn(
+            "h-10 w-10 rounded-xl flex items-center justify-center shrink-0 shadow-inner",
+            isActive ? "bg-white/20" : "bg-black/40 border border-white/5 text-muted-foreground"
+          )}>
+            <Hash className={cn("h-5 w-5", isActive ? "text-white" : "opacity-40")} />
+          </div>
+          <div className="flex flex-col overflow-hidden">
+            <span className="text-xs font-black uppercase tracking-wider truncate">{channel.name}</span>
+            <span className={cn(
+              "text-[8px] font-bold uppercase tracking-widest truncate",
+              isActive ? "text-white/60" : "text-muted-foreground"
+            )}>
+              {channel.isArchived ? "Archived Group" : "Public Channel"}
+            </span>
+          </div>
         </div>
-        {channel.isArchived && <FolderArchive className="h-3 w-3 opacity-30 shrink-0" />}
+        {channel.isArchived && <FolderArchive className="h-4 w-4 opacity-40 shrink-0" />}
       </button>
       
       <Button 
         variant="ghost" 
         size="icon" 
         onClick={(e) => { e.stopPropagation(); onManage(channel); }}
-        className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 opacity-0 group-hover:opacity-40 hover:opacity-100 transition-opacity hidden lg:flex"
+        className="absolute right-3 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full opacity-0 group-hover:opacity-40 hover:opacity-100 transition-all hidden lg:flex"
       >
         <MoreVertical className="h-4 w-4" />
       </Button>
