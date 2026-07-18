@@ -288,52 +288,61 @@ function UATMessagesContent() {
   }, [db, selectedChannelId, playReceive, auth.currentUser?.uid, userProfiles]);
 
   /**
-   * Secure Cloudflare R2 Upload Logic
+   * Secure Upload Logic with Firebase Fallback
    */
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !userTeamId) return;
     setIsUploading(true);
     try {
-      // 1. Request presigned URL from API route
-      const presignRes = await fetch('/api/chat/upload', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fileName: file.name, fileType: file.type }),
-      });
-      
-      const presignData = await presignRes.json();
-      
-      if (!presignRes.ok) {
-        throw new Error(presignData.error || 'Presign failed');
+      // 1. Try Cloudflare R2 Upload First
+      try {
+        const presignRes = await fetch('/api/chat/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fileName: file.name, fileType: file.type }),
+        });
+        
+        const presignData = await presignRes.json();
+        
+        if (presignRes.ok) {
+          const { uploadUrl, fileKey } = presignData;
+          const uploadRes = await fetch(uploadUrl, {
+            method: 'PUT',
+            body: file,
+            headers: { 'Content-Type': file.type },
+          });
+
+          if (uploadRes.ok) {
+            const publicUrl = `https://on-deck-assets.r2.dev/${fileKey}`; 
+            setAttachmentUrl(publicUrl);
+            toast({ title: "Attachment Ready (R2)" });
+            return; // Successfully uploaded to R2, exit
+          }
+        } else if (presignData.error && presignData.error.includes('not configured')) {
+          console.warn('R2 not configured, attempting Firebase fallback...');
+        } else {
+          throw new Error(presignData.error || 'Presign failed');
+        }
+      } catch (r2Err) {
+        console.warn('R2 Upload step bypassed or failed:', r2Err);
       }
 
-      const { uploadUrl, fileKey } = presignData;
-
-      // 2. Perform direct binary PUT request to Cloudflare R2
-      const uploadRes = await fetch(uploadUrl, {
-        method: 'PUT',
-        body: file,
-        headers: { 'Content-Type': file.type },
-      });
-
-      if (!uploadRes.ok) {
-        const uploadError = await uploadRes.text();
-        throw new Error(`R2 Upload failed: ${uploadError || uploadRes.statusText}`);
-      }
-
-      // 3. Construct final public URL
-      // NOTE: Replace 'on-deck-assets.r2.dev' with your actual R2 custom domain/public endpoint
-      const publicUrl = `https://on-deck-assets.r2.dev/${fileKey}`; 
-      setAttachmentUrl(publicUrl);
+      // 2. Firebase Storage Fallback (Runs if R2 is not configured or fails)
+      const fileName = `${Date.now()}-${file.name}`;
+      const storageRef = ref(storage, `chat_media_UAT/${userTeamId}/${fileName}`);
+      await uploadBytes(storageRef, file);
+      const url = await getDownloadURL(storageRef);
       
-      toast({ title: "Attachment Ready" });
+      setAttachmentUrl(url);
+      toast({ title: "Attachment Ready (Fallback Active)" });
+      
     } catch (err: any) {
-      console.error('Upload error details:', err);
+      console.error('Final Upload Error:', err);
       toast({ 
         variant: "destructive", 
         title: "Upload Failed", 
-        description: err.message || "An unexpected error occurred during upload."
+        description: err.message || "Could not complete upload to any provider."
       });
     } finally { setIsUploading(false); }
   };
