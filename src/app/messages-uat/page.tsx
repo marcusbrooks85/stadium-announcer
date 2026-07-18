@@ -330,8 +330,12 @@ function UATMessagesContent() {
         setAttachmentUrl(publicUrl);
         toast({ title: "Attachment Ready" });
       } catch (networkErr: any) {
+        // Detailed error for common CORS or network issues
         console.error('Client Network/CORS error during binary PUT:', networkErr);
-        throw new Error('Network error during file transmission. Check CORS settings in R2 dashboard.');
+        const isFetchError = networkErr instanceof TypeError && networkErr.message === 'Failed to fetch';
+        throw new Error(isFetchError 
+          ? 'Network error: Likely a CORS issue. Ensure your R2 bucket CORS settings allow PUT requests from this origin.' 
+          : 'Network error during file transmission.');
       }
       
     } catch (err: any) {
