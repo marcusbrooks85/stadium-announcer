@@ -80,7 +80,6 @@ export default function UATOnboardingPage() {
   const passwordCriteria = useMemo(() => {
     const p = formData.password;
     return {
-      length: p.length >= 8,
       upper: /[A-Z]/.test(p),
       lower: /[a-z]/.test(p),
       number: /[0-9]/.test(p),
@@ -88,7 +87,7 @@ export default function UATOnboardingPage() {
     };
   }, [formData.password]);
 
-  const isPasswordStrong = Object.values(passwordCriteria).every(Boolean);
+  const isPasswordStrong = formData.password.length >= 8 && Object.values(passwordCriteria).every(Boolean);
   const passwordsMatch = formData.password === formData.confirmPassword && formData.confirmPassword !== "";
 
   useEffect(() => {
@@ -130,7 +129,9 @@ export default function UATOnboardingPage() {
   };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatPhoneNumber(e.target.value);
+    // Only allow numbers
+    const digits = e.target.value.replace(/\D/g, "");
+    const formatted = formatPhoneNumber(digits);
     setFormData({ ...formData, phoneNumber: formatted });
   };
 
@@ -209,7 +210,7 @@ export default function UATOnboardingPage() {
       await sendPasswordResetEmail(auth, formData.email);
       toast({ 
         title: "Reset Email Sent", 
-        description: "Check your inbox for a secure link to update your password. Please also check your spam folder." 
+        description: "A secure link has been sent to your email to update your password. Please also check your spam folder." 
       });
       setStep("auth");
       setIsRegisterMode(false);
