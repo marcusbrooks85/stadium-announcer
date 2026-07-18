@@ -22,7 +22,8 @@ import {
   Music,
   Volume2,
   Play,
-  Square
+  Square,
+  Copy
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -400,7 +401,7 @@ function UATAdminPortalContent() {
                             {teamData?.code}
                           </code>
                           <Button variant="outline" size="icon" className="h-12 w-12 border-white/10" onClick={() => { navigator.clipboard.writeText(teamData?.code || ""); toast({ title: "Code Copied" }); }}>
-                             <Trophy className="h-4 w-4" />
+                             <Copy className="h-4 w-4" />
                           </Button>
                         </div>
                      </div>
