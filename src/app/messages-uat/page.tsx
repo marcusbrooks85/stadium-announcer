@@ -25,7 +25,10 @@ import {
   MoreHorizontal,
   ChevronLeft,
   FolderArchive,
-  MessagesSquare
+  MessagesSquare,
+  Users,
+  Lock,
+  Globe
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,7 +53,10 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { 
   useFirestore, 
   useAuth, 
@@ -83,31 +89,6 @@ const SEND_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2354/2354-previe
 const RECEIVE_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3';
 const REACTION_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2568/2358-preview.mp3';
 
-/**
- * Custom Hook for Long Press detection
- */
-function useLongPress(callback: () => void, ms = 500) {
-  const [startLongPress, setStartLongPress] = useState(false);
-
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (startLongPress) {
-      timer = setTimeout(callback, ms);
-    } else {
-      clearTimeout(timer!);
-    }
-    return () => clearTimeout(timer);
-  }, [startLongPress, callback, ms]);
-
-  return {
-    onMouseDown: () => setStartLongPress(true),
-    onMouseUp: () => setStartLongPress(false),
-    onMouseLeave: () => setStartLongPress(false),
-    onTouchStart: () => setStartLongPress(true),
-    onTouchEnd: () => setStartLongPress(false),
-  };
-}
-
 function MessageItem({ 
   msg, 
   isOwn, 
@@ -129,7 +110,7 @@ function MessageItem({
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
 
   const profile = profiles[msg.senderId];
-  const initials = (profile?.firstName?.[0] || profile?.lastName?.[0] || "?").toUpperCase();
+  const initials = ((profile?.firstName?.[0] || "") + (profile?.lastName?.[0] || "")).toUpperCase() || "?";
   
   const displayName = useMemo(() => {
     if (!profile) return "Unknown";
@@ -164,85 +145,86 @@ function MessageItem({
 
   if (msg.isDeleted) {
     return (
-      <div className="flex flex-col ml-8 mb-4 opacity-40">
-        <div className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Message Deleted</div>
-        <div className="bg-white/5 border border-white/5 p-3 rounded-2xl italic text-xs">This content was removed.</div>
+      <div className={cn("flex flex-col mb-4 opacity-40", isOwn ? "items-end" : "items-start")}>
+        <div className="bg-white/5 border border-white/5 p-3 rounded-2xl italic text-[11px]">This message was removed.</div>
       </div>
     );
   }
 
   return (
     <div 
-      className="flex flex-col group relative mb-6 select-none"
+      className={cn(
+        "flex flex-col group relative mb-6 select-none max-w-[85%] sm:max-w-[70%]",
+        isOwn ? "self-end items-end" : "self-start items-start"
+      )}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
       style={{ transform: `translateX(${swipeOffset}px)`, transition: swipeOffset === 0 ? 'transform 0.2s' : 'none' }}
     >
-      {swipeOffset > 20 && (
-        <div className="absolute -left-10 top-1/2 -translate-y-1/2 text-primary animate-in fade-in slide-in-from-left-2">
-          <Reply className="h-5 w-5" />
-        </div>
-      )}
+      <div className={cn("flex items-end gap-3", isOwn ? "flex-row-reverse" : "flex-row")}>
+        <Avatar className="h-9 w-9 border-2 border-background shadow-lg shrink-0">
+          <AvatarFallback className={cn("text-[9px] font-black", isOwn ? "bg-primary text-white" : "bg-black/60")}>
+            {initials}
+          </AvatarFallback>
+        </Avatar>
 
-      <Avatar className="h-8 w-8 border-2 border-background shadow-xl absolute -top-3 -left-2 z-20">
-        <AvatarFallback className="bg-black/60 text-[8px] font-black">{initials}</AvatarFallback>
-      </Avatar>
+        <div className={cn("flex flex-col", isOwn ? "items-end" : "items-start")}>
+          <div className="flex items-center gap-2 mb-1 px-1">
+            <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">{displayName}</span>
+            <span className="text-[7px] text-muted-foreground opacity-40 uppercase">
+              {msg.timestamp?.toDate ? msg.timestamp.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Just now"}
+            </span>
+          </div>
 
-      <div className="flex flex-col flex-1 pl-4">
-        <div className="flex items-center gap-2 mb-1 ml-4">
-          <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">{displayName}</span>
-          <span className="text-[7px] text-muted-foreground opacity-40 uppercase">
-            {msg.timestamp?.toDate ? msg.timestamp.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Just now"}
-          </span>
-          {msg.isEdited && <span className="text-[7px] text-muted-foreground opacity-30 uppercase italic">(edited)</span>}
-        </div>
-
-        <div className={cn(
-          "relative text-[13px] font-bold leading-relaxed break-words p-3 rounded-2xl rounded-tl-none border border-white/5 shadow-sm max-w-[90%]",
-          isOwn ? "bg-white/20 text-white" : "bg-white/5 text-white/90"
-        )}>
-          {msg.replyTo && (
-            <div className="mb-2 p-2 bg-black/20 rounded-lg border-l-2 border-primary text-[10px] opacity-60 line-clamp-1">
-              {msg.replyTo.text}
-            </div>
-          )}
-
-          {msg.mediaUrl && (
-            <div className="relative w-full aspect-video mb-2 rounded-lg overflow-hidden border border-white/10">
-              <Image src={msg.mediaUrl} alt="Chat" fill className="object-cover" unoptimized />
-            </div>
-          )}
-
-          {editing ? (
-            <div className="space-y-2">
-              <Input value={editValue} onChange={e => setEditValue(e.target.value)} className="bg-black/40 h-8 text-sm" autoFocus />
-              <div className="flex gap-2">
-                <Button size="sm" className="h-7 text-[8px] font-black" onClick={() => { onEdit(msg.id, editValue); setEditing(false); }}><Check className="h-3 w-3 mr-1" /> SAVE</Button>
-                <Button size="sm" variant="ghost" className="h-7 text-[8px] font-black" onClick={() => setEditing(false)}>CANCEL</Button>
+          <div className={cn(
+            "relative text-[13px] font-medium leading-relaxed break-words p-3 rounded-2xl shadow-sm border border-white/5",
+            isOwn 
+              ? "bg-primary text-white rounded-tr-none" 
+              : "bg-white/10 text-white/90 rounded-tl-none"
+          )}>
+            {msg.replyTo && (
+              <div className="mb-2 p-2 bg-black/20 rounded-lg border-l-2 border-white/40 text-[10px] opacity-70 line-clamp-1">
+                {msg.replyTo.text}
               </div>
-            </div>
-          ) : (
-            <span>{msg.text}</span>
-          )}
+            )}
 
-          {msg.reactions && Object.keys(msg.reactions).length > 0 && (
-            <div className="flex flex-wrap gap-1 mt-2">
-              {Object.entries(msg.reactions).map(([emoji, uids]: [string, any]) => (
-                <button key={emoji} onClick={() => onReact(msg, emoji)} className="flex items-center gap-1 px-2 py-0.5 rounded-full border border-white/10 bg-black/20 text-[9px]">
-                  <span>{emoji}</span> <span className="font-black">{uids.length}</span>
-                </button>
-              ))}
-            </div>
-          )}
+            {msg.mediaUrl && (
+              <div className="relative w-full aspect-video mb-2 rounded-lg overflow-hidden border border-white/10 shadow-inner bg-black/20">
+                <Image src={msg.mediaUrl} alt="Chat" fill className="object-cover" unoptimized />
+              </div>
+            )}
+
+            {editing ? (
+              <div className="space-y-2 min-w-[200px]">
+                <Input value={editValue} onChange={e => setEditValue(e.target.value)} className="bg-black/40 h-8 text-sm" autoFocus />
+                <div className="flex gap-2">
+                  <Button size="sm" className="h-7 text-[8px] font-black" onClick={() => { onEdit(msg.id, editValue); setEditing(false); }}><Check className="h-3 w-3 mr-1" /> SAVE</Button>
+                  <Button size="sm" variant="ghost" className="h-7 text-[8px] font-black" onClick={() => setEditing(false)}>CANCEL</Button>
+                </div>
+              </div>
+            ) : (
+              <span>{msg.text}</span>
+            )}
+
+            {msg.reactions && Object.keys(msg.reactions).length > 0 && (
+              <div className={cn("flex flex-wrap gap-1 mt-2", isOwn ? "justify-end" : "justify-start")}>
+                {Object.entries(msg.reactions).map(([emoji, uids]: [string, any]) => (
+                  <button key={emoji} onClick={() => onReact(msg, emoji)} className="flex items-center gap-1 px-2 py-0.5 rounded-full border border-white/10 bg-black/40 text-[9px] hover:bg-black/60 transition-colors">
+                    <span>{emoji}</span> <span className="font-black">{uids.length}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
       <Popover open={isMenuOpen} onOpenChange={setIsMenuOpen}>
         <PopoverTrigger asChild><div className="absolute inset-0 pointer-events-none" /></PopoverTrigger>
-        <PopoverContent className="w-auto p-2 bg-card border-white/10 shadow-2xl flex gap-1">
+        <PopoverContent className="w-auto p-2 bg-card border-white/10 shadow-2xl flex gap-1 animate-in zoom-in-95 duration-200">
           {COMMON_EMOJIS.slice(0, 7).map(e => (
-            <button key={e} onClick={() => { onReact(msg, e); setIsMenuOpen(false); }} className="h-8 w-8 hover:bg-white/10 rounded text-lg">{e}</button>
+            <button key={e} onClick={() => { onReact(msg, e); setIsMenuOpen(false); }} className="h-8 w-8 hover:bg-white/10 rounded text-lg transition-transform active:scale-125">{e}</button>
           ))}
           <div className="w-[1px] bg-white/10 mx-1" />
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { onReply(msg); setIsMenuOpen(false); }}><Reply className="h-4 w-4" /></Button>
@@ -276,6 +258,13 @@ function UATMessagesContent() {
   const [replyingTo, setReplyingTo] = useState<any | null>(null);
   const [showArchived, setShowArchived] = useState(false);
 
+  // Creation State
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [newChatType, setNewChatType] = useState<"dm" | "channel">("dm");
+  const [newChatName, setNewChatName] = useState("");
+  const [selectedParticipants, setSelectedParticipants] = useState<string[]>([]);
+  const [isCreating, setIsCreating] = useState(false);
+
   // Management State
   const [manageTarget, setManageTarget] = useState<any | null>(null);
   const [isRenaming, setIsRenaming] = useState(false);
@@ -284,6 +273,8 @@ function UATMessagesContent() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const lastMessageIdRef = useRef<string | null>(null);
+
+  const isAdmin = ["super_admin", "league_admin"].includes(userRole || "");
 
   useEffect(() => {
     if (typeof window !== "undefined" && "Notification" in window) {
@@ -367,25 +358,62 @@ function UATMessagesContent() {
     } finally { setIsUploading(false); }
   };
 
-  const startDM = async (targetUid: string) => {
+  const handleCreateNewChat = async () => {
     if (!auth.currentUser || !userTeamId) return;
-    const currentUid = auth.currentUser.uid;
-    const dmId = `dm_${[currentUid, targetUid].sort().join('_')}`;
-    
-    const channelRef = doc(db, "channels_UAT", dmId);
-    const snap = await getDoc(channelRef);
-    if (!snap.exists()) {
-      const targetUser = userProfiles[targetUid];
-      await setDoc(channelRef, {
-        name: `${targetUser?.firstName || 'Private'}`,
-        type: "private",
-        teamId: userTeamId,
-        members: [currentUid, targetUid],
-        isDM: true,
-        createdAt: serverTimestamp()
-      });
+    if (newChatType === "channel" && !newChatName.trim()) return;
+    if (newChatType === "dm" && selectedParticipants.length === 0) return;
+
+    setIsCreating(true);
+    try {
+      const currentUid = auth.currentUser.uid;
+      const allMembers = Array.from(new Set([currentUid, ...selectedParticipants]));
+
+      if (newChatType === "dm" && allMembers.length === 2) {
+        // Standard Private DM check
+        const dmId = `dm_${allMembers.sort().join('_')}`;
+        const channelRef = doc(db, "channels_UAT", dmId);
+        const snap = await getDoc(channelRef);
+        if (!snap.exists()) {
+          const otherUid = selectedParticipants[0];
+          const otherUser = userProfiles[otherUid];
+          await setDoc(channelRef, {
+            name: `${otherUser?.firstName || 'Private'}`,
+            type: "private",
+            teamId: userTeamId,
+            members: allMembers,
+            isDM: true,
+            createdBy: currentUid,
+            createdAt: serverTimestamp()
+          });
+        }
+        setSelectedChannelId(dmId);
+      } else {
+        // Group DM or Public Channel
+        const isPublic = newChatType === "channel";
+        const finalName = newChatType === "dm" 
+          ? allMembers.map(uid => userProfiles[uid]?.firstName).filter(Boolean).join(", ")
+          : newChatName;
+
+        const docRef = await addDoc(collection(db, "channels_UAT"), {
+          name: finalName,
+          type: isPublic ? "public" : "private",
+          teamId: userTeamId,
+          members: allMembers,
+          isDM: newChatType === "dm",
+          createdBy: currentUid,
+          createdAt: serverTimestamp()
+        });
+        setSelectedChannelId(docRef.id);
+      }
+      
+      setIsCreateDialogOpen(false);
+      setNewChatName("");
+      setSelectedParticipants([]);
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Creation Failed", description: e.message });
+    } finally {
+      setIsCreating(false);
     }
-    setSelectedChannelId(dmId);
   };
 
   const handleSendMessage = async (e?: React.FormEvent) => {
@@ -464,17 +492,12 @@ function UATMessagesContent() {
     return channels.filter(c => !!c.isArchived === showArchived && !c.isDM);
   }, [channels, showArchived]);
 
-  const directMessages = useMemo(() => {
-    return Object.values(userProfiles).filter(p => p.id !== auth.currentUser?.uid);
-  }, [userProfiles, auth.currentUser?.uid]);
-
   const activeChannel = useMemo(() => channels.find(c => c.id === selectedChannelId), [channels, selectedChannelId]);
 
   if (!gameLoaded || authLoading) return <div className="min-h-screen flex flex-col items-center justify-center stadium-gradient gap-4"><Loader2 className="h-8 w-8 animate-spin text-primary" /><span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Connecting...</span></div>;
 
   return (
     <div className="flex flex-col h-screen bg-background text-foreground stadium-gradient overflow-hidden">
-      {/* Dynamic Header */}
       <header className="sticky top-0 z-50 flex items-center justify-between p-4 border-b border-border shadow-2xl bg-card/95 backdrop-blur-md">
         <div className="flex items-center gap-3">
           {selectedChannelId && (
@@ -494,7 +517,7 @@ function UATMessagesContent() {
             </div>
           ) : (
             <div className="flex items-center gap-3">
-               <Avatar className="h-9 w-9 border border-white/10">
+               <Avatar className="h-9 w-9 border border-white/10 shadow-lg">
                   <AvatarFallback className="text-[10px] font-black bg-primary/10 text-primary">
                     {activeChannel?.isDM ? <User className="h-4 w-4" /> : (activeChannel?.name?.[0] || "#").toUpperCase()}
                   </AvatarFallback>
@@ -510,7 +533,6 @@ function UATMessagesContent() {
       </header>
 
       <div className="flex-1 flex overflow-hidden">
-        {/* Chat List View / Sidebar */}
         <aside className={cn(
           "w-full lg:w-80 bg-card/40 border-r border-border backdrop-blur-sm flex flex-col transition-all duration-300",
           selectedChannelId ? "hidden lg:flex" : "flex"
@@ -532,66 +554,47 @@ function UATMessagesContent() {
             <div className="p-4 space-y-8">
               <section className="space-y-2">
                 <div className="flex items-center justify-between px-2 mb-4">
-                  <h3 className="text-[10px] font-black uppercase text-primary tracking-[0.2em]">Group Channels</h3>
-                  <Button variant="ghost" size="icon" className="h-6 w-6 opacity-40 hover:opacity-100">
+                  <h3 className="text-[10px] font-black uppercase text-primary tracking-[0.2em]">Threads & Channels</h3>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 bg-primary/10 text-primary hover:bg-primary/20 rounded-lg" onClick={() => setIsCreateDialogOpen(true)}>
                     <Plus className="h-4 w-4" />
                   </Button>
                 </div>
-                {filteredChannels.length === 0 && (
-                  <p className="text-[9px] text-center py-8 opacity-30 font-black uppercase tracking-widest border border-dashed border-white/5 rounded-2xl">No {showArchived ? "archived" : "active"} groups</p>
+                
+                {channels.filter(c => !!c.isArchived === showArchived).length === 0 && (
+                  <p className="text-[9px] text-center py-8 opacity-30 font-black uppercase tracking-widest border border-dashed border-white/5 rounded-2xl">No {showArchived ? "archived" : "active"} threads</p>
                 )}
-                {filteredChannels.map(c => (
-                  <ChannelListItem 
+                
+                {channels.filter(c => !!c.isArchived === showArchived).map(c => (
+                  <button 
                     key={c.id} 
-                    channel={c} 
-                    isActive={selectedChannelId === c.id} 
                     onClick={() => setSelectedChannelId(c.id)}
-                    isAdmin={["super_admin", "league_admin"].includes(userRole || "")}
-                    onManage={(target) => setManageTarget(target)}
-                  />
+                    onContextMenu={(e) => { e.preventDefault(); setManageTarget(c); }}
+                    className={cn(
+                      "w-full flex items-center justify-between gap-4 p-4 rounded-2xl transition-all text-left group",
+                      selectedChannelId === c.id ? "bg-primary text-white shadow-xl" : "hover:bg-white/5"
+                    )}
+                  >
+                    <div className="flex items-center gap-4 overflow-hidden">
+                      <Avatar className="h-10 w-10 border border-white/10 shadow-lg">
+                        <AvatarFallback className={cn("text-[10px] font-black", selectedChannelId === c.id ? "bg-white/20" : "bg-black/40")}>
+                          {c.isDM ? <User className="h-4 w-4" /> : (c.name?.[0] || "#").toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex flex-col overflow-hidden">
+                        <span className="text-xs font-black uppercase tracking-wider truncate">{c.name}</span>
+                        <span className={cn("text-[8px] font-bold uppercase tracking-widest truncate", selectedChannelId === c.id ? "text-white/60" : "text-muted-foreground")}>
+                          {c.type === 'public' ? 'Public Channel' : 'Private Thread'}
+                        </span>
+                      </div>
+                    </div>
+                    {c.isArchived && <FolderArchive className="h-4 w-4 opacity-40 shrink-0" />}
+                  </button>
                 ))}
               </section>
-
-              {!showArchived && (
-                <section className="space-y-2">
-                  <div className="px-2 mb-4">
-                    <h3 className="text-[10px] font-black uppercase text-secondary tracking-[0.2em]">Direct Threads</h3>
-                  </div>
-                  {directMessages.length === 0 && (
-                     <p className="text-[9px] text-center py-8 opacity-30 font-black uppercase tracking-widest border border-dashed border-white/5 rounded-2xl">Invite teammates to chat</p>
-                  )}
-                  {directMessages.map(p => {
-                    const dmId = `dm_${[auth.currentUser?.uid, p.id].sort().join('_')}`;
-                    const isActive = selectedChannelId === dmId;
-                    return (
-                      <button 
-                        key={p.id} 
-                        onClick={() => startDM(p.id)} 
-                        className={cn(
-                          "w-full flex items-center gap-4 p-4 rounded-2xl transition-all text-left relative",
-                          isActive ? "bg-primary text-white shadow-xl translate-x-1" : "hover:bg-white/5"
-                        )}
-                      >
-                        <Avatar className="h-10 w-10 border border-white/10 shadow-lg">
-                          <AvatarFallback className={cn("text-[10px] font-black", isActive ? "bg-white/20" : "bg-secondary/10 text-secondary")}>
-                            {(p.firstName?.[0] || "?").toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex flex-col overflow-hidden">
-                          <span className="text-xs font-black uppercase tracking-wider truncate">{p.firstName} {p.lastName}</span>
-                          <span className="text-[8px] font-bold opacity-40 uppercase truncate">Start a private message</span>
-                        </div>
-                        {isActive && <div className="absolute right-4 w-1.5 h-1.5 rounded-full bg-white animate-pulse" />}
-                      </button>
-                    );
-                  })}
-                </section>
-              )}
             </div>
           </ScrollArea>
         </aside>
 
-        {/* Active Chat View */}
         <main className={cn(
           "flex-1 flex flex-col relative bg-black/10 transition-all duration-300",
           !selectedChannelId ? "hidden lg:flex" : "flex"
@@ -603,15 +606,15 @@ function UATMessagesContent() {
               </div>
               <div className="space-y-2">
                 <p className="text-sm font-black uppercase tracking-[0.3em]">No Thread Selected</p>
-                <p className="text-[10px] font-bold uppercase tracking-widest max-w-[200px]">Select a group or teammate to view the conversation</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest max-w-[200px]">Select a group or teammate to start chatting</p>
               </div>
             </div>
           ) : (
             <>
               <ScrollArea className="flex-1 p-4 pb-20">
-                <div className="max-w-4xl mx-auto space-y-10 py-6">
+                <div className="max-w-4xl mx-auto flex flex-col py-6">
                   {Object.entries(groupedMessages).map(([date, msgs]) => (
-                    <div key={date} className="space-y-8">
+                    <div key={date} className="flex flex-col gap-8 mb-10">
                       <div className="flex justify-center">
                         <div className="bg-white/5 border border-white/10 px-5 py-1.5 rounded-full backdrop-blur-md">
                           <span className="text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground">
@@ -624,7 +627,7 @@ function UATMessagesContent() {
                           key={m.id} 
                           msg={m} 
                           isOwn={m.senderId === auth.currentUser?.uid} 
-                          isAdmin={["super_admin", "league_admin"].includes(userRole || "")} 
+                          isAdmin={isAdmin} 
                           profiles={userProfiles} 
                           roster={roster}
                           onReact={handleReaction}
@@ -635,11 +638,10 @@ function UATMessagesContent() {
                       ))}
                     </div>
                   ))}
-                  <div ref={scrollRef} />
+                  <div ref={scrollRef} className="h-1" />
                 </div>
               </ScrollArea>
 
-              {/* Chat Input Area */}
               <div className="p-4 bg-card/60 backdrop-blur-3xl border-t border-white/5 space-y-4">
                 {replyingTo && (
                   <div className="max-w-4xl mx-auto flex items-center justify-between p-3 bg-primary/10 rounded-2xl border border-primary/20 animate-in slide-in-from-bottom-4 duration-300">
@@ -687,7 +689,78 @@ function UATMessagesContent() {
         </main>
       </div>
 
-      {/* Channel Management Dialogs */}
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <DialogContent className="bg-card border-white/10 max-w-sm rounded-3xl p-6">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-3">
+              <Plus className="h-5 w-5 text-primary" /> Create New Chat
+            </DialogTitle>
+            <DialogDescription className="text-[10px] uppercase font-bold text-muted-foreground">Select type and participants</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6 py-4">
+             <div className="flex p-1 bg-black/40 rounded-xl border border-white/5">
+                <button 
+                  onClick={() => setNewChatType("dm")} 
+                  className={cn("flex-1 h-10 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all", newChatType === "dm" ? "bg-primary text-white" : "text-muted-foreground")}
+                >
+                  <Users className="h-3 w-3 inline mr-2" /> DM / Group
+                </button>
+                <button 
+                  disabled={!isAdmin}
+                  onClick={() => setNewChatType("channel")} 
+                  className={cn("flex-1 h-10 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all", newChatType === "channel" ? "bg-primary text-white" : "text-muted-foreground", !isAdmin && "opacity-20")}
+                >
+                  <Hash className="h-3 w-3 inline mr-2" /> Channel
+                </button>
+             </div>
+
+             {newChatType === "channel" && (
+                <div className="space-y-2">
+                   <Label className="text-[10px] font-black uppercase ml-1">Channel Name</Label>
+                   <Input value={newChatName} onChange={e => setNewChatName(e.target.value)} placeholder="e.g. game-day-announcements" className="h-12 bg-black/20" />
+                </div>
+             )}
+
+             <div className="space-y-3">
+                <Label className="text-[10px] font-black uppercase ml-1">Participants</Label>
+                <ScrollArea className="h-60 rounded-xl border border-white/5 bg-black/20 p-2">
+                   <div className="space-y-1">
+                      {Object.values(userProfiles).filter(p => p.id !== auth.currentUser?.uid).map(u => (
+                        <label key={u.id} className="flex items-center justify-between p-3 hover:bg-white/5 rounded-lg cursor-pointer transition-colors group">
+                           <div className="flex items-center gap-3">
+                              <Avatar className="h-8 w-8">
+                                <AvatarFallback className="text-[8px] font-black bg-secondary/10 text-secondary">
+                                  {((u.firstName?.[0] || "") + (u.lastName?.[0] || "")).toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="flex flex-col">
+                                 <span className="text-[11px] font-bold text-white group-hover:text-primary transition-colors">{u.firstName} {u.lastName}</span>
+                                 <span className="text-[8px] font-black uppercase opacity-40">{u.role?.replace('_', ' ')}</span>
+                              </div>
+                           </div>
+                           <Checkbox 
+                              checked={selectedParticipants.includes(u.id)} 
+                              onCheckedChange={(checked) => {
+                                if (checked) setSelectedParticipants(prev => [...prev, u.id]);
+                                else setSelectedParticipants(prev => prev.filter(id => id !== u.id));
+                              }} 
+                           />
+                        </label>
+                      ))}
+                   </div>
+                </ScrollArea>
+             </div>
+          </div>
+
+          <DialogFooter>
+            <Button className="w-full h-14 bg-primary text-white font-black uppercase tracking-widest text-[11px] rounded-2xl" disabled={isCreating} onClick={handleCreateNewChat}>
+              {isCreating ? <Loader2 className="h-5 w-5 animate-spin" /> : "Initiate Thread"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={!!manageTarget && !isRenaming} onOpenChange={(val) => !val && setManageTarget(null)}>
         <DialogContent className="bg-card border-white/10 max-w-xs p-6 rounded-3xl">
           <DialogHeader>
@@ -696,27 +769,14 @@ function UATMessagesContent() {
             </DialogTitle>
           </DialogHeader>
           <div className="flex flex-col gap-3 py-4">
-             <Button 
-               variant="outline" 
-               className="justify-start h-14 rounded-2xl font-black text-[10px] uppercase tracking-widest border-white/5 bg-black/20 hover:bg-primary/10 hover:text-primary transition-all" 
-               onClick={() => { setIsRenaming(true); setRenameValue(manageTarget?.name || ""); }}
-             >
+             <Button variant="outline" className="justify-start h-14 rounded-2xl font-black text-[10px] uppercase border-white/5 bg-black/20 hover:bg-primary/10" onClick={() => { setIsRenaming(true); setRenameValue(manageTarget?.name || ""); }}>
                 <Pencil className="h-4 w-4 mr-3" /> Rename Group
              </Button>
-             <Button 
-               variant="outline" 
-               className="justify-start h-14 rounded-2xl font-black text-[10px] uppercase tracking-widest border-white/5 bg-black/20 hover:bg-secondary/10 hover:text-secondary transition-all" 
-               onClick={() => handleArchiveChannel(manageTarget?.id, manageTarget?.isArchived)}
-             >
-                <Archive className="h-4 w-4 mr-3" /> 
-                {manageTarget?.isArchived ? "Restore Thread" : "Archive Thread"}
+             <Button variant="outline" className="justify-start h-14 rounded-2xl font-black text-[10px] uppercase border-white/5 bg-black/20 hover:bg-secondary/10" onClick={() => handleArchiveChannel(manageTarget?.id, manageTarget?.isArchived)}>
+                <Archive className="h-4 w-4 mr-3" /> {manageTarget?.isArchived ? "Restore Thread" : "Archive Thread"}
              </Button>
              <div className="h-px bg-white/5 my-1" />
-             <Button 
-               variant="outline" 
-               className="justify-start h-14 rounded-2xl font-black text-[10px] uppercase tracking-widest border-red-500/20 bg-red-500/5 text-red-500 hover:bg-red-500/10 transition-all" 
-               onClick={() => handleDeleteChannel(manageTarget?.id)}
-             >
+             <Button variant="outline" className="justify-start h-14 rounded-2xl font-black text-[10px] uppercase border-red-500/20 bg-red-500/5 text-red-500 hover:bg-red-500/10" onClick={() => handleDeleteChannel(manageTarget?.id)}>
                 <Trash2 className="h-4 w-4 mr-3" /> Delete Permanently
              </Button>
           </div>
@@ -733,52 +793,6 @@ function UATMessagesContent() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
-  );
-}
-
-function ChannelListItem({ channel, isActive, onClick, isAdmin, onManage }: any) {
-  const longPress = useLongPress(() => onManage(channel));
-
-  return (
-    <div className="relative group">
-      <button 
-        onClick={onClick} 
-        onContextMenu={(e) => { e.preventDefault(); onManage(channel); }}
-        {...longPress}
-        className={cn(
-          "w-full flex items-center justify-between gap-4 p-4 rounded-[20px] transition-all text-left relative",
-          isActive ? "bg-primary text-white shadow-2xl translate-x-1" : "hover:bg-white/5"
-        )}
-      >
-        <div className="flex items-center gap-4 overflow-hidden">
-          <div className={cn(
-            "h-10 w-10 rounded-xl flex items-center justify-center shrink-0 shadow-inner",
-            isActive ? "bg-white/20" : "bg-black/40 border border-white/5 text-muted-foreground"
-          )}>
-            <Hash className={cn("h-5 w-5", isActive ? "text-white" : "opacity-40")} />
-          </div>
-          <div className="flex flex-col overflow-hidden">
-            <span className="text-xs font-black uppercase tracking-wider truncate">{channel.name}</span>
-            <span className={cn(
-              "text-[8px] font-bold uppercase tracking-widest truncate",
-              isActive ? "text-white/60" : "text-muted-foreground"
-            )}>
-              {channel.isArchived ? "Archived Group" : "Public Channel"}
-            </span>
-          </div>
-        </div>
-        {channel.isArchived && <FolderArchive className="h-4 w-4 opacity-40 shrink-0" />}
-      </button>
-      
-      <Button 
-        variant="ghost" 
-        size="icon" 
-        onClick={(e) => { e.stopPropagation(); onManage(channel); }}
-        className="absolute right-3 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full opacity-0 group-hover:opacity-40 hover:opacity-100 transition-all hidden lg:flex"
-      >
-        <MoreVertical className="h-4 w-4" />
-      </Button>
     </div>
   );
 }
