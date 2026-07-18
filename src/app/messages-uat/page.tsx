@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import Image from "next/image";
 import { 
   Send, 
@@ -52,8 +52,14 @@ import { useUATGame, UATGameProvider } from "@/app/context/uat-game-context";
 import { UATNavbar } from "@/components/UATNavbar";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import useSound from 'use-sound';
 
 const COMMON_EMOJIS = ["👍", "❤️", "🔥", "⚾", "😂", "😮", "😢"];
+
+// Sound URLs
+const SEND_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3';
+const RECEIVE_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3';
+const REACTION_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2568/2358-preview.mp3';
 
 function UATMessagesContent() {
   const db = useFirestore();
@@ -62,6 +68,11 @@ function UATMessagesContent() {
   const { userRole, userTeamId, teamData, isLoaded: gameLoaded, roster } = useUATGame();
   const { toast } = useToast();
   
+  // Audio Hooks
+  const [playSend] = useSound(SEND_SOUND, { volume: 0.5 });
+  const [playReceive] = useSound(RECEIVE_SOUND, { volume: 0.4 });
+  const [playReaction] = useSound(REACTION_SOUND, { volume: 0.3 });
+
   const [channels, setChannels] = useState<any[]>([]);
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
   const [messages, setMessages] = useState<any[]>([]);
@@ -80,27 +91,45 @@ function UATMessagesContent() {
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const lastMessageIdRef = useRef<string | null>(null);
 
   const selectedChannel = channels.find(c => c.id === selectedChannelId);
   const isAnnouncements = selectedChannel?.name === "Announcements";
   const canPostInSelected = !isAnnouncements || (userRole === "super_admin" || userRole === "league_admin");
   const isAdmin = userRole === "super_admin" || userRole === "league_admin";
 
+  // Group messages by date
+  const groupedMessages = useMemo(() => {
+    const groups: Record<string, any[]> = {};
+    messages.forEach(msg => {
+      const date = msg.timestamp?.toDate ? msg.timestamp.toDate() : new Date();
+      const dateKey = date.toDateString();
+      if (!groups[dateKey]) groups[dateKey] = [];
+      groups[dateKey].push(msg);
+    });
+    return groups;
+  }, [messages]);
+
+  const formatDateHeader = (dateStr: string) => {
+    const d = new Date(dateStr);
+    const today = new Date();
+    if (d.toDateString() === today.toDateString()) return "Today";
+    return d.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+  };
+
   // Listen for Channels
   useEffect(() => {
     if (!db || !userTeamId) return;
-    // Fix: Removed orderBy to avoid missing index error
     const q = query(collection(db, "channels_UAT"), where("teamId", "==", userTeamId));
     return onSnapshot(q, (snap) => {
       const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      // Client-side sort
       list.sort((a: any, b: any) => (a.name || "").localeCompare(b.name || ""));
       setChannels(list);
       if (!selectedChannelId && list.length > 0) setSelectedChannelId(list[0].id);
     });
   }, [db, userTeamId, selectedChannelId]);
 
-  // Listen for User Profiles in the team
+  // Listen for User Profiles
   useEffect(() => {
     if (!db || !userTeamId) return;
     const q = query(collection(db, "users_UAT"), where("teamId", "==", userTeamId));
@@ -117,11 +146,24 @@ function UATMessagesContent() {
     setIsLoadingMessages(true);
     const q = query(collection(db, "channels_UAT", selectedChannelId, "messages_UAT"), orderBy("timestamp", "asc"), limit(50));
     return onSnapshot(q, (snap) => {
-      setMessages(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const newMessages = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      
+      // Audio notification logic for received messages
+      if (newMessages.length > 0) {
+        const lastMsg = newMessages[newMessages.length - 1];
+        if (lastMsg.id !== lastMessageIdRef.current) {
+          if (lastMsg.senderId !== auth.currentUser?.uid && lastMessageIdRef.current !== null) {
+            playReceive();
+          }
+          lastMessageIdRef.current = lastMsg.id;
+        }
+      }
+
+      setMessages(newMessages);
       setIsLoadingMessages(false);
       setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
     });
-  }, [db, selectedChannelId]);
+  }, [db, selectedChannelId, playReceive, auth.currentUser?.uid]);
 
   const resolveRichName = (senderId: string) => {
     const profile = userProfiles[senderId];
@@ -170,6 +212,7 @@ function UATMessagesContent() {
     if (!activeUser?.uid || !newMessage.trim() || !selectedChannelId || !canPostInSelected) return;
 
     try {
+      playSend();
       await addDoc(collection(db, "channels_UAT", selectedChannelId, "messages_UAT"), {
         text: newMessage,
         senderId: activeUser.uid,
@@ -211,6 +254,7 @@ function UATMessagesContent() {
 
   const handleReaction = async (msg: any, emoji: string) => {
     if (!selectedChannelId || !authUser) return;
+    playReaction();
     const currentReactions = msg.reactions || {};
     const users = currentReactions[emoji] || [];
     const newUsers = users.includes(authUser.uid)
@@ -308,111 +352,121 @@ function UATMessagesContent() {
           </div>
 
           <ScrollArea className="flex-1 p-4">
-            <div className="space-y-6">
-              {messages.length === 0 && !isLoadingMessages && (
+            <div className="space-y-8">
+              {Object.keys(groupedMessages).length === 0 && !isLoadingMessages && (
                 <div className="h-full flex flex-col items-center justify-center opacity-20 py-20">
                   <MessageSquare className="h-12 w-12 mb-4" />
                   <p className="text-[10px] font-black uppercase tracking-widest">No messages in this workspace yet</p>
                 </div>
               )}
-              {messages.map((msg) => (
-                <div key={msg.id} className="flex gap-4 group relative">
-                  <Avatar className="h-10 w-10 border border-white/10 shadow-lg">
-                    <AvatarFallback className="bg-black/40 text-[10px] font-black uppercase">
-                      {getInitials(msg.senderId)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex flex-col flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[11px] font-black uppercase tracking-wider">
-                        {resolveRichName(msg.senderId)}
-                      </span>
-                      <Badge variant="secondary" className="text-[7px] font-black uppercase px-1.5 py-0 bg-white/5 text-muted-foreground">
-                        {userProfiles[msg.senderId]?.role?.replace('_', ' ') || "User"}
-                      </Badge>
-                      <span className="text-[8px] text-muted-foreground opacity-40 uppercase">
-                        {msg.timestamp?.toDate ? msg.timestamp.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Just now"}
-                        {msg.isEdited && <span className="ml-1 text-[7px] italic">(edited)</span>}
+              {Object.entries(groupedMessages).map(([date, msgs]) => (
+                <div key={date} className="space-y-6">
+                  {/* Date Header */}
+                  <div className="flex items-center justify-center">
+                    <div className="bg-white/5 border border-white/10 px-4 py-1 rounded-full">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">
+                        {formatDateHeader(date)}
                       </span>
                     </div>
-                    
-                    {msg.isDeleted ? (
-                      <div className="text-xs italic text-muted-foreground border border-white/5 bg-white/5 p-3 rounded-2xl rounded-tl-none">
-                        This message was deleted
-                      </div>
-                    ) : (
-                      <>
-                        <div className="text-sm font-bold text-white/90 leading-relaxed break-words bg-white/5 p-3 rounded-2xl rounded-tl-none border border-white/5">
-                          {editingMessageId === msg.id ? (
-                            <div className="space-y-2">
-                              <Input 
-                                value={editValue} 
-                                onChange={e => setEditValue(e.target.value)} 
-                                className="bg-black/40 border-primary/20 text-sm h-8"
-                                autoFocus
-                              />
-                              <div className="flex gap-2">
-                                <Button size="sm" className="h-7 text-[8px] font-black" onClick={() => handleEditMessage(msg.id)}><Check className="h-3 w-3 mr-1" /> SAVE</Button>
-                                <Button size="sm" variant="ghost" className="h-7 text-[8px] font-black" onClick={() => setEditingMessageId(null)}>CANCEL</Button>
-                              </div>
-                            </div>
-                          ) : (
-                            renderMessageText(msg.text)
-                          )}
-                        </div>
-                        
-                        {/* Reactions Display */}
-                        {msg.reactions && Object.keys(msg.reactions).length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-2">
-                            {Object.entries(msg.reactions).map(([emoji, uids]: [string, any]) => (
-                              <button 
-                                key={emoji} 
-                                onClick={() => handleReaction(msg, emoji)}
-                                className={cn(
-                                  "flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[10px] transition-all",
-                                  uids.includes(authUser?.uid) ? "bg-[var(--tenant-primary)]/20 border-[var(--tenant-primary)]/40" : "bg-white/5 border-white/10 hover:bg-white/10"
-                                )}
-                              >
-                                <span>{emoji}</span>
-                                <span className="font-black">{uids.length}</span>
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </>
-                    )}
                   </div>
 
-                  {/* Message Actions Bar (Hover) */}
-                  {!msg.isDeleted && !editingMessageId && (
-                    <div className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center bg-card border border-white/10 rounded-lg shadow-xl translate-y-[-50%] p-1 gap-1 z-10">
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-7 w-7"><Smile className="h-4 w-4" /></Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-2 grid grid-cols-7 gap-1 bg-card border-white/10">
-                          {COMMON_EMOJIS.map(e => (
-                            <button key={e} onClick={() => handleReaction(msg, e)} className="h-8 w-8 hover:bg-white/10 rounded text-lg">{e}</button>
-                          ))}
-                        </PopoverContent>
-                      </Popover>
-                      
-                      <Button variant="ghost" size="icon" className="h-7 w-7"><Reply className="h-4 w-4" /></Button>
-                      
-                      {authUser?.uid === msg.senderId && (
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => {
-                          setEditingMessageId(msg.id);
-                          setEditValue(msg.text);
-                        }}><Pencil className="h-4 w-4" /></Button>
+                  {msgs.map((msg) => (
+                    <div key={msg.id} className="flex flex-col group relative max-w-[85%]">
+                      {/* Avatar Overlaid on top left of bubble */}
+                      <Avatar className="h-8 w-8 border border-white/20 shadow-xl absolute -top-3 -left-3 z-10">
+                        <AvatarFallback className="bg-black/60 text-[8px] font-black uppercase">
+                          {getInitials(msg.senderId)}
+                        </AvatarFallback>
+                      </Avatar>
+
+                      <div className="flex flex-col flex-1 min-w-0 pl-2">
+                        <div className="flex items-center gap-2 mb-1 ml-4">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
+                            {resolveRichName(msg.senderId)}
+                          </span>
+                          <span className="text-[7px] text-muted-foreground opacity-40 uppercase">
+                            {msg.timestamp?.toDate ? msg.timestamp.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Just now"}
+                          </span>
+                        </div>
+                        
+                        {msg.isDeleted ? (
+                          <div className="text-xs italic text-muted-foreground border border-white/5 bg-white/5 p-3 rounded-2xl rounded-tl-none">
+                            This message was deleted
+                          </div>
+                        ) : (
+                          <div className={cn(
+                            "relative text-[13px] font-bold leading-relaxed break-words p-3 rounded-2xl rounded-tl-none border border-white/5 shadow-sm",
+                            msg.senderId === auth.currentUser?.uid ? "bg-white/20 text-white" : "bg-white/5 text-white/90"
+                          )}>
+                            {editingMessageId === msg.id ? (
+                              <div className="space-y-2">
+                                <Input 
+                                  value={editValue} 
+                                  onChange={e => setEditValue(e.target.value)} 
+                                  className="bg-black/40 border-primary/20 text-sm h-8"
+                                  autoFocus
+                                />
+                                <div className="flex gap-2">
+                                  <Button size="sm" className="h-7 text-[8px] font-black" onClick={() => handleEditMessage(msg.id)}><Check className="h-3 w-3 mr-1" /> SAVE</Button>
+                                  <Button size="sm" variant="ghost" className="h-7 text-[8px] font-black" onClick={() => setEditingMessageId(null)}>CANCEL</Button>
+                                </div>
+                              </div>
+                            ) : (
+                              renderMessageText(msg.text)
+                            )}
+                            
+                            {/* Reactions Display */}
+                            {msg.reactions && Object.keys(msg.reactions).length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-2">
+                                {Object.entries(msg.reactions).map(([emoji, uids]: [string, any]) => (
+                                  <button 
+                                    key={emoji} 
+                                    onClick={() => handleReaction(msg, emoji)}
+                                    className={cn(
+                                      "flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[9px] transition-all",
+                                      uids.includes(authUser?.uid) ? "bg-[var(--tenant-primary)]/30 border-[var(--tenant-primary)]/50" : "bg-black/20 border-white/10 hover:bg-white/10"
+                                    )}
+                                  >
+                                    <span>{emoji}</span>
+                                    <span className="font-black">{uids.length}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Message Actions Bar (Hover) */}
+                      {!msg.isDeleted && !editingMessageId && (
+                        <div className="absolute left-[100%] ml-2 top-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center bg-card border border-white/10 rounded-lg shadow-xl p-1 gap-1 z-10 whitespace-nowrap">
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-7 w-7"><Smile className="h-4 w-4" /></Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-2 grid grid-cols-7 gap-1 bg-card border-white/10">
+                              {COMMON_EMOJIS.map(e => (
+                                <button key={e} onClick={() => handleReaction(msg, e)} className="h-8 w-8 hover:bg-white/10 rounded text-lg">{e}</button>
+                              ))}
+                            </PopoverContent>
+                          </Popover>
+                          
+                          <Button variant="ghost" size="icon" className="h-7 w-7"><Reply className="h-4 w-4" /></Button>
+                          
+                          {authUser?.uid === msg.senderId && (
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => {
+                              setEditingMessageId(msg.id);
+                              setEditValue(msg.text);
+                            }}><Pencil className="h-4 w-4" /></Button>
+                          )}
+                          
+                          {(isAdmin || authUser?.uid === msg.senderId) && (
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteMessage(msg.id)}><Trash2 className="h-4 w-4" /></Button>
+                          )}
+                        </div>
                       )}
-                      
-                      {(isAdmin || authUser?.uid === msg.senderId) && (
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteMessage(msg.id)}><Trash2 className="h-4 w-4" /></Button>
-                      )}
-                      
-                      {isAdmin && <Button variant="ghost" size="icon" className="h-7 w-7"><Pin className="h-4 w-4" /></Button>}
                     </div>
-                  )}
+                  ))}
                 </div>
               ))}
               <div ref={scrollRef} />
@@ -457,7 +511,7 @@ function UATMessagesContent() {
                   value={newMessage} 
                   onChange={handleInputChange} 
                   placeholder={canPostInSelected ? (authUser ? "Type a message... (@ for team)" : "Waiting for auth...") : "Announcements are read-only"} 
-                  className="bg-transparent border-none focus-visible:ring-0 font-bold text-sm h-10 px-0" 
+                  className="bg-transparent border-none focus-visible:ring-0 font-bold text-[13px] h-10 px-0" 
                 />
                 <Button variant="ghost" size="icon" className="opacity-40" type="button"><Smile className="h-5 w-5" /></Button>
                 <Button disabled={!newMessage.trim() || !canPostInSelected || !authUser} type="submit" size="icon" className="h-10 w-10 bg-[var(--tenant-primary)]"><Send className="h-4 w-4" /></Button>
