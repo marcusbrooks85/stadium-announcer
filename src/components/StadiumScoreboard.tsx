@@ -24,8 +24,8 @@ interface StadiumScoreboardProps {
  * StadiumScoreboard Component
  * 
  * A comprehensive game-management system including:
- * 1. Line Score Table (Innings 1-9)
- * 2. Ball-Strike-Out Light Indicators
+ * 1. Unified Header (Inning, BSO, and Team Totals)
+ * 2. Line Score Table (Innings 1-9)
  * 3. Ergonomic Admin Controls with auto-transition logic
  */
 export function StadiumScoreboard({ adminMode = true }: StadiumScoreboardProps) {
@@ -121,13 +121,13 @@ export function StadiumScoreboard({ adminMode = true }: StadiumScoreboardProps) 
 
   const LightIndicator = ({ label, count, max, activeColor }: { label: string, count: number, max: number, activeColor: string }) => (
     <div className="flex flex-col items-center gap-1">
-      <span className="text-[7px] sm:text-[9px] font-black text-muted-foreground uppercase tracking-widest leading-none mb-1">{label}</span>
+      <span className="text-[7px] font-black text-muted-foreground uppercase tracking-widest leading-none mb-0.5">{label}</span>
       <div className="flex gap-1">
         {Array.from({ length: max }).map((_, i) => (
           <div 
             key={i} 
             className={cn(
-              "h-2.5 w-2.5 sm:h-3.5 sm:w-3.5 rounded-full border border-white/10 sm:border-2 transition-all duration-300",
+              "h-2.5 w-2.5 sm:h-3 sm:w-3 rounded-full border border-white/10 transition-all duration-300",
               i < count ? activeColor : "bg-black/40 shadow-inner"
             )}
           />
@@ -140,32 +140,45 @@ export function StadiumScoreboard({ adminMode = true }: StadiumScoreboardProps) 
     <div className="w-full space-y-6">
       {/* --- PUBLIC SCOREBOARD VIEW --- */}
       <Card className="bg-black border-2 border-white/5 shadow-2xl overflow-hidden">
-        <div className="bg-gradient-to-r from-blue-900/20 to-transparent p-2.5 sm:p-4 border-b border-white/5 flex items-center justify-start gap-4 sm:gap-10">
-          {/* Combined Inning & Half Box */}
-          <div className="h-11 sm:h-14 px-2.5 sm:px-4 bg-primary/20 border border-primary/40 rounded flex items-center gap-2 sm:gap-4 shrink-0">
+        <div className="bg-gradient-to-r from-blue-900/40 to-transparent p-2.5 sm:p-4 border-b border-white/5 flex flex-wrap items-center justify-start gap-4 sm:gap-8">
+          
+          {/* Inning Box with Integrated Half Indicator */}
+          <div className="h-12 sm:h-16 px-3 sm:px-5 bg-primary/20 border border-primary/40 rounded-lg flex items-center gap-3 sm:gap-4 shrink-0">
              <div className="flex flex-col items-center">
-                <span className="text-[7px] sm:text-[9px] font-black uppercase text-primary leading-none mb-0.5 sm:mb-1">INN</span>
-                <span className="text-xl sm:text-3xl font-black digit-font text-white leading-none">{inning}</span>
+                <span className="text-[7px] sm:text-[8px] font-black uppercase text-primary leading-none mb-1">INN</span>
+                <span className="text-2xl sm:text-3xl font-black digit-font text-white leading-none">{inning}</span>
              </div>
-             <div className="h-6 sm:h-8 w-[1px] bg-white/10" />
+             <div className="h-8 sm:h-10 w-[1px] bg-white/10" />
              <div className="flex items-center">
                 {half === 'top' ? (
-                  <ChevronUp className="h-5 w-5 sm:h-8 sm:w-8 text-secondary animate-pulse" />
+                  <ChevronUp className="h-6 w-6 sm:h-8 sm:w-8 text-secondary animate-pulse" />
                 ) : (
-                  <ChevronDown className="h-5 w-5 sm:h-8 sm:w-8 text-primary animate-pulse" />
+                  <ChevronDown className="h-6 w-6 sm:h-8 sm:w-8 text-primary animate-pulse" />
                 )}
              </div>
           </div>
           
-          {/* Aligned BSO Indicators */}
-          <div className="flex items-center gap-4 sm:gap-8">
-            <LightIndicator label="Balls" count={balls} max={3} activeColor="bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]" />
-            <LightIndicator label="Strikes" count={strikes} max={2} activeColor="bg-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.5)]" />
-            <LightIndicator label="Outs" count={outs} max={2} activeColor="bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]" />
+          {/* BSO Indicators */}
+          <div className="grid grid-cols-3 gap-3 sm:gap-6 border-r border-white/5 pr-4 sm:pr-8">
+            <LightIndicator label="B" count={balls} max={3} activeColor="bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]" />
+            <LightIndicator label="S" count={strikes} max={2} activeColor="bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.4)]" />
+            <LightIndicator label="O" count={outs} max={2} activeColor="bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]" />
+          </div>
+
+          {/* Inline Team Totals */}
+          <div className="flex items-center gap-2 sm:gap-4 ml-auto">
+             <div className="flex flex-col items-center min-w-[50px] sm:min-w-[70px] bg-secondary/10 border border-secondary/20 p-1 sm:p-2 rounded-lg">
+                <span className="text-[7px] sm:text-[9px] font-black uppercase text-secondary leading-none mb-1">AWAY</span>
+                <span className="text-xl sm:text-3xl font-black digit-font text-white leading-none">{awayRuns}</span>
+             </div>
+             <div className="flex flex-col items-center min-w-[50px] sm:min-w-[70px] bg-primary/10 border border-primary/20 p-1 sm:p-2 rounded-lg">
+                <span className="text-[7px] sm:text-[9px] font-black uppercase text-primary leading-none mb-1">HOME</span>
+                <span className="text-xl sm:text-3xl font-black digit-font text-white leading-none">{homeRuns}</span>
+             </div>
           </div>
         </div>
 
-        <CardContent className="p-0 overflow-x-auto">
+        <CardContent className="p-0 overflow-x-auto scrollbar-hide">
           <table className="w-full border-collapse">
             <thead>
               <tr className="bg-white/5 border-b border-white/5 text-[9px] font-black uppercase tracking-widest text-muted-foreground">
