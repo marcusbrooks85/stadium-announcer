@@ -209,7 +209,7 @@ export default function UATOnboardingPage() {
       await sendPasswordResetEmail(auth, formData.email);
       toast({ 
         title: "Reset Email Sent", 
-        description: "Check your inbox for a secure link to update your password." 
+        description: "Check your inbox for a secure link to update your password. Please also check your spam folder." 
       });
       setStep("auth");
       setIsRegisterMode(false);
