@@ -120,14 +120,14 @@ export function StadiumScoreboard({ adminMode = true }: StadiumScoreboardProps) 
   // --- Sub-Components ---
 
   const LightIndicator = ({ label, count, max, activeColor }: { label: string, count: number, max: number, activeColor: string }) => (
-    <div className="flex flex-col items-center gap-2">
-      <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{label}</span>
-      <div className="flex gap-2">
+    <div className="flex flex-col items-center gap-1 sm:gap-2">
+      <span className="text-[7px] sm:text-[10px] font-black text-muted-foreground uppercase tracking-widest leading-none mb-0.5">{label}</span>
+      <div className="flex gap-1 sm:gap-2">
         {Array.from({ length: max }).map((_, i) => (
           <div 
             key={i} 
             className={cn(
-              "h-4 w-4 rounded-full border-2 border-white/5 transition-all duration-300",
+              "h-3 w-3 sm:h-4 sm:w-4 rounded-full border border-white/10 sm:border-2 transition-all duration-300",
               i < count ? activeColor : "bg-black/40 shadow-inner"
             )}
           />
@@ -140,9 +140,9 @@ export function StadiumScoreboard({ adminMode = true }: StadiumScoreboardProps) 
     <div className="w-full space-y-6">
       {/* --- PUBLIC SCOREBOARD VIEW --- */}
       <Card className="bg-black border-2 border-white/5 shadow-2xl overflow-hidden">
-        <div className="bg-gradient-to-r from-blue-900/20 to-transparent p-4 border-b border-white/5 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-             <div className="h-10 w-12 bg-primary/20 border border-primary/40 rounded flex flex-col items-center justify-center">
+        <div className="bg-gradient-to-r from-blue-900/20 to-transparent p-3 sm:p-4 border-b border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3 sm:gap-4">
+             <div className="h-10 w-12 bg-primary/20 border border-primary/40 rounded flex flex-col items-center justify-center shrink-0">
                 <span className="text-[8px] font-black uppercase text-primary leading-none">Inning</span>
                 <span className="text-xl font-black digit-font text-white">{inning}</span>
              </div>
@@ -154,7 +154,8 @@ export function StadiumScoreboard({ adminMode = true }: StadiumScoreboardProps) 
                 </div>
              </div>
           </div>
-          <div className="flex gap-8 px-4">
+          
+          <div className="grid grid-cols-3 gap-4 sm:gap-8 px-2 sm:px-4 flex-1 sm:flex-none">
             <LightIndicator label="Balls" count={balls} max={3} activeColor="bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]" />
             <LightIndicator label="Strikes" count={strikes} max={2} activeColor="bg-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.5)]" />
             <LightIndicator label="Outs" count={outs} max={2} activeColor="bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]" />
