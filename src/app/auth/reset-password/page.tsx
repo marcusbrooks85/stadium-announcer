@@ -59,7 +59,6 @@ function ResetPasswordForm() {
 
   const passwordCriteria = useMemo(() => {
     return {
-      length: newPassword.length >= 8,
       upper: /[A-Z]/.test(newPassword),
       lower: /[a-z]/.test(newPassword),
       number: /[0-9]/.test(newPassword),
@@ -67,7 +66,7 @@ function ResetPasswordForm() {
     };
   }, [newPassword]);
 
-  const isPasswordStrong = Object.values(passwordCriteria).every(Boolean);
+  const isPasswordStrong = newPassword.length >= 8 && Object.values(passwordCriteria).every(Boolean);
   const passwordsMatch = newPassword === confirmPassword && confirmPassword !== "";
 
   const handleResetSubmit = async (e: React.FormEvent) => {
@@ -97,7 +96,7 @@ function ResetPasswordForm() {
 
   const CriteriaItem = ({ met, label }: { met: boolean; label: string }) => (
     <div className={cn(
-      "flex items-center gap-1.5 text-[9px] font-black uppercase tracking-tighter transition-colors",
+      "flex items-center gap-1.5 text-[8px] md:text-[9px] font-black uppercase tracking-tighter transition-colors",
       met ? "text-green-500" : "text-red-500"
     )}>
       {met ? <Check className="h-2.5 w-2.5" /> : <X className="h-2.5 w-2.5" />}
