@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useCallback } from "react";
@@ -13,8 +14,11 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+
+interface StadiumScoreboardProps {
+  adminMode?: boolean;
+}
 
 /**
  * StadiumScoreboard Component
@@ -24,7 +28,7 @@ import { cn } from "@/lib/utils";
  * 2. Ball-Strike-Out Light Indicators
  * 3. Ergonomic Admin Controls with auto-transition logic
  */
-export function StadiumScoreboard() {
+export function StadiumScoreboard({ adminMode = true }: StadiumScoreboardProps) {
   // --- Game State ---
   const [balls, setBalls] = useState(0);
   const [strikes, setStrikes] = useState(0);
@@ -195,65 +199,67 @@ export function StadiumScoreboard() {
       </Card>
 
       {/* --- ADMIN CONTROL PANEL --- */}
-      <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Count Controls */}
-        <Card className="bg-card/50 border-white/5 shadow-xl">
-          <CardHeader className="py-3 border-b border-white/5">
-            <CardTitle className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-2">
-               <Activity className="h-3 w-3" /> Live Count Controller
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-4 space-y-4">
-             <div className="grid grid-cols-3 gap-3">
-                <Button onClick={addBall} className="h-24 flex flex-col gap-1 bg-green-900/40 hover:bg-green-800/60 border border-green-500/20 group">
-                   <span className="text-[8px] font-black uppercase tracking-widest text-green-400 opacity-60 group-hover:opacity-100">+ Ball</span>
-                   <span className="text-3xl font-black text-white">{balls}</span>
-                </Button>
-                <Button onClick={addStrike} className="h-24 flex flex-col gap-1 bg-yellow-900/40 hover:bg-yellow-800/60 border border-yellow-500/20 group">
-                   <span className="text-[8px] font-black uppercase tracking-widest text-yellow-400 opacity-60 group-hover:opacity-100">+ Strike</span>
-                   <span className="text-3xl font-black text-white">{strikes}</span>
-                </Button>
-                <Button onClick={addOut} className="h-24 flex flex-col gap-1 bg-red-900/40 hover:bg-red-800/60 border border-red-500/20 group">
-                   <span className="text-[8px] font-black uppercase tracking-widest text-red-400 opacity-60 group-hover:opacity-100">+ Out</span>
-                   <span className="text-3xl font-black text-white">{outs}</span>
-                </Button>
-             </div>
-             <div className="flex gap-2">
-                <Button variant="outline" onClick={resetCount} className="flex-1 h-12 text-[10px] font-black uppercase border-white/5 hover:bg-white/5">
-                   <RotateCcw className="h-3 w-3 mr-2" /> Reset Count
-                </Button>
-                <Button variant="outline" onClick={nextHalfInning} className="flex-1 h-12 text-[10px] font-black uppercase border-white/5 hover:bg-white/5">
-                   <History className="h-3 w-3 mr-2" /> Change Half
-                </Button>
-             </div>
-          </CardContent>
-        </Card>
-
-        {/* Scoring Controls */}
-        <Card className="bg-card/50 border-white/5 shadow-xl">
-           <CardHeader className="py-3 border-b border-white/5">
-              <CardTitle className="text-[10px] font-black uppercase tracking-widest text-secondary flex items-center gap-2">
-                 <Trophy className="h-3 w-3" /> Event Scorer ({half === 'top' ? "Away" : "Home"})
+      {adminMode && (
+        <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Count Controls */}
+          <Card className="bg-card/50 border-white/5 shadow-xl">
+            <CardHeader className="py-3 border-b border-white/5">
+              <CardTitle className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-2">
+                 <Activity className="h-3 w-3" /> Live Count Controller
               </CardTitle>
-           </CardHeader>
-           <CardContent className="p-4 grid grid-cols-3 gap-4">
-              {[
-                { label: "Runs", value: half === 'top' ? awayRuns : homeRuns, update: updateRuns },
-                { label: "Hits", value: half === 'top' ? awayHits : homeHits, update: updateHits },
-                { label: "Errors", value: half === 'top' ? awayErrors : homeErrors, update: updateErrors },
-              ].map((item) => (
-                <div key={item.label} className="bg-black/20 rounded-xl border border-white/5 p-3 flex flex-col items-center gap-2">
-                   <span className="text-[8px] font-black uppercase tracking-widest text-muted-foreground">{item.label}</span>
-                   <span className="text-2xl font-black text-white digit-font">{item.value}</span>
-                   <div className="flex gap-1 w-full mt-1">
-                      <Button variant="ghost" size="icon" onClick={() => item.update(-1)} className="flex-1 h-8 hover:bg-white/5 border border-white/5"><Minus className="h-3 w-3" /></Button>
-                      <Button variant="ghost" size="icon" onClick={() => item.update(1)} className="flex-1 h-8 hover:bg-white/5 border border-white/5"><Plus className="h-3 w-3" /></Button>
-                   </div>
-                </div>
-              ))}
-           </CardContent>
-        </Card>
-      </section>
+            </CardHeader>
+            <CardContent className="p-4 space-y-4">
+               <div className="grid grid-cols-3 gap-3">
+                  <Button onClick={addBall} className="h-24 flex flex-col gap-1 bg-green-900/40 hover:bg-green-800/60 border border-green-500/20 group">
+                     <span className="text-[8px] font-black uppercase tracking-widest text-green-400 opacity-60 group-hover:opacity-100">+ Ball</span>
+                     <span className="text-3xl font-black text-white">{balls}</span>
+                  </Button>
+                  <Button onClick={addStrike} className="h-24 flex flex-col gap-1 bg-yellow-900/40 hover:bg-yellow-800/60 border border-yellow-500/20 group">
+                     <span className="text-[8px] font-black uppercase tracking-widest text-yellow-400 opacity-60 group-hover:opacity-100">+ Strike</span>
+                     <span className="text-3xl font-black text-white">{strikes}</span>
+                  </Button>
+                  <Button onClick={addOut} className="h-24 flex flex-col gap-1 bg-red-900/40 hover:bg-red-800/60 border border-red-500/20 group">
+                     <span className="text-[8px] font-black uppercase tracking-widest text-red-400 opacity-60 group-hover:opacity-100">+ Out</span>
+                     <span className="text-3xl font-black text-white">{outs}</span>
+                  </Button>
+               </div>
+               <div className="flex gap-2">
+                  <Button variant="outline" onClick={resetCount} className="flex-1 h-12 text-[10px] font-black uppercase border-white/5 hover:bg-white/5">
+                     <RotateCcw className="h-3 w-3 mr-2" /> Reset Count
+                  </Button>
+                  <Button variant="outline" onClick={nextHalfInning} className="flex-1 h-12 text-[10px] font-black uppercase border-white/5 hover:bg-white/5">
+                     <History className="h-3 w-3 mr-2" /> Change Half
+                  </Button>
+               </div>
+            </CardContent>
+          </Card>
+
+          {/* Scoring Controls */}
+          <Card className="bg-card/50 border-white/5 shadow-xl">
+             <CardHeader className="py-3 border-b border-white/5">
+                <CardTitle className="text-[10px] font-black uppercase tracking-widest text-secondary flex items-center gap-2">
+                   <Trophy className="h-3 w-3" /> Event Scorer ({half === 'top' ? "Away" : "Home"})
+                </CardTitle>
+             </CardHeader>
+             <CardContent className="p-4 grid grid-cols-3 gap-4">
+                {[
+                  { label: "Runs", value: half === 'top' ? awayRuns : homeRuns, update: updateRuns },
+                  { label: "Hits", value: half === 'top' ? awayHits : homeHits, update: updateHits },
+                  { label: "Errors", value: half === 'top' ? awayErrors : homeErrors, update: updateErrors },
+                ].map((item) => (
+                  <div key={item.label} className="bg-black/20 rounded-xl border border-white/5 p-3 flex flex-col items-center gap-2">
+                     <span className="text-[8px] font-black uppercase tracking-widest text-muted-foreground">{item.label}</span>
+                     <span className="text-2xl font-black text-white digit-font">{item.value}</span>
+                     <div className="flex gap-1 w-full mt-1">
+                        <Button variant="ghost" size="icon" onClick={() => item.update(-1)} className="flex-1 h-8 hover:bg-white/5 border border-white/5"><Minus className="h-3 w-3" /></Button>
+                        <Button variant="ghost" size="icon" onClick={() => item.update(1)} className="flex-1 h-8 hover:bg-white/5 border border-white/5"><Plus className="h-3 w-3" /></Button>
+                     </div>
+                  </div>
+                ))}
+             </CardContent>
+          </Card>
+        </section>
+      )}
     </div>
   );
 }

@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
@@ -22,7 +23,8 @@ import {
   Save,
   X,
   MessageSquare,
-  ShieldCheck
+  ShieldCheck,
+  Trophy
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -42,18 +44,9 @@ import {
   TooltipProvider, 
   TooltipTrigger 
 } from "@/components/ui/tooltip";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { useGame, StadiumSong } from "@/app/context/game-context";
+import { useGame } from "@/app/context/game-context";
 import { AdminPanel } from "@/components/AdminPanel";
 import { Soundboard } from "@/components/Soundboard";
 import { StadiumScoreboard } from "@/components/StadiumScoreboard";
@@ -63,10 +56,7 @@ export default function StadiumBoothDashboard() {
     roster, 
     organSongs, 
     pumpUpSongs, 
-    isAdmin, 
-    reorderStadiumSongs,
-    saveStadiumSong,
-    deleteStadiumSong 
+    isAdmin 
   } = useGame();
   
   const [activePlayerId, setActivePlayerId] = useState<string | null>(null);
@@ -75,17 +65,7 @@ export default function StadiumBoothDashboard() {
   const [activeTrackName, setActiveTrackName] = useState<string | null>(null);
   const [volume, setVolume] = useState(0.8);
   const [playerReady, setPlayerReady] = useState(false);
-  const [currentAnnouncementUrl, setCurrentAnnouncementUrl] = useState<string | null>(null);
-  const [playbackSessionId, setPlaybackSessionId] = useState<number>(0);
   
-  // Drag and Drop state
-  const [draggedItemIndex, setDraggedItemIndex] = useState<number | null>(null);
-  const [draggedCategory, setDraggedCategory] = useState<'organ' | 'pumpup' | null>(null);
-
-  // Song Editing state
-  const [editingSong, setEditingSong] = useState<{ category: 'organ' | 'pumpup', song: StadiumSong } | null>(null);
-  const [editForm, setEditForm] = useState({ title: "", link: "", startTime: 0 });
-
   const announcementAudioRef = useRef<HTMLAudioElement | null>(null);
   const ytPlayerRef = useRef<any>(null);
   const fadeIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -107,7 +87,6 @@ export default function StadiumBoothDashboard() {
       ytPlayerRef.current = new (window as any).YT.Player('stadium-yt-player', {
         height: '200',
         width: '200',
-        host: 'https://www.youtube.com',
         playerVars: {
           autoplay: 1,
           controls: 0,
@@ -123,15 +102,6 @@ export default function StadiumBoothDashboard() {
             setPlayerReady(true);
             event.target.unMute();
             event.target.setVolume(volume * 100);
-          },
-          onError: (event: any) => {
-            if (event.data === 101 || event.data === 150) {
-              toast({
-                variant: "destructive",
-                title: "Playback Restricted",
-                description: "This audio source is restricted by the owner. Try a Topic or Official Audio version.",
-              });
-            }
           }
         }
       });
@@ -146,14 +116,7 @@ export default function StadiumBoothDashboard() {
     } else if ((window as any).YT.Player) {
       onYouTubeIframeAPIReady();
     }
-  }, [toast, volume]);
-
-  useEffect(() => {
-    if (announcementAudioRef.current) announcementAudioRef.current.volume = volume;
-    if (ytPlayerRef.current && playerReady) {
-      try { ytPlayerRef.current.setVolume(volume * 100); } catch (e) {}
-    }
-  }, [volume, playerReady]);
+  }, [volume]);
 
   const stopEverything = useCallback(() => {
     if (fadeIntervalRef.current) { clearInterval(fadeIntervalRef.current); fadeIntervalRef.current = null; }
@@ -161,11 +124,8 @@ export default function StadiumBoothDashboard() {
       announcementAudioRef.current.pause();
       announcementAudioRef.current.currentTime = 0;
     }
-    setCurrentAnnouncementUrl(null);
     if (ytPlayerRef.current && playerReady) { 
-      try { 
-        ytPlayerRef.current.stopVideo(); 
-      } catch (e) {} 
+      try { ytPlayerRef.current.stopVideo(); } catch (e) {} 
     }
     setActiveTrackName(null);
     setPlaybackPhase('idle');
@@ -186,13 +146,6 @@ export default function StadiumBoothDashboard() {
     }, interval);
   };
 
-  const handleMute = () => {
-    setVolume(0);
-    if (ytPlayerRef.current && playerReady) {
-      try { ytPlayerRef.current.setVolume(0); } catch (e) {}
-    }
-  };
-
   const playYoutubeTrack = (videoId: string, songName: string, startAt: number = 0) => {
     stopEverything();
     setVolume(0.8);
@@ -209,22 +162,14 @@ export default function StadiumBoothDashboard() {
 
   const triggerWalkonSequence = () => {
     if (!activePlayer) return;
-    
     stopEverything();
-    
-    setTimeout(() => {
-      setVolume(0.8);
-      setPlaybackPhase('announcing');
-      setPlaybackSessionId(Date.now());
-      
-      if (selectedSongIndex === -1) {
-        setActiveTrackName("Player Announcement ONLY");
-      } else {
-        setActiveTrackName(`Announcing: ${activePlayer.name}`);
-      }
-      
-      setCurrentAnnouncementUrl(activePlayer.announcementAudioUrl);
-    }, 50);
+    setVolume(0.8);
+    setPlaybackPhase('announcing');
+    setActiveTrackName(`Announcing: ${activePlayer.name}`);
+    if (announcementAudioRef.current) {
+      announcementAudioRef.current.src = activePlayer.announcementAudioUrl;
+      announcementAudioRef.current.play();
+    }
   };
 
   const handleAnnouncementEnded = () => {
@@ -248,110 +193,10 @@ export default function StadiumBoothDashboard() {
     }
   };
 
-  // Drag and Drop Handlers
-  const handleDragStart = (index: number, category: 'organ' | 'pumpup') => {
-    if (!isAdmin) return;
-    setDraggedItemIndex(index);
-    setDraggedCategory(category);
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-  };
-
-  const handleDrop = (index: number, category: 'organ' | 'pumpup') => {
-    if (!isAdmin || draggedItemIndex === null || draggedCategory !== category) return;
-    
-    const songs = category === 'organ' ? [...organSongs] : [...pumpUpSongs];
-    const sourceIndex = draggedItemIndex;
-    const targetIndex = index;
-    
-    if (sourceIndex === targetIndex) return;
-    
-    const [reorderedItem] = songs.splice(sourceIndex, 1);
-    songs.splice(targetIndex, 0, reorderedItem);
-    
-    reorderStadiumSongs(category, songs);
-    setDraggedItemIndex(null);
-    setDraggedCategory(null);
-  };
-
-  // Song Editing Handlers
-  const startEditingSong = (category: 'organ' | 'pumpup', song: StadiumSong) => {
-    setEditingSong({ category, song });
-    setEditForm({ 
-      title: song.title, 
-      link: song.link, 
-      startTime: song.startTime 
-    });
-  };
-
-  const handleSaveEdit = () => {
-    if (!editingSong) return;
-    saveStadiumSong(editingSong.category, {
-      title: editForm.title,
-      link: editForm.link,
-      startTime: editForm.startTime,
-      order: editingSong.song.order
-    }, editingSong.song.id);
-    setEditingSong(null);
-    toast({ title: "Track updated successfully" });
-  };
-
-  const handleDeleteEdit = () => {
-    if (!editingSong || !confirm("Delete this track from the stadium?")) return;
-    deleteStadiumSong(editingSong.category, editingSong.song.id);
-    setEditingSong(null);
-    toast({ variant: "destructive", title: "Track removed" });
-  };
-
-  const renderSongButton = (song: StadiumSong, index: number, category: 'organ' | 'pumpup') => {
-    const isDodgers = song.title.toUpperCase().includes('DODGERS');
-    
-    return (
-      <div key={song.id} className="relative group">
-        <Button 
-          variant="outline" 
-          draggable={isAdmin}
-          onDragStart={() => handleDragStart(index, category)}
-          onDragOver={handleDragOver}
-          onDrop={() => handleDrop(index, category)}
-          onClick={() => playYoutubeTrack(song.link, song.title, song.startTime)} 
-          className={cn(
-            "w-full h-12 border-secondary/20 font-black uppercase text-[8px] md:text-[9px] justify-start px-2 md:px-3 whitespace-normal break-words text-left leading-tight transition-all",
-            isDodgers && "border-2 border-blue-600 ring-2 ring-blue-600/20",
-            isAdmin && "cursor-grab active:cursor-grabbing hover:border-primary/50"
-          )}
-        >
-          {isAdmin && <GripVertical className="h-3 w-3 mr-1.5 shrink-0 opacity-40" />}
-          {category === 'organ' ? '🎹 ' : '📣 '} {song.title}
-        </Button>
-        {isAdmin && (
-          <button 
-            onClick={(e) => { e.stopPropagation(); startEditingSong(category, song); }}
-            className="absolute top-0 right-0 p-1 opacity-0 group-hover:opacity-100 transition-opacity bg-background/80 rounded-bl-lg border-l border-b border-white/10 text-primary hover:text-white"
-          >
-            <Pencil className="h-3 w-3" />
-          </button>
-        )}
-      </div>
-    );
-  };
-
   return (
     <TooltipProvider>
       <div className="flex flex-col h-screen bg-background text-foreground stadium-gradient overflow-hidden">
-        {currentAnnouncementUrl && (
-          <audio
-            key={`${currentAnnouncementUrl}-${playbackSessionId}`}
-            ref={announcementAudioRef}
-            src={currentAnnouncementUrl}
-            autoPlay
-            onEnded={handleAnnouncementEnded}
-            onError={() => handleAnnouncementEnded()}
-            className="hidden"
-          />
-        )}
+        <audio ref={announcementAudioRef} onEnded={handleAnnouncementEnded} className="hidden" />
 
         <header className="sticky top-0 z-50 flex flex-col p-4 border-b border-border shadow-2xl bg-card/95 backdrop-blur-md gap-4">
           <div className="flex items-center justify-between w-full relative gap-2">
@@ -379,60 +224,29 @@ export default function StadiumBoothDashboard() {
             <div className="flex items-center gap-1 md:gap-3 shrink-0">
               <div className="flex items-center bg-black/20 rounded-full p-1 border border-white/5 mr-1 md:mr-2">
                 <Link href="/">
-                  <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 text-muted-foreground hover:text-primary/80">
+                  <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 text-muted-foreground hover:text-primary">
                     <Home className="h-4 w-4" />
                   </Button>
                 </Link>
-                <Link href="/booth">
-                  <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 text-primary">
-                    <Zap className="h-4 w-4" />
+                <Link href="/scoreboard">
+                  <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 text-muted-foreground hover:text-primary">
+                    <Trophy className="h-4 w-4" />
                   </Button>
                 </Link>
                 <Link href="/stats">
-                  <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 text-muted-foreground hover:text-primary/80">
+                  <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 text-muted-foreground hover:text-primary">
                     <BarChart3 className="h-4 w-4" />
                   </Button>
                 </Link>
-                <a href="https://groupme.com/join_group/115533519/bxlMSOlb" target="_blank" rel="noopener noreferrer">
-                  <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 text-muted-foreground hover:text-primary/80">
-                    <MessageSquare className="h-4 w-4" />
-                  </Button>
-                </a>
               </div>
               <AdminPanel />
             </div>
           </div>
 
           <div className="w-full flex items-center gap-2 md:gap-4 bg-primary/5 p-1.5 md:p-2 rounded-lg border border-primary/10">
-            <div className="flex items-center gap-2 min-w-max">
-              {volume === 0 ? <VolumeX className="h-3.5 w-3.5 text-muted-foreground" /> : <Volume2 className="h-3.5 w-3.5 text-primary" />}
-            </div>
-            <Slider value={[volume * 100]} onValueChange={(vals) => setVolume(vals[0] / 100)} max={100} step={1} className="flex-1" />
-            <Badge variant="outline" className="font-mono text-[9px] md:text-xs border-primary/30 text-primary w-9 md:w-10 text-center px-1">{Math.round(volume * 100)}%</Badge>
-            
-            <div className="flex items-center gap-1 ml-2">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="outline" size="sm" onClick={handleFadeOut} className="h-8 md:h-9 border-primary/20 text-primary px-2 md:px-4 font-black text-[9px] md:text-xs uppercase shadow-sm">
-                    <ArrowDownWideNarrow className="h-3.5 w-3.5 md:mr-1.5" /> <span>FADE</span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Gradually lowers the volume over 3 seconds to smoothly transition out.</p>
-                </TooltipContent>
-              </Tooltip>
-
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="outline" size="sm" onClick={handleMute} className="h-8 md:h-9 border-destructive/20 text-destructive px-2 md:px-4 font-black text-[9px] md:text-xs uppercase shadow-sm">
-                    <VolumeX className="h-3.5 w-3.5 md:mr-1.5" /> <span>MUTE</span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Instantly silences the audio playback.</p>
-                </TooltipContent>
-              </Tooltip>
-            </div>
+            <Slider value={[volume * 100]} onValueChange={(vals) => setVolume(vals[0] / 100)} max={100} className="flex-1" />
+            <Button variant="outline" size="sm" onClick={handleFadeOut} className="h-8 md:h-9 border-primary/20 text-primary px-4 font-black text-[9px] uppercase">FADE</Button>
+            <Button variant="outline" size="sm" onClick={stopEverything} className="h-8 md:h-9 border-destructive/20 text-destructive px-4 font-black text-[9px] uppercase">STOP</Button>
           </div>
         </header>
 
@@ -468,8 +282,7 @@ export default function StadiumBoothDashboard() {
           <main className="flex-1 flex flex-col p-4 md:p-8 overflow-y-auto space-y-4 md:space-y-8 bg-black/10">
             <div className="max-w-5xl mx-auto w-full space-y-4 md:space-y-8 pb-40">
               
-              {/* Scoreboard and Controller Integration */}
-              <StadiumScoreboard />
+              <StadiumScoreboard adminMode={true} />
 
               <section className="flex justify-center">
                 <Card className="w-full md:max-w-2xl bg-card/80 border-2 border-white/5 overflow-hidden shadow-2xl">
@@ -510,13 +323,6 @@ export default function StadiumBoothDashboard() {
                             >Track #{idx + 1}</Button>
                           ))}
                         </div>
-                        <div className="flex items-center gap-2 mt-1 text-[9px] font-bold text-secondary truncate">
-                          {selectedSongIndex === -1 ? (
-                            <><Ban className="h-3 w-3" /> Player Announcement ONLY</>
-                          ) : (
-                            <><Music2 className="h-3 w-3" /> {selectedSong?.name}</>
-                          )}
-                        </div>
                       </div>
                     )}
                     
@@ -541,63 +347,28 @@ export default function StadiumBoothDashboard() {
               <section className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-8">
                 <Card className="bg-card/80 border-white/10">
                   <CardHeader className="py-3 border-b border-white/5">
-                    <CardTitle className="text-[9px] font-black uppercase tracking-[0.3em] flex items-center justify-between">
-                      <span>🎹 Organ Master</span>
-                      {isAdmin && <span className="text-[7px] font-normal tracking-normal normal-case opacity-50">Drag to reorder</span>}
-                    </CardTitle>
+                    <CardTitle className="text-[9px] font-black uppercase tracking-[0.3em]">🎹 Organ Master</CardTitle>
                   </CardHeader>
                   <CardContent className="grid grid-cols-2 gap-2 pt-4">
-                    {organSongs.map((hit, idx) => renderSongButton(hit, idx, 'organ'))}
+                    {organSongs.map((hit) => (
+                      <Button key={hit.id} variant="outline" onClick={() => playYoutubeTrack(hit.link, hit.title, hit.startTime)} className="w-full h-12 border-secondary/20 font-black uppercase text-[8px] justify-start px-3">🎹 {hit.title}</Button>
+                    ))}
                   </CardContent>
                 </Card>
                 <Card className="bg-card/80 border-white/10">
                   <CardHeader className="py-3 border-b border-white/5">
-                    <CardTitle className="text-[9px] font-black uppercase tracking-[0.3em] flex items-center justify-between">
-                      <span>📣 Crowd Pump-Up</span>
-                      {isAdmin && <span className="text-[7px] font-normal tracking-normal normal-case opacity-50">Drag to reorder</span>}
-                    </CardTitle>
+                    <CardTitle className="text-[9px] font-black uppercase tracking-[0.3em]">📣 Crowd Pump-Up</CardTitle>
                   </CardHeader>
-                  <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-2 pt-4">
-                    {pumpUpSongs.map((song, idx) => renderSongButton(song, idx, 'pumpup'))}
+                  <CardContent className="grid grid-cols-2 gap-2 pt-4">
+                    {pumpUpSongs.map((song) => (
+                      <Button key={song.id} variant="outline" onClick={() => playYoutubeTrack(song.link, song.title, song.startTime)} className="w-full h-12 border-secondary/20 font-black uppercase text-[8px] justify-start px-3">📣 {song.title}</Button>
+                    ))}
                   </CardContent>
                 </Card>
               </section>
             </div>
           </main>
         </div>
-
-        <Dialog open={!!editingSong} onOpenChange={() => setEditingSong(null)}>
-          <DialogContent className="max-w-md bg-card border-primary/20">
-            <DialogHeader>
-              <DialogTitle className="text-primary font-black uppercase tracking-widest text-sm flex items-center gap-2">
-                <Pencil className="h-4 w-4" /> Edit Detail
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-1.5">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Title</Label>
-                <Input value={editForm.title} onChange={e => setEditForm({ ...editForm, title: e.target.value })} className="font-bold" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">YouTube Link/ID</Label>
-                <Input value={editForm.link} onChange={e => setEditForm({ ...editForm, link: e.target.value })} className="font-bold" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Start Time (seconds)</Label>
-                <Input type="number" value={editForm.startTime} onChange={e => setEditForm({ ...editForm, startTime: parseInt(e.target.value) || 0 })} className="font-bold" />
-              </div>
-            </div>
-            <DialogFooter className="flex gap-2">
-              <Button variant="destructive" onClick={handleDeleteEdit} className="flex-1 font-black uppercase tracking-widest">
-                <Trash2 className="h-4 w-4 mr-2" /> Delete
-              </Button>
-              <Button onClick={handleSaveEdit} className="flex-1 font-black uppercase tracking-widest bg-primary">
-                <Save className="h-4 w-4 mr-2" /> Save Changes
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
         <div id="stadium-yt-player" className="fixed -bottom-40 -right-40 opacity-0 pointer-events-none w-40 h-40 overflow-hidden"></div>
       </div>
     </TooltipProvider>

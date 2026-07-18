@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useMemo, useState, useEffect } from "react";
@@ -5,7 +6,6 @@ import Link from "next/link";
 import Image from "next/image";
 import { 
   Calendar as CalendarIcon, 
-  ChevronLeft, 
   Home, 
   BarChart3, 
   MapPin, 
@@ -115,81 +115,11 @@ export default function GameSchedulePage() {
     return active.id;
   }, []);
 
-  useEffect(() => {
-    if (activeGameId) {
-      const timer = setTimeout(() => {
-        const element = document.getElementById(activeGameId);
-        if (element) {
-          element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-      }, 800);
-      return () => clearTimeout(timer);
-    }
-  }, [activeGameId]);
-
   const handleManualSync = async () => {
     setIsSyncing(true);
     await triggerSync();
     setIsSyncing(false);
     toast({ title: "Standings Synced", description: "Season records have been updated based on latest game stats." });
-  };
-
-  const handleUpdateStatus = async (gameId: string, type: 'W' | 'L' | 'C') => {
-    if (!isAdmin || !db) return;
-    const current = gameStatuses[gameId] || {};
-    const docRef = doc(db, "game_wins", gameId);
-    
-    let updates: any = { updatedAt: new Date().toISOString(), autoSynced: false };
-    
-    if (type === 'W') {
-      updates.won = current.won === true ? null : true;
-      updates.cancelled = false;
-    } else if (type === 'L') {
-      updates.won = current.won === false ? null : false;
-      updates.cancelled = false;
-    } else if (type === 'C') {
-      updates.cancelled = !current.cancelled;
-      if (updates.cancelled) updates.won = null;
-    }
-
-    setDoc(docRef, updates, { merge: true }).catch(async (e) => {
-      errorEmitter.emit('permission-error', new FirestorePermissionError({
-        path: docRef.path,
-        operation: 'write',
-        requestResourceData: updates
-      }));
-    });
-  };
-
-  const handleResetSeason = async () => {
-    if (!isAdmin || !db || !confirm("Are you sure you want to reset all game results and standings? This cannot be undone.")) return;
-    
-    const promises = Object.keys(gameStatuses).map(gameId => 
-      deleteDoc(doc(db, "game_wins", gameId))
-    );
-    
-    try {
-      await Promise.all(promises);
-      toast({
-        title: "Season Reset",
-        description: "All game records and standings have been cleared.",
-      });
-    } catch (e) {
-      toast({
-        variant: "destructive",
-        title: "Reset Failed",
-        description: "Could not clear all records. Please try again.",
-      });
-    }
-  };
-
-  const handleUpdateSnack = async (gameId: string, playerId: string) => {
-    if (!isAdmin || !db) return;
-    const docRef = doc(db, "game_wins", gameId);
-    setDoc(docRef, { 
-      snackPlayerId: playerId,
-      updatedAt: new Date().toISOString() 
-    }, { merge: true });
   };
 
   return (
@@ -224,16 +154,16 @@ export default function GameSchedulePage() {
                 <Zap className="h-4 w-4" />
               </Button>
             </Link>
+            <Link href="/scoreboard">
+              <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 text-muted-foreground hover:text-primary/80">
+                <Trophy className="h-4 w-4" />
+              </Button>
+            </Link>
             <Link href="/stats">
               <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 text-muted-foreground hover:text-primary/80">
                 <BarChart3 className="h-4 w-4" />
               </Button>
             </Link>
-            <a href="https://groupme.com/join_group/115533519/bxlMSOlb" target="_blank" rel="noopener noreferrer">
-              <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 text-muted-foreground hover:text-primary/80">
-                <MessageSquare className="h-4 w-4" />
-              </Button>
-            </a>
           </div>
           <AdminPanel />
         </div>
@@ -248,35 +178,25 @@ export default function GameSchedulePage() {
             </div>
             <div className="flex items-center gap-2">
               {isAdmin && (
-                <>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={handleManualSync}
-                    disabled={isSyncing}
-                    className="h-7 md:h-8 border-primary/20 text-primary hover:bg-primary/10 font-black uppercase text-[8px] md:text-[10px] tracking-widest gap-2"
-                  >
-                    <RefreshCw className={cn("h-2.5 w-2.5 md:h-3 md:w-3", isSyncing && "animate-spin")} /> {isSyncing ? "Syncing..." : "Sync Stats"}
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={handleResetSeason}
-                    className="h-7 md:h-8 border-destructive/20 text-destructive hover:bg-destructive/10 font-black uppercase text-[8px] md:text-[10px] tracking-widest gap-2"
-                  >
-                    <RotateCcw className="h-2.5 w-2.5 md:h-3 md:w-3" /> Reset Season
-                  </Button>
-                </>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleManualSync}
+                  disabled={isSyncing}
+                  className="h-7 md:h-8 border-primary/20 text-primary font-black uppercase text-[8px] md:text-[10px] tracking-widest gap-2"
+                >
+                  <RefreshCw className={cn("h-2.5 w-2.5 md:h-3 md:w-3", isSyncing && "animate-spin")} /> Sync Stats
+                </Button>
               )}
             </div>
           </div>
           <div className="flex justify-center sm:justify-start gap-2 md:gap-4">
-            <div className="bg-primary/10 border border-primary/20 px-3 py-1.5 md:px-6 md:py-3 rounded-xl md:rounded-2xl flex flex-col items-center min-w-[60px] md:min-w-[100px] shadow-lg shadow-primary/5 relative">
-              <span className="text-[6px] md:text-[10px] font-black uppercase tracking-widest text-primary mb-0.5 md:mb-1">Wins</span>
+            <div className="bg-primary/10 border border-primary/20 px-3 py-1.5 md:px-6 md:py-3 rounded-xl md:rounded-2xl flex flex-col items-center min-w-[60px] md:min-w-[100px]">
+              <span className="text-[6px] md:text-[10px] font-black uppercase tracking-widest text-primary mb-0.5">Wins</span>
               <span className="text-lg md:text-3xl font-black digit-font text-primary">{record.w}</span>
             </div>
-            <div className="bg-destructive/10 border border-destructive/20 px-3 py-1.5 md:px-6 md:py-3 rounded-xl md:rounded-2xl flex flex-col items-center min-w-[60px] md:min-w-[100px] shadow-lg shadow-destructive/5 relative">
-              <span className="text-[6px] md:text-[10px] font-black uppercase tracking-widest text-destructive mb-0.5 md:mb-1">Losses</span>
+            <div className="bg-destructive/10 border border-destructive/20 px-3 py-1.5 md:px-6 md:py-3 rounded-xl md:rounded-2xl flex flex-col items-center min-w-[60px] md:min-w-[100px]">
+              <span className="text-[6px] md:text-[10px] font-black uppercase tracking-widest text-destructive mb-0.5">Losses</span>
               <span className="text-lg md:text-3xl font-black digit-font text-destructive">{record.l}</span>
             </div>
           </div>
@@ -294,8 +214,7 @@ export default function GameSchedulePage() {
               const isWon = statusData.won === true;
               const isLoss = statusData.won === false;
               const isCancelled = statusData.cancelled || false;
-              const isAutoSynced = statusData.autoSynced || false;
-              const isHome = game.home === "Coach Chewy" || game.notes === "Playoffs" || game.notes === "Finals";
+              const isHome = game.home === "Coach Chewy";
               const snackPlayer = roster.find(p => p.id === statusData.snackPlayerId);
               
               return (
@@ -305,119 +224,44 @@ export default function GameSchedulePage() {
                   className={cn(
                     "transition-all duration-300 relative overflow-hidden scroll-mt-[180px] md:scroll-mt-[260px]",
                     isHome ? "bg-blue-950/40 border-blue-800/60" : "bg-slate-800/50 border-slate-700/60",
-                    isCancelled && "opacity-60 border-destructive/40",
+                    isCancelled && "opacity-60",
                     activeGameId === game.id && "ring-2 ring-primary ring-offset-2 ring-offset-background"
                   )}
                 >
                   <div className="absolute top-2 right-2 z-20 flex flex-col items-end gap-2">
-                    {isCancelled && <Badge variant="destructive" className="font-black uppercase text-[8px] tracking-widest">Cancelled</Badge>}
-                    {isAutoSynced && !isCancelled && <Badge variant="secondary" className="font-black uppercase text-[7px] tracking-tighter opacity-70">Auto-Synced</Badge>}
                     {isWon && !isCancelled && <span className="text-2xl md:text-3xl animate-trophy-breathe">🏆</span>}
-                    {isLoss && !isCancelled && <XCircle className="h-6 w-6 md:h-8 md:w-8 text-destructive animate-in zoom-in duration-300" />}
+                    {isLoss && !isCancelled && <XCircle className="h-6 w-6 md:h-8 md:w-8 text-destructive" />}
+                    {isCancelled && <Badge variant="destructive" className="font-black uppercase text-[8px]">Cancelled</Badge>}
                   </div>
 
                   <CardContent className="p-4 md:p-6">
                     <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
-                      <div className="md:col-span-3 flex flex-col border-b md:border-b-0 md:border-r border-white/5 pb-4 md:pb-0 h-full">
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="text-[10px] font-black uppercase">{game.notes || `Week ${game.week}`}</Badge>
-                          {activeGameId === game.id && <Badge className="bg-primary text-[8px] font-black uppercase">Active Week</Badge>}
-                        </div>
-                        <p className="mt-2 text-sm font-black uppercase tracking-wider text-white">
+                      <div className="md:col-span-3 flex flex-col border-b md:border-b-0 md:border-r border-white/5 pb-4 md:pb-0">
+                        <Badge variant="outline" className="w-fit text-[10px] font-black uppercase">{game.notes || `Week ${game.week}`}</Badge>
+                        <p className="mt-2 text-sm font-black uppercase text-white">
                           {new Date(game.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric' })}
                         </p>
-                        <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground mt-1 mb-1">
-                          <Clock className="h-3 w-3" /> {game.time}
-                        </div>
-                        <div className="flex items-center gap-2 text-[9px] font-bold text-muted-foreground uppercase leading-tight bg-black/20 p-2 rounded-lg border border-white/5">
-                          <MapPin className="h-3 w-3 shrink-0" /> {game.location}
+                        <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground mt-1"><Clock className="h-3 w-3" /> {game.time}</div>
+                        <div className="flex items-center gap-2 text-[9px] font-bold text-muted-foreground uppercase mt-2 bg-black/20 p-2 rounded-lg border border-white/5">
+                          <MapPin className="h-3 w-3" /> {game.location}
                         </div>
                       </div>
 
-                      <div className="md:col-span-6 flex flex-row items-center gap-4 md:grid md:grid-cols-6 md:gap-6 border-b md:border-b-0 md:border-r border-white/5 pb-4 md:pb-0 h-full">
-                        
-                        <div className="flex flex-col items-center justify-center space-y-1 md:space-y-2 md:col-span-2 min-w-[70px] md:min-w-0">
-                          <span className="text-[8px] font-black uppercase tracking-[0.3em] text-muted-foreground">Jersey</span>
-                          <div className="relative w-10 h-10 md:w-16 md:h-16">
-                            <Image 
-                              src={isHome ? "/Blue_Jersey.png" : "/Grey_Jersey.png"} 
-                              alt={isHome ? "Home Jersey" : "Away Jersey"}
-                              fill
-                              className="object-contain"
-                            />
+                      <div className="md:col-span-9 flex flex-col space-y-4">
+                        <div className="flex items-center justify-between gap-4 p-4 bg-black/30 rounded-xl border border-white/5">
+                          <div className="flex-1 text-center">
+                            <p className="text-[8px] font-black uppercase text-muted-foreground">Away</p>
+                            <p className={cn("text-xs font-bold", game.away === "Coach Chewy" ? "text-primary" : "text-white")}>{game.away}</p>
                           </div>
-                          <span className={cn("text-[9px] font-black uppercase", isHome ? "text-primary" : "text-muted-foreground")}>
-                            {isHome ? "Home" : "Away"}
-                          </span>
-                        </div>
-
-                        <div className="flex-1 md:col-span-4 flex flex-col space-y-2 md:space-y-4 justify-center">
-                          <div className="flex flex-row items-center justify-between gap-2 p-2 md:p-4 bg-black/30 rounded-xl border border-white/5">
-                            <div className="flex-1 text-center">
-                              <p className="text-[7px] md:text-[8px] font-black uppercase text-muted-foreground mb-0.5 md:mb-1">Away</p>
-                              <p className={cn("text-[10px] md:text-xs font-bold whitespace-normal leading-tight", game.away === "Coach Chewy" ? "text-primary" : "text-white")}>{game.away}</p>
-                            </div>
-                            <span className="text-[7px] md:text-[8px] font-black text-muted-foreground shrink-0 py-0.5 px-1.5 md:py-1 md:px-2 bg-white/5 rounded-full">VS</span>
-                            <div className="flex-1 text-center">
-                              <p className="text-[7px] md:text-[8px] font-black uppercase text-muted-foreground mb-0.5 md:mb-1">Home</p>
-                              <p className={cn("text-[10px] md:text-xs font-bold whitespace-normal leading-tight", game.home === "Coach Chewy" ? "text-primary" : "text-white")}>{game.home}</p>
-                            </div>
-                          </div>
-
-                          <div className="flex flex-col space-y-1">
-                            <span className="text-[8px] font-black uppercase tracking-widest text-muted-foreground ml-1">Snack Assignment</span>
-                            {isAdmin ? (
-                              <Select 
-                                value={statusData.snackPlayerId || ""} 
-                                onValueChange={(val) => handleUpdateSnack(game.id, val)}
-                              >
-                                <SelectTrigger className="h-8 md:h-9 bg-background/50 border-white/10 text-[9px] md:text-[10px] font-bold">
-                                  <SelectValue placeholder="Assign Player..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {roster.map(p => (
-                                    <SelectItem key={p.id} value={p.id} className="text-xs font-bold">#{p.number} - {p.name}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            ) : (
-                              <div className="flex items-center gap-2 text-[9px] md:text-[10px] font-black uppercase text-secondary bg-secondary/10 px-2 md:px-3 py-1 md:py-1.5 rounded-lg border border-secondary/20 w-max">
-                                SNACK - {snackPlayer ? snackPlayer.name : "TBD"}
-                              </div>
-                            )}
+                          <span className="text-[8px] font-black text-muted-foreground px-2 py-1 bg-white/5 rounded-full">VS</span>
+                          <div className="flex-1 text-center">
+                            <p className="text-[8px] font-black uppercase text-muted-foreground">Home</p>
+                            <p className={cn("text-xs font-bold", game.home === "Coach Chewy" ? "text-primary" : "text-white")}>{game.home}</p>
                           </div>
                         </div>
-                      </div>
-
-                      <div className="md:col-span-3 flex flex-col justify-center h-full">
-                        {isAdmin && (
-                          <div className="flex items-center gap-2 pt-2">
-                            <Button 
-                              size="sm" 
-                              variant={isWon ? "default" : "outline"} 
-                              className={cn("flex-1 h-10 text-[10px] font-black", isWon && "bg-yellow-500 hover:bg-yellow-600")}
-                              onClick={() => handleUpdateStatus(game.id, 'W')}
-                            >
-                              <Trophy className="h-3 w-3 mr-1" /> W
-                            </Button>
-                            <Button 
-                              size="sm" 
-                              variant={isLoss ? "default" : "outline"} 
-                              className={cn("flex-1 h-10 text-[10px] font-black", isLoss && "bg-destructive hover:bg-destructive/90")}
-                              onClick={() => handleUpdateStatus(game.id, 'L')}
-                            >
-                              <XCircle className="h-3 w-3 mr-1" /> L
-                            </Button>
-                            <Button 
-                              size="sm" 
-                              variant={isCancelled ? "destructive" : "outline"} 
-                              className="flex-1 h-10 text-[10px] font-black"
-                              onClick={() => handleUpdateStatus(game.id, 'C')}
-                            >
-                              <Ban className="h-3 w-3 mr-1" /> C
-                            </Button>
-                          </div>
-                        )}
+                        <div className="flex items-center gap-2 text-[10px] font-black uppercase text-secondary bg-secondary/10 px-3 py-1.5 rounded-lg border border-secondary/20 w-fit">
+                          SNACK - {snackPlayer ? snackPlayer.name : "TBD"}
+                        </div>
                       </div>
                     </div>
                   </CardContent>
@@ -431,15 +275,15 @@ export default function GameSchedulePage() {
       <footer className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] md:hidden z-50">
         <div className="flex items-center justify-center gap-3 bg-card/90 backdrop-blur-xl border border-white/10 p-2 rounded-2xl shadow-2xl">
           <Link href="/booth" className="flex-1">
-            <div className="flex items-center justify-center gap-2 h-11 border border-white/10 rounded-xl bg-white/5 text-secondary hover:bg-white/10 transition-all">
+            <div className="flex items-center justify-center gap-2 h-11 border border-white/10 rounded-xl bg-white/5 text-secondary">
               <Zap className="h-4 w-4" />
               <span className="text-[10px] font-black uppercase tracking-widest">Booth</span>
             </div>
           </Link>
-          <Link href="/stats" className="flex-1">
-            <div className="flex items-center justify-center gap-2 h-11 border border-white/10 rounded-xl bg-white/5 text-secondary hover:bg-white/10 transition-all">
-              <BarChart3 className="h-4 w-4" />
-              <span className="text-[10px] font-black uppercase tracking-widest">Stats</span>
+          <Link href="/scoreboard" className="flex-1">
+            <div className="flex items-center justify-center gap-2 h-11 border border-white/10 rounded-xl bg-white/5 text-primary">
+              <Trophy className="h-4 w-4" />
+              <span className="text-[10px] font-black uppercase tracking-widest">Live</span>
             </div>
           </Link>
         </div>

@@ -1,3 +1,4 @@
+
 "use client";
 
 import React from "react";
@@ -14,6 +15,7 @@ import {
   ShieldCheck,
   MessageSquare,
   LayoutDashboard,
+  Trophy,
   Wifi,
   WifiOff
 } from "lucide-react";
@@ -32,7 +34,6 @@ import { Button } from "@/components/ui/button";
 /**
  * A shared navigation bar for the UAT environment.
  * Consolidates all links into a slide-out hamburger menu.
- * Refactored to make "Workspace" visible to all users.
  */
 export function UATNavbar() {
   const pathname = usePathname();
@@ -44,6 +45,7 @@ export function UATNavbar() {
   const navItems = [
     { label: "Home", href: "/uat", icon: Home },
     { label: "Booth", href: "/booth-uat", icon: Zap },
+    { label: "Scoreboard", href: "/scoreboard-uat", icon: Trophy },
     { label: "Stats", href: "/stats-uat", icon: BarChart3 },
     { label: "Schedule", href: "/schedule-uat", icon: Calendar },
     { label: "Team Chat", href: "/messages-uat", icon: MessageSquare },
@@ -52,7 +54,7 @@ export function UATNavbar() {
 
   // Analytics for management only
   if (hasManagementAccess) {
-    navItems.splice(5, 0, { label: "Analytics", href: "/analytics-uat", icon: Activity });
+    navItems.splice(6, 0, { label: "Analytics", href: "/analytics-uat", icon: Activity });
   }
 
   return (
