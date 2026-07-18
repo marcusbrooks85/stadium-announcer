@@ -120,14 +120,14 @@ export function StadiumScoreboard({ adminMode = true }: StadiumScoreboardProps) 
   // --- Sub-Components ---
 
   const LightIndicator = ({ label, count, max, activeColor }: { label: string, count: number, max: number, activeColor: string }) => (
-    <div className="flex flex-col items-center gap-1 sm:gap-2">
-      <span className="text-[7px] sm:text-[10px] font-black text-muted-foreground uppercase tracking-widest leading-none mb-0.5">{label}</span>
-      <div className="flex gap-1 sm:gap-2">
+    <div className="flex flex-col items-center gap-1">
+      <span className="text-[7px] sm:text-[9px] font-black text-muted-foreground uppercase tracking-widest leading-none mb-1">{label}</span>
+      <div className="flex gap-1">
         {Array.from({ length: max }).map((_, i) => (
           <div 
             key={i} 
             className={cn(
-              "h-3 w-3 sm:h-4 sm:w-4 rounded-full border border-white/10 sm:border-2 transition-all duration-300",
+              "h-2.5 w-2.5 sm:h-3.5 sm:w-3.5 rounded-full border border-white/10 sm:border-2 transition-all duration-300",
               i < count ? activeColor : "bg-black/40 shadow-inner"
             )}
           />
@@ -140,22 +140,25 @@ export function StadiumScoreboard({ adminMode = true }: StadiumScoreboardProps) 
     <div className="w-full space-y-6">
       {/* --- PUBLIC SCOREBOARD VIEW --- */}
       <Card className="bg-black border-2 border-white/5 shadow-2xl overflow-hidden">
-        <div className="bg-gradient-to-r from-blue-900/20 to-transparent p-3 sm:p-4 border-b border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3 sm:gap-4">
-             <div className="h-10 w-12 bg-primary/20 border border-primary/40 rounded flex flex-col items-center justify-center shrink-0">
-                <span className="text-[8px] font-black uppercase text-primary leading-none">Inning</span>
-                <span className="text-xl font-black digit-font text-white">{inning}</span>
+        <div className="bg-gradient-to-r from-blue-900/20 to-transparent p-2.5 sm:p-4 border-b border-white/5 flex items-center justify-start gap-4 sm:gap-10">
+          {/* Combined Inning & Half Box */}
+          <div className="h-11 sm:h-14 px-2.5 sm:px-4 bg-primary/20 border border-primary/40 rounded flex items-center gap-2 sm:gap-4 shrink-0">
+             <div className="flex flex-col items-center">
+                <span className="text-[7px] sm:text-[9px] font-black uppercase text-primary leading-none mb-0.5 sm:mb-1">INN</span>
+                <span className="text-xl sm:text-3xl font-black digit-font text-white leading-none">{inning}</span>
              </div>
-             <div className="flex flex-col">
-                <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Status</span>
-                <div className="flex items-center gap-2">
-                   {half === 'top' ? <ChevronUp className="h-4 w-4 text-secondary animate-pulse" /> : <ChevronDown className="h-4 w-4 text-primary animate-pulse" />}
-                   <span className="text-sm font-black uppercase tracking-tighter text-white">{half === 'top' ? "Top" : "Bottom"}</span>
-                </div>
+             <div className="h-6 sm:h-8 w-[1px] bg-white/10" />
+             <div className="flex items-center">
+                {half === 'top' ? (
+                  <ChevronUp className="h-5 w-5 sm:h-8 sm:w-8 text-secondary animate-pulse" />
+                ) : (
+                  <ChevronDown className="h-5 w-5 sm:h-8 sm:w-8 text-primary animate-pulse" />
+                )}
              </div>
           </div>
           
-          <div className="grid grid-cols-3 gap-4 sm:gap-8 px-2 sm:px-4 flex-1 sm:flex-none">
+          {/* Aligned BSO Indicators */}
+          <div className="flex items-center gap-4 sm:gap-8">
             <LightIndicator label="Balls" count={balls} max={3} activeColor="bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]" />
             <LightIndicator label="Strikes" count={strikes} max={2} activeColor="bg-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.5)]" />
             <LightIndicator label="Outs" count={outs} max={2} activeColor="bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]" />
