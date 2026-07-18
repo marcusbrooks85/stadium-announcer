@@ -159,7 +159,7 @@ const UATGameContext = createContext<UATGameContextType | undefined>(undefined);
 const RECEIVE_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3';
 
 /**
- * A hidden component that listens for global messages to play sound notifications.
+ * A hidden component that listens for global messages to play sound notifications and browser push alerts.
  */
 function UATGlobalMessagingListener() {
   const db = useFirestore();
@@ -173,6 +173,15 @@ function UATGlobalMessagingListener() {
   
   const mountTimeRef = useRef<number>(Date.now());
   const lastMessageIdRef = useRef<string | null>(null);
+
+  // Request browser notification permission on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      if (Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
+    }
+  }, []);
 
   useEffect(() => {
     if (!db || !userTeamId || !auth.currentUser) return;
@@ -201,21 +210,37 @@ function UATGlobalMessagingListener() {
 
         // Determine if we should play sound and show toast
         const currentChatId = searchParams.get('cid');
-        const isCurrentlyLookingAtThisChat = pathname === '/messages-uat' && currentChatId === docSnap.ref.parent.parent?.id;
+        const channelRef = docSnap.ref.parent.parent;
+        const channelId = channelRef?.id;
+        const isCurrentlyLookingAtThisChat = pathname === '/messages-uat' && currentChatId === channelId;
 
         if (!isCurrentlyLookingAtThisChat) {
-          playReceive();
+          // SILENCE logic: If on booth page, don't play audio alert
+          const isBoothPage = pathname === '/booth-uat';
+          if (!isBoothPage) {
+            playReceive();
+          }
 
-          // Get sender info for toast
+          // Get sender info for notification
           const senderSnap = await getDoc(doc(db, "users_UAT", msg.senderId));
           const senderData = senderSnap.exists() ? senderSnap.data() : { firstName: "Teammate" };
+          const senderName = senderData.firstName || "Teammate";
+          const messageSnippet = msg.text || "Sent an attachment";
+
+          // Browser System Notification (Push)
+          if (typeof window !== 'undefined' && Notification.permission === 'granted') {
+             new Notification(`Message from ${senderName}`, {
+               body: messageSnippet,
+               icon: '/audio/icon.png',
+             });
+          }
           
           toast({
-            title: `Message from ${senderData.firstName}`,
-            description: msg.text || "Sent an attachment",
+            title: `Message from ${senderName}`,
+            description: messageSnippet,
             action: (
               <button 
-                onClick={() => router.push(`/messages-uat?cid=${docSnap.ref.parent.parent?.id}`)}
+                onClick={() => router.push(`/messages-uat?cid=${channelId}`)}
                 className="bg-primary text-white text-[10px] font-black uppercase px-3 py-1 rounded"
               >
                 VIEW

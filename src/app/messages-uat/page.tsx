@@ -273,9 +273,7 @@ function UATMessagesContent() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Derived selected channel ID from URL search params for back-button support
   const selectedChannelId = searchParams.get('cid');
-
   const isAdmin = ["super_admin", "league_admin"].includes(userRole || "");
 
   useEffect(() => {
@@ -365,8 +363,8 @@ function UATMessagesContent() {
         const channelRef = doc(db, "channels_UAT", dmId);
         const snap = await getDoc(channelRef);
         if (!snap.exists()) {
-          const otherUid = selectedParticipants[0];
-          const otherUser = userProfiles[otherUid];
+          const otherUid = selectedParticipants.find(id => id !== currentUid);
+          const otherUser = userProfiles[otherUid!];
           await setDoc(channelRef, {
             name: `${otherUser?.firstName || 'Private'}`,
             type: "private",
@@ -479,13 +477,33 @@ function UATMessagesContent() {
     return groups;
   }, [messages]);
 
+  // Enhanced Universal Search Logic
   const filteredChannels = useMemo(() => {
+    const term = listSearch.toLowerCase();
     return channels.filter(c => {
-      const matchesSearch = c.name.toLowerCase().includes(listSearch.toLowerCase());
-      const matchesArchive = !!c.isArchived === showArchived;
-      return matchesSearch && matchesArchive;
+      if (!!c.isArchived !== showArchived) return false;
+      if (!term) return true;
+
+      // 1. Match Channel/DM Name
+      if (c.name.toLowerCase().includes(term)) return true;
+
+      // 2. Match Participants Names
+      const participantMatch = c.members?.some((uid: string) => {
+        const p = userProfiles[uid];
+        const fullName = `${p?.firstName || ''} ${p?.lastName || ''}`.toLowerCase();
+        return fullName.includes(term);
+      });
+      if (participantMatch) return true;
+
+      // 3. Match Content (within current thread if viewing)
+      if (selectedChannelId === c.id) {
+         const messageMatch = messages.some(m => m.text?.toLowerCase().includes(term));
+         if (messageMatch) return true;
+      }
+
+      return false;
     });
-  }, [channels, showArchived, listSearch]);
+  }, [channels, showArchived, listSearch, userProfiles, selectedChannelId, messages]);
 
   const filteredUsersForDialog = useMemo(() => {
     return Object.values(userProfiles).filter(p => {
@@ -507,6 +525,14 @@ function UATMessagesContent() {
   }, [userProfiles, userSearchInDialog, auth.currentUser?.uid, roster]);
 
   const activeChannel = useMemo(() => channels.find(c => c.id === selectedChannelId), [channels, selectedChannelId]);
+
+  // Resolves the correct name for DMs (the other person)
+  const getResolvedChannelName = (c: any) => {
+    if (!c.isDM) return c.name;
+    const otherUid = c.members?.find((uid: string) => uid !== auth.currentUser?.uid);
+    const otherUser = userProfiles[otherUid || ""];
+    return otherUser ? `${otherUser.firstName} ${otherUser.lastName}` : (c.name || "Chat");
+  };
 
   if (!gameLoaded || authLoading) return <div className="min-h-screen flex flex-col items-center justify-center stadium-gradient gap-4"><Loader2 className="h-8 w-8 animate-spin text-primary" /><span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Connecting...</span></div>;
 
@@ -537,7 +563,7 @@ function UATMessagesContent() {
                   </AvatarFallback>
                </Avatar>
                <div className="flex flex-col">
-                  <span className="text-xs font-black uppercase tracking-wider">{activeChannel?.name || "Chat"}</span>
+                  <span className="text-xs font-black uppercase tracking-wider">{activeChannel ? getResolvedChannelName(activeChannel) : "Chat"}</span>
                   <span className="text-[8px] text-green-500 font-bold uppercase tracking-tighter">Active Thread</span>
                </div>
             </div>
@@ -557,7 +583,7 @@ function UATMessagesContent() {
               <Input 
                 value={listSearch}
                 onChange={e => setListSearch(e.target.value)}
-                placeholder="Search threads..." 
+                placeholder="Search messages, users, teams..." 
                 className="h-10 bg-black/20 text-xs font-bold pl-10 border-white/5" 
               />
             </div>
@@ -600,7 +626,7 @@ function UATMessagesContent() {
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex flex-col overflow-hidden">
-                        <span className="text-xs font-black uppercase tracking-wider truncate">{c.name}</span>
+                        <span className="text-xs font-black uppercase tracking-wider truncate">{getResolvedChannelName(c)}</span>
                         <span className={cn("text-[8px] font-bold uppercase tracking-widest truncate", selectedChannelId === c.id ? "text-white/60" : "text-muted-foreground")}>
                           {c.type === 'public' ? 'Public Channel' : 'Private Thread'}
                         </span>
@@ -808,7 +834,7 @@ function UATMessagesContent() {
         <DialogContent className="bg-card border-white/10 max-w-xs p-6 rounded-3xl">
           <DialogHeader>
             <DialogTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-3">
-              <Hash className="h-4 w-4 text-primary" /> {manageTarget?.name}
+              <Hash className="h-4 w-4 text-primary" /> {manageTarget ? getResolvedChannelName(manageTarget) : ""}
             </DialogTitle>
           </DialogHeader>
           <div className="flex flex-col gap-3 py-4">
@@ -827,7 +853,7 @@ function UATMessagesContent() {
       </Dialog>
 
       <Dialog open={isRenaming} onOpenChange={setIsRenaming}>
-        <DialogContent className="bg-card border-white/10 max-w-sm rounded-3xl">
+        <DialogContent className="bg-card border-white/10 max-sm rounded-3xl">
           <DialogHeader><DialogTitle className="text-[10px] font-black uppercase tracking-widest">Rename Thread</DialogTitle></DialogHeader>
           <div className="py-6"><Input value={renameValue} onChange={e => setRenameValue(e.target.value)} className="bg-black/20 h-14 rounded-2xl font-bold px-5" /></div>
           <DialogFooter className="gap-3">
