@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useMemo } from "react";
@@ -118,26 +117,6 @@ export default function GameStatsPage() {
           </section>
 
           <section className="flex flex-col items-center justify-center gap-6">
-            <div className="flex items-center justify-center gap-2 md:gap-8 w-full max-w-2xl">
-                <div className="flex-1 flex flex-col items-center bg-secondary/10 px-2 py-4 md:px-6 rounded-2xl border-2 border-secondary/20 shadow-inner">
-                  <span className="text-[8px] md:text-[10px] font-black tracking-widest text-secondary uppercase mb-2 md:mb-3">Away Team (Total)</span>
-                  <div className="flex items-center gap-1 md:gap-4">
-                    {isAdmin && <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 hover:bg-secondary/20" onClick={() => updateTeamScore('away', -1)}><Minus className="h-4 w-4 md:h-6 md:w-6" /></Button>}
-                    <div className="w-10 md:w-16 text-center digit-font text-3xl md:text-5xl font-black text-secondary">{awayScore}</div>
-                    {isAdmin && <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 hover:bg-secondary/20" onClick={() => updateTeamScore('away', 1)}><Plus className="h-4 w-4 md:h-6 md:w-6" /></Button>}
-                  </div>
-                </div>
-
-                <div className="flex-1 flex flex-col items-center bg-primary/10 px-2 py-4 md:px-6 rounded-2xl border-2 border-primary/20 shadow-inner">
-                  <span className="text-[8px] md:text-[10px] font-black tracking-widest text-primary uppercase mb-2 md:mb-3">Home Team (Total)</span>
-                  <div className="flex items-center gap-1 md:gap-4">
-                    {isAdmin && <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 hover:bg-primary/20" onClick={() => updateTeamScore('home', -1)}><Minus className="h-4 w-4 md:h-6 md:w-6" /></Button>}
-                    <div className="w-10 md:w-16 text-center digit-font text-3xl md:text-5xl font-black text-primary">{homeScore}</div>
-                    {isAdmin && <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 hover:bg-primary/20" onClick={() => updateTeamScore('home', 1)}><Plus className="h-4 w-4 md:h-6 md:w-6" /></Button>}
-                  </div>
-                </div>
-            </div>
-            
             <Button onClick={emailStats} size="lg" className="h-12 px-10 bg-primary hover:bg-primary/90 text-xs font-black uppercase tracking-widest gap-3 shadow-lg shadow-primary/20">
               <Mail className="h-5 w-5" /> Export Game Report
             </Button>

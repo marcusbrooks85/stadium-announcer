@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useMemo } from "react";
@@ -84,16 +83,6 @@ function UATStatsContent() {
           </section>
 
           <section className="flex flex-col items-center justify-center gap-6">
-            <div className="flex items-center justify-center gap-8 w-full max-w-2xl">
-              <div className="flex-1 flex flex-col items-center bg-secondary/10 px-6 py-4 rounded-2xl border-2 border-secondary/20">
-                <span className="text-[10px] font-black tracking-widest text-secondary uppercase mb-3">Away Team (Total)</span>
-                <div className="digit-font text-5xl font-black text-secondary">{awayScore}</div>
-              </div>
-              <div className="flex-1 flex flex-col items-center bg-primary/10 px-6 py-4 rounded-2xl border-2 border-primary/20">
-                <span className="text-[10px] font-black tracking-widest text-primary uppercase mb-3">Home Team (Total)</span>
-                <div className="digit-font text-5xl font-black text-primary">{homeScore}</div>
-              </div>
-            </div>
             <Button onClick={emailStats} size="lg" className="h-12 px-10 bg-primary font-black uppercase tracking-widest gap-3 shadow-lg">
               <Mail className="h-5 w-5" /> Export UAT Game Report
             </Button>
