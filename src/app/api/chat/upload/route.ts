@@ -65,6 +65,9 @@ export async function POST(req: NextRequest) {
     // Generate pre-signed URL valid for 60 seconds
     const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 60 });
 
+    // Diagnostic log for the server terminal
+    console.log("GENERATED PRESIGNED URL:", uploadUrl);
+
     return NextResponse.json({ uploadUrl, fileKey });
   } catch (error: any) {
     console.error('R2 Presign System Error:', error);
