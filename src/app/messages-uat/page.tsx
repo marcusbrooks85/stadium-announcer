@@ -294,10 +294,8 @@ function UATMessagesContent() {
     
     setIsUploading(true);
     try {
-      // 1. Fetch pre-signed URL from internal API
-      // In development, we use explicit port 3000 to prevent relative mismatches
-      const apiBase = process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : '';
-      const presignRes = await fetch(`${apiBase}/api/chat/upload`, {
+      // 1. Fetch the pre-signed URL from our internal API using a clean relative path
+      const presignRes = await fetch('/api/chat/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fileName: file.name, fileType: file.type }),
