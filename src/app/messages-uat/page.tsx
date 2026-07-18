@@ -75,7 +75,8 @@ import {
   setDoc,
   deleteDoc,
   serverTimestamp, 
-  limit
+  limit,
+  collectionGroup
 } from "firebase/firestore";
 import { useUATGame, UATGameProvider } from "@/app/context/uat-game-context";
 import { UATNavbar } from "@/components/UATNavbar";
@@ -257,6 +258,7 @@ function UATMessagesContent() {
   const [attachmentUrl, setAttachmentUrl] = useState<string | null>(null);
   const [replyingTo, setReplyingTo] = useState<any | null>(null);
   const [showArchived, setShowArchived] = useState(false);
+  const [listSearch, setListSearch] = useState("");
 
   // Creation State
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -264,6 +266,7 @@ function UATMessagesContent() {
   const [newChatName, setNewChatName] = useState("");
   const [selectedParticipants, setSelectedParticipants] = useState<string[]>([]);
   const [isCreating, setIsCreating] = useState(false);
+  const [userSearchInDialog, setUserSearchInDialog] = useState("");
 
   // Management State
   const [manageTarget, setManageTarget] = useState<any | null>(null);
@@ -273,6 +276,7 @@ function UATMessagesContent() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const lastMessageIdRef = useRef<string | null>(null);
+  const mountTimeRef = useRef<number>(Date.now());
 
   const isAdmin = ["super_admin", "league_admin"].includes(userRole || "");
 
@@ -281,6 +285,47 @@ function UATMessagesContent() {
       if (Notification.permission !== "granted") Notification.requestPermission();
     }
   }, []);
+
+  // Global Audio Listener: Play sound for ANY message in the team
+  useEffect(() => {
+    if (!db || !userTeamId) return;
+    
+    // Use a Collection Group query to listen to all messages in the team
+    const q = query(
+      collectionGroup(db, "messages_UAT"), 
+      where("teamId", "==", userTeamId),
+      orderBy("timestamp", "desc"),
+      limit(1)
+    );
+
+    const unsubscribe = onSnapshot(q, (snap) => {
+      if (snap.empty) return;
+      const lastMsg = snap.docs[0].data();
+      const msgId = snap.docs[0].id;
+
+      // Only play if it's a NEW message sent AFTER component mount, 
+      // not sent by current user, and not one we've already processed
+      if (
+        lastMsg.senderId !== auth.currentUser?.uid && 
+        lastMsg.timestamp?.toMillis() > mountTimeRef.current &&
+        msgId !== lastMessageIdRef.current
+      ) {
+        playReceive();
+        lastMessageIdRef.current = msgId;
+
+        // Visual browser notification if tab is hidden
+        if (document.visibilityState !== "visible" && "Notification" in window && Notification.permission === "granted") {
+          const sender = userProfiles[lastMsg.senderId]?.firstName || "Teammate";
+          new Notification(`On Deck: ${sender}`, { 
+            body: lastMsg.text || "Sent an attachment",
+            icon: "/audio/icon.png"
+          });
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, [db, userTeamId, auth.currentUser?.uid, userProfiles, playReceive]);
 
   useEffect(() => {
     if (!db || !userTeamId) return;
@@ -308,23 +353,11 @@ function UATMessagesContent() {
     const q = query(collection(db, "channels_UAT", selectedChannelId, "messages_UAT"), orderBy("timestamp", "asc"), limit(50));
     return onSnapshot(q, (snap) => {
       const newMessages = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      if (newMessages.length > 0) {
-        const lastMsg = newMessages[newMessages.length - 1];
-        if (lastMsg.id !== lastMessageIdRef.current) {
-          if (lastMsg.senderId !== auth.currentUser?.uid && lastMessageIdRef.current !== null) {
-            playReceive();
-            if (document.visibilityState !== "visible" && "Notification" in window && Notification.permission === "granted") {
-              new Notification(`On Deck: ${userProfiles[lastMsg.senderId]?.firstName || "Team"}`, { body: lastMsg.text || "Image attachment" });
-            }
-          }
-          lastMessageIdRef.current = lastMsg.id;
-        }
-      }
       setMessages(newMessages);
       setIsLoadingMessages(false);
       setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
     });
-  }, [db, selectedChannelId, playReceive, auth.currentUser?.uid, userProfiles]);
+  }, [db, selectedChannelId]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -369,7 +402,6 @@ function UATMessagesContent() {
       const allMembers = Array.from(new Set([currentUid, ...selectedParticipants]));
 
       if (newChatType === "dm" && allMembers.length === 2) {
-        // Standard Private DM check
         const dmId = `dm_${allMembers.sort().join('_')}`;
         const channelRef = doc(db, "channels_UAT", dmId);
         const snap = await getDoc(channelRef);
@@ -388,7 +420,6 @@ function UATMessagesContent() {
         }
         setSelectedChannelId(dmId);
       } else {
-        // Group DM or Public Channel
         const isPublic = newChatType === "channel";
         const finalName = newChatType === "dm" 
           ? allMembers.map(uid => userProfiles[uid]?.firstName).filter(Boolean).join(", ")
@@ -409,6 +440,7 @@ function UATMessagesContent() {
       setIsCreateDialogOpen(false);
       setNewChatName("");
       setSelectedParticipants([]);
+      setUserSearchInDialog("");
     } catch (e: any) {
       toast({ variant: "destructive", title: "Creation Failed", description: e.message });
     } finally {
@@ -488,9 +520,35 @@ function UATMessagesContent() {
     return groups;
   }, [messages]);
 
+  // Filter channels for the sidebar list
   const filteredChannels = useMemo(() => {
-    return channels.filter(c => !!c.isArchived === showArchived && !c.isDM);
-  }, [channels, showArchived]);
+    return channels.filter(c => {
+      const matchesSearch = c.name.toLowerCase().includes(listSearch.toLowerCase());
+      const matchesArchive = !!c.isArchived === showArchived;
+      return matchesSearch && matchesArchive;
+    });
+  }, [channels, showArchived, listSearch]);
+
+  // Filter users for the creation dialog search
+  const filteredUsersForDialog = useMemo(() => {
+    return Object.values(userProfiles).filter(p => {
+      if (p.id === auth.currentUser?.uid) return false;
+      
+      const searchTerm = userSearchInDialog.toLowerCase();
+      const fullName = `${p.firstName || ''} ${p.lastName || ''}`.toLowerCase();
+      
+      // Look up associated player info
+      const player = roster.find(r => r.id === p.playerId);
+      const playerName = player?.name.toLowerCase() || "";
+      const playerNumber = player?.number.toString() || "";
+
+      return (
+        fullName.includes(searchTerm) || 
+        playerName.includes(searchTerm) || 
+        playerNumber.includes(searchTerm)
+      );
+    });
+  }, [userProfiles, userSearchInDialog, auth.currentUser?.uid, roster]);
 
   const activeChannel = useMemo(() => channels.find(c => c.id === selectedChannelId), [channels, selectedChannelId]);
 
@@ -540,7 +598,12 @@ function UATMessagesContent() {
           <div className="p-4 border-b border-white/5 space-y-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-              <Input placeholder="Search threads..." className="h-10 bg-black/20 text-xs font-bold pl-10 border-white/5" />
+              <Input 
+                value={listSearch}
+                onChange={e => setListSearch(e.target.value)}
+                placeholder="Search threads..." 
+                className="h-10 bg-black/20 text-xs font-bold pl-10 border-white/5" 
+              />
             </div>
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">View: {showArchived ? "Archived" : "Inbox"}</span>
@@ -560,11 +623,11 @@ function UATMessagesContent() {
                   </Button>
                 </div>
                 
-                {channels.filter(c => !!c.isArchived === showArchived).length === 0 && (
-                  <p className="text-[9px] text-center py-8 opacity-30 font-black uppercase tracking-widest border border-dashed border-white/5 rounded-2xl">No {showArchived ? "archived" : "active"} threads</p>
+                {filteredChannels.length === 0 && (
+                  <p className="text-[9px] text-center py-8 opacity-30 font-black uppercase tracking-widest border border-dashed border-white/5 rounded-2xl">No {showArchived ? "archived" : "active"} threads found</p>
                 )}
                 
-                {channels.filter(c => !!c.isArchived === showArchived).map(c => (
+                {filteredChannels.map(c => (
                   <button 
                     key={c.id} 
                     onClick={() => setSelectedChannelId(c.id)}
@@ -689,7 +752,7 @@ function UATMessagesContent() {
         </main>
       </div>
 
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+      <Dialog open={isCreateDialogOpen} onOpenChange={(val) => { setIsCreateDialogOpen(val); if (!val) setUserSearchInDialog(""); }}>
         <DialogContent className="bg-card border-white/10 max-w-sm rounded-3xl p-6">
           <DialogHeader>
             <DialogTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-3">
@@ -699,21 +762,22 @@ function UATMessagesContent() {
           </DialogHeader>
 
           <div className="space-y-6 py-4">
-             <div className="flex p-1 bg-black/40 rounded-xl border border-white/5">
-                <button 
-                  onClick={() => setNewChatType("dm")} 
-                  className={cn("flex-1 h-10 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all", newChatType === "dm" ? "bg-primary text-white" : "text-muted-foreground")}
-                >
-                  <Users className="h-3 w-3 inline mr-2" /> DM / Group
-                </button>
-                <button 
-                  disabled={!isAdmin}
-                  onClick={() => setNewChatType("channel")} 
-                  className={cn("flex-1 h-10 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all", newChatType === "channel" ? "bg-primary text-white" : "text-muted-foreground", !isAdmin && "opacity-20")}
-                >
-                  <Hash className="h-3 w-3 inline mr-2" /> Channel
-                </button>
-             </div>
+             {isAdmin && (
+                <div className="flex p-1 bg-black/40 rounded-xl border border-white/5">
+                  <button 
+                    onClick={() => setNewChatType("dm")} 
+                    className={cn("flex-1 h-10 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all", newChatType === "dm" ? "bg-primary text-white" : "text-muted-foreground")}
+                  >
+                    <Users className="h-3 w-3 inline mr-2" /> DM / Group
+                  </button>
+                  <button 
+                    onClick={() => setNewChatType("channel")} 
+                    className={cn("flex-1 h-10 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all", newChatType === "channel" ? "bg-primary text-white" : "text-muted-foreground")}
+                  >
+                    <Hash className="h-3 w-3 inline mr-2" /> Channel
+                  </button>
+                </div>
+             )}
 
              {newChatType === "channel" && (
                 <div className="space-y-2">
@@ -723,31 +787,54 @@ function UATMessagesContent() {
              )}
 
              <div className="space-y-3">
-                <Label className="text-[10px] font-black uppercase ml-1">Participants</Label>
+                <Label className="text-[10px] font-black uppercase ml-1">Find Users</Label>
+                <div className="relative mb-2">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input 
+                    value={userSearchInDialog}
+                    onChange={e => setUserSearchInDialog(e.target.value)}
+                    placeholder="Search by name or player..." 
+                    className="h-10 bg-black/40 text-[11px] pl-10 border-white/5" 
+                  />
+                </div>
                 <ScrollArea className="h-60 rounded-xl border border-white/5 bg-black/20 p-2">
                    <div className="space-y-1">
-                      {Object.values(userProfiles).filter(p => p.id !== auth.currentUser?.uid).map(u => (
-                        <label key={u.id} className="flex items-center justify-between p-3 hover:bg-white/5 rounded-lg cursor-pointer transition-colors group">
-                           <div className="flex items-center gap-3">
-                              <Avatar className="h-8 w-8">
-                                <AvatarFallback className="text-[8px] font-black bg-secondary/10 text-secondary">
-                                  {((u.firstName?.[0] || "") + (u.lastName?.[0] || "")).toUpperCase()}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div className="flex flex-col">
-                                 <span className="text-[11px] font-bold text-white group-hover:text-primary transition-colors">{u.firstName} {u.lastName}</span>
-                                 <span className="text-[8px] font-black uppercase opacity-40">{u.role?.replace('_', ' ')}</span>
-                              </div>
-                           </div>
-                           <Checkbox 
-                              checked={selectedParticipants.includes(u.id)} 
-                              onCheckedChange={(checked) => {
-                                if (checked) setSelectedParticipants(prev => [...prev, u.id]);
-                                else setSelectedParticipants(prev => prev.filter(id => id !== u.id));
-                              }} 
-                           />
-                        </label>
-                      ))}
+                      {filteredUsersForDialog.length === 0 ? (
+                        <p className="text-[10px] text-center py-10 opacity-30 uppercase font-black">No users found</p>
+                      ) : (
+                        filteredUsersForDialog.map(u => {
+                          const player = roster.find(r => r.id === u.playerId);
+                          return (
+                            <label key={u.id} className="flex items-center justify-between p-3 hover:bg-white/5 rounded-lg cursor-pointer transition-colors group">
+                               <div className="flex items-center gap-3">
+                                  <Avatar className="h-8 w-8">
+                                    <AvatarFallback className="text-[8px] font-black bg-secondary/10 text-secondary">
+                                      {((u.firstName?.[0] || "") + (u.lastName?.[0] || "")).toUpperCase()}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div className="flex flex-col">
+                                     <span className="text-[11px] font-bold text-white group-hover:text-primary transition-colors">{u.firstName} {u.lastName}</span>
+                                     <div className="flex items-center gap-2">
+                                       <span className="text-[8px] font-black uppercase opacity-40">{u.role?.replace('_', ' ')}</span>
+                                       {player && (
+                                         <Badge variant="outline" className="text-[7px] h-3 px-1 border-primary/20 text-primary/70 font-black uppercase">
+                                           #{player.number} {player.name}
+                                         </Badge>
+                                       )}
+                                     </div>
+                                  </div>
+                               </div>
+                               <Checkbox 
+                                  checked={selectedParticipants.includes(u.id)} 
+                                  onCheckedChange={(checked) => {
+                                    if (checked) setSelectedParticipants(prev => [...prev, u.id]);
+                                    else setSelectedParticipants(prev => prev.filter(id => id !== u.id));
+                                  }} 
+                               />
+                            </label>
+                          );
+                        })
+                      )}
                    </div>
                 </ScrollArea>
              </div>
