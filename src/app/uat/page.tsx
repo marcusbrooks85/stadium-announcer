@@ -18,7 +18,9 @@ import {
   UserPlus,
   Phone,
   User as UserIcon,
-  X
+  X,
+  Mail,
+  ArrowLeft
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,17 +39,19 @@ import {
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword,
   sendEmailVerification,
+  sendPasswordResetEmail
 } from "firebase/auth";
 import { doc, setDoc, collection, addDoc, serverTimestamp, getDocs, updateDoc, query, where, limit, onSnapshot } from "firebase/firestore";
 import { cn } from "@/lib/utils";
 
-type Step = "acknowledgement" | "auth" | "verification" | "team-setup" | "success" | "tutorial";
+type Step = "acknowledgement" | "auth" | "verification" | "team-setup" | "success" | "tutorial" | "forgot-password";
 
 export default function UATOnboardingPage() {
   const router = useRouter();
-  const [step, setStep] = useState<Step>("acknowledgement");
-  const [isRegisterMode, setIsRegisterMode] = useState(true);
-  const [isJoinMode, setIsJoinMode] = useState(true); // Default to Join Team
+  // Changed: First screen is now login screen (auth step, registerMode false)
+  const [step, setStep] = useState<Step>("auth");
+  const [isRegisterMode, setIsRegisterMode] = useState(false);
+  const [isJoinMode, setIsJoinMode] = useState(true);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -91,7 +95,7 @@ export default function UATOnboardingPage() {
   useEffect(() => {
     let unsub: any;
     const fetchPlayers = async () => {
-      if (isJoinMode && formData.accessCode.length >= 8) {
+      if (isJoinMode && isRegisterMode && formData.accessCode.length >= 8) {
         setFetchingPlayers(true);
         try {
           const q = query(collection(db, "teams_UAT"), where("code", "==", formData.accessCode.toUpperCase()));
@@ -117,10 +121,9 @@ export default function UATOnboardingPage() {
 
     fetchPlayers();
     return () => unsub?.();
-  }, [formData.accessCode, isJoinMode, db]);
+  }, [formData.accessCode, isJoinMode, isRegisterMode, db]);
 
   const formatPhoneNumber = (value: string) => {
-    // Only digits
     const digits = value.replace(/\D/g, "");
     if (digits.length <= 3) return digits;
     if (digits.length <= 6) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
@@ -130,14 +133,6 @@ export default function UATOnboardingPage() {
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const formatted = formatPhoneNumber(e.target.value);
     setFormData({ ...formData, phoneNumber: formatted });
-  };
-
-  const generateTeamCode = (teamName: string) => {
-    const sanitizedName = teamName.replace(/[^a-zA-Z0-9]/g, "").toUpperCase().substring(0, 6);
-    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-    let randomPart = "";
-    for (let i = 0; i < 4; i++) randomPart += chars.charAt(Math.floor(Math.random() * chars.length));
-    return `${sanitizedName}-${randomPart}`;
   };
 
   const handleAuthAction = async (e: React.FormEvent) => {
@@ -198,6 +193,31 @@ export default function UATOnboardingPage() {
     } finally { setLoading(false); }
   };
 
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.email) return;
+    setLoading(true);
+    try {
+      // Check if email exists in database first per instructions
+      const q = query(collection(db, "users_UAT"), where("email", "==", formData.email), limit(1));
+      const snap = await getDocs(q);
+      
+      if (snap.empty) {
+        toast({ variant: "destructive", title: "Email Not Found", description: "No account matched this email address." });
+        setLoading(false);
+        return;
+      }
+
+      await sendPasswordResetEmail(auth, formData.email);
+      toast({ title: "Reset Email Sent", description: "Check your inbox for password reset instructions." });
+      // Redirect to login after successful reset initiation
+      setStep("auth");
+      setIsRegisterMode(false);
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Error", description: err.message });
+    } finally { setLoading(false); }
+  };
+
   const handleCreateTeam = async (e: React.FormEvent) => {
     e.preventDefault();
     const user = auth.currentUser;
@@ -205,10 +225,14 @@ export default function UATOnboardingPage() {
 
     setLoading(true);
     try {
+      const sanitizedName = formData.teamName.replace(/[^a-zA-Z0-9]/g, "").toUpperCase().substring(0, 6);
+      const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
       let teamCode = "";
       let isUnique = false;
       while (!isUnique) {
-        teamCode = generateTeamCode(formData.teamName);
+        let randomPart = "";
+        for (let i = 0; i < 4; i++) randomPart += chars.charAt(Math.floor(Math.random() * chars.length));
+        teamCode = `${sanitizedName}-${randomPart}`;
         const q = query(collection(db, "teams_UAT"), where("code", "==", teamCode), limit(1));
         const snapshot = await getDocs(q);
         if (snapshot.empty) isUnique = true;
@@ -257,22 +281,12 @@ export default function UATOnboardingPage() {
     </div>
   );
 
-  const renderAcknowledgement = () => (
-    <Card className="w-full max-w-lg border-2 border-primary/20 bg-card/50 backdrop-blur-xl">
-      <CardHeader className="text-center space-y-4">
-        <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center"><ShieldCheck className="w-8 h-8 text-primary" /></div>
-        <CardTitle className="text-2xl font-black uppercase tracking-widest">UAT Workspace</CardTitle>
-        <CardDescription className="text-sm font-bold text-muted-foreground uppercase">Provisioning a dedicated baseball logistics environment.</CardDescription>
-      </CardHeader>
-      <CardFooter><Button onClick={() => setStep("auth")} className="w-full h-12 font-black uppercase tracking-widest bg-primary">Acknowledge & Proceed <ArrowRight className="ml-2 w-4 h-4" /></Button></CardFooter>
-    </Card>
-  );
-
   const renderAuth = () => (
     <Card className="w-full max-w-xl border-2 border-secondary/20 bg-card/50 backdrop-blur-xl">
       <CardHeader>
         <CardTitle className="text-xl font-black uppercase tracking-widest flex items-center gap-3">
-          <Trophy className="w-6 h-6 text-secondary" /> {isRegisterMode ? (isJoinMode ? "Join Team" : "Register Team Owner") : "Admin Login"}
+          <Trophy className="w-6 h-6 text-secondary" /> 
+          {isRegisterMode ? (isJoinMode ? "Join Team Workspace" : "Register Team Owner") : "Booth Operator Login"}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -303,19 +317,30 @@ export default function UATOnboardingPage() {
             </>
           )}
           <div className="space-y-2">
-            <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Email</Label>
-            <Input required type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="h-12 bg-black/40" />
+            <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Email Address</Label>
+            <Input required type="email" placeholder="coach@example.com" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="h-12 bg-black/40" />
           </div>
           <div className="space-y-2">
-            <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Password</Label>
+            <div className="flex justify-between items-center px-1">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Password</Label>
+              {!isRegisterMode && (
+                <button type="button" onClick={() => setStep("forgot-password")} className="text-[8px] font-black uppercase tracking-widest text-primary hover:underline">Forgot Password?</button>
+              )}
+            </div>
             <div className="relative">
-              <Input required type={showPassword ? "text" : "password"} value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} className="h-12 bg-black/40 pr-10" />
+              <Input 
+                required 
+                type={showPassword ? "text" : "password"} 
+                placeholder="8+ characters required" 
+                value={formData.password} 
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })} 
+                className="h-12 bg-black/40 pr-10" 
+              />
               <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white" >{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button>
             </div>
             
             {isRegisterMode && (
               <div className="grid grid-cols-2 gap-x-2 gap-y-1 mt-2 p-2 bg-black/20 rounded-lg border border-white/5">
-                <CriteriaItem met={passwordCriteria.length} label="8+ Characters" />
                 <CriteriaItem met={passwordCriteria.upper} label="Uppercase" />
                 <CriteriaItem met={passwordCriteria.lower} label="Lowercase" />
                 <CriteriaItem met={passwordCriteria.number} label="Number" />
@@ -327,7 +352,7 @@ export default function UATOnboardingPage() {
             <div className="space-y-2">
               <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Confirm Password</Label>
               <div className="relative">
-                <Input required type={showConfirmPassword ? "text" : "password"} value={formData.confirmPassword} onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })} className="h-12 bg-black/40 pr-10" />
+                <Input required type={showConfirmPassword ? "text" : "password"} placeholder="Repeat password" value={formData.confirmPassword} onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })} className="h-12 bg-black/40 pr-10" />
                 <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white" >{showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button>
               </div>
               {formData.confirmPassword && !passwordsMatch && <p className="text-[8px] font-black text-red-500 uppercase ml-1">Passwords do not match</p>}
@@ -353,25 +378,50 @@ export default function UATOnboardingPage() {
               </div>
             </div>
           )}
-          <Button disabled={loading} type="submit" className="w-full h-14 font-black uppercase tracking-widest bg-secondary text-secondary-foreground">{loading ? <Loader2 className="animate-spin mr-2" /> : (isRegisterMode ? (isJoinMode ? "Join Team Workspace" : "Register Team Owner") : "Sign In")}</Button>
+          <Button disabled={loading} type="submit" className="w-full h-14 font-black uppercase tracking-widest bg-secondary text-secondary-foreground">{loading ? <Loader2 className="animate-spin mr-2" /> : (isRegisterMode ? (isJoinMode ? "Join Team Workspace" : "Register Team Owner") : "Secure Sign In")}</Button>
         </form>
-        <div className="flex flex-col gap-3 text-center">
-          {isRegisterMode ? (
-            <>
-              <button onClick={() => setIsJoinMode(!isJoinMode)} className="text-[10px] font-black uppercase tracking-widest text-primary hover:underline flex items-center justify-center gap-2">
-                {isJoinMode ? <Building2 className="h-3 w-3" /> : <UserPlus className="h-3 w-3" />}
-                {isJoinMode ? "Wait, I need to create a new team" : "I'm a team member with an access code"}
-              </button>
-              <button onClick={() => setIsRegisterMode(false)} className="text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-white">
-                Already have an account? Sign In
-              </button>
-            </>
+
+        <div className="flex flex-col gap-3 text-center border-t border-white/5 pt-6">
+          {!isRegisterMode ? (
+             <>
+               <button onClick={() => { setIsRegisterMode(true); setIsJoinMode(true); }} className="h-12 border border-primary/20 rounded-xl text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/5 flex items-center justify-center gap-2">
+                  <UserPlus className="h-3.5 w-3.5" /> I have a team code
+               </button>
+               <button onClick={() => { setIsRegisterMode(true); setIsJoinMode(false); }} className="h-12 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-white hover:bg-white/5 flex items-center justify-center gap-2">
+                  <Building2 className="h-3.5 w-3.5" /> Register a new team
+               </button>
+             </>
           ) : (
-            <button onClick={() => setIsRegisterMode(true)} className="text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-white">
-              Need a new workspace? Register
+            <button onClick={() => setIsRegisterMode(false)} className="text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-white">
+              Back to Sign In
             </button>
           )}
         </div>
+      </CardContent>
+    </Card>
+  );
+
+  const renderForgotPassword = () => (
+    <Card className="w-full max-w-lg border-2 border-primary/20 bg-card/50 backdrop-blur-xl">
+      <CardHeader>
+        <CardTitle className="text-xl font-black uppercase tracking-widest flex items-center gap-3">
+          <Mail className="w-6 h-6 text-primary" /> Reset Password
+        </CardTitle>
+        <CardDescription className="text-[10px] font-bold uppercase">Enter your email to receive a recovery link.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleResetPassword} className="space-y-6">
+          <div className="space-y-2">
+            <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Email Address</Label>
+            <Input required type="email" placeholder="coach@example.com" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="h-12 bg-black/40" />
+          </div>
+          <Button disabled={loading} type="submit" className="w-full h-12 font-black uppercase tracking-widest bg-primary">
+            {loading ? <Loader2 className="animate-spin mr-2" /> : "Send Reset Link"}
+          </Button>
+          <button type="button" onClick={() => setStep("auth")} className="w-full text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-white flex items-center justify-center gap-2">
+             <ArrowLeft className="h-3 w-3" /> Return to Login
+          </button>
+        </form>
       </CardContent>
     </Card>
   );
@@ -426,10 +476,24 @@ export default function UATOnboardingPage() {
       <div className="w-full flex items-center justify-center animate-in fade-in duration-700">
         {step === "acknowledgement" && renderAcknowledgement()}
         {step === "auth" && renderAuth()}
+        {step === "forgot-password" && renderForgotPassword()}
         {step === "team-setup" && renderTeamSetup()}
         {step === "success" && renderSuccess()}
         {step === "tutorial" && renderTutorial()}
       </div>
     </div>
   );
+
+  function renderAcknowledgement() {
+    return (
+      <Card className="w-full max-w-lg border-2 border-primary/20 bg-card/50 backdrop-blur-xl">
+        <CardHeader className="text-center space-y-4">
+          <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center"><ShieldCheck className="w-8 h-8 text-primary" /></div>
+          <CardTitle className="text-2xl font-black uppercase tracking-widest">UAT Workspace</CardTitle>
+          <CardDescription className="text-sm font-bold text-muted-foreground uppercase">Provisioning a dedicated baseball logistics environment.</CardDescription>
+        </CardHeader>
+        <CardFooter><Button onClick={() => setStep("auth")} className="w-full h-12 font-black uppercase tracking-widest bg-primary">Acknowledge & Proceed <ArrowRight className="ml-2 w-4 h-4" /></Button></CardFooter>
+      </Card>
+    );
+  }
 }
