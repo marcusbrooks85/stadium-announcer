@@ -14,9 +14,13 @@ import {
   getDoc,
   query,
   where,
-  orderBy
+  orderBy,
+  collectionGroup,
+  limit
 } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import useSound from 'use-sound';
 
 export interface Song {
   name: string;
@@ -152,6 +156,82 @@ interface UATGameContextType {
 
 const UATGameContext = createContext<UATGameContextType | undefined>(undefined);
 
+const RECEIVE_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3';
+
+/**
+ * A hidden component that listens for global messages to play sound notifications.
+ */
+function UATGlobalMessagingListener() {
+  const db = useFirestore();
+  const auth = useAuth();
+  const { userTeamId } = useUATGame();
+  const { toast } = useToast();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const [playReceive] = useSound(RECEIVE_SOUND, { volume: 0.4 });
+  
+  const mountTimeRef = useRef<number>(Date.now());
+  const lastMessageIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!db || !userTeamId || !auth.currentUser) return;
+
+    const q = query(
+      collectionGroup(db, "messages_UAT"),
+      where("teamId", "==", userTeamId),
+      orderBy("timestamp", "desc"),
+      limit(1)
+    );
+
+    const unsubscribe = onSnapshot(q, async (snap) => {
+      if (snap.empty) return;
+      const docSnap = snap.docs[0];
+      const msg = docSnap.data();
+      const msgId = docSnap.id;
+
+      // Only notify if it's a NEW message sent AFTER component mount, 
+      // not sent by current user, and not one we've already processed
+      if (
+        msg.senderId !== auth.currentUser?.uid && 
+        msg.timestamp?.toMillis() > mountTimeRef.current &&
+        msgId !== lastMessageIdRef.current
+      ) {
+        lastMessageIdRef.current = msgId;
+
+        // Determine if we should play sound and show toast
+        const currentChatId = searchParams.get('cid');
+        const isCurrentlyLookingAtThisChat = pathname === '/messages-uat' && currentChatId === docSnap.ref.parent.parent?.id;
+
+        if (!isCurrentlyLookingAtThisChat) {
+          playReceive();
+
+          // Get sender info for toast
+          const senderSnap = await getDoc(doc(db, "users_UAT", msg.senderId));
+          const senderData = senderSnap.exists() ? senderSnap.data() : { firstName: "Teammate" };
+          
+          toast({
+            title: `Message from ${senderData.firstName}`,
+            description: msg.text || "Sent an attachment",
+            action: (
+              <button 
+                onClick={() => router.push(`/messages-uat?cid=${docSnap.ref.parent.parent?.id}`)}
+                className="bg-primary text-white text-[10px] font-black uppercase px-3 py-1 rounded"
+              >
+                VIEW
+              </button>
+            ),
+          });
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, [db, userTeamId, auth.currentUser, playReceive, pathname, searchParams, toast, router]);
+
+  return null;
+}
+
 export function UATGameProvider({ children }: { children: ReactNode }) {
   const db = useFirestore();
   const auth = useAuth();
@@ -181,7 +261,6 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
     const unsubAuth = onAuthStateChanged(auth, async (authUser) => {
       setUser(authUser);
       if (authUser) {
-        // Listen for user profile changes in real-time
         unsubProfile = onSnapshot(doc(db, "users_UAT", authUser.uid), (snapshot) => {
           if (snapshot.exists()) {
             const data = snapshot.data();
@@ -210,7 +289,6 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
     };
   }, [auth, db]);
 
-  // Apply Global Branding
   useEffect(() => {
     if (typeof window !== 'undefined' && teamData) {
       const root = document.documentElement;
@@ -220,7 +298,6 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
       root.style.setProperty('--tenant-primary', teamData.primaryColor || '#4285FF');
       root.style.setProperty('--tenant-secondary', teamData.secondaryColor || '#2EB1D9');
       
-      // Sync shadcn theme variables for global propagation
       root.style.setProperty('--primary', primaryHSL);
       root.style.setProperty('--secondary', secondaryHSL);
       root.style.setProperty('--accent', secondaryHSL);
@@ -257,11 +334,9 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
       setRoster(snap.docs.map(d => ({ id: d.id, ...d.data() })) as Player[]);
     });
 
-    // Fix: Removed orderBy from Firestore queries requiring composite indexes
     const qGames = query(collection(db, "games_UAT"), where("teamId", "==", userTeamId));
     const unsubGames = onSnapshot(qGames, (snap) => {
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() })) as Game[];
-      // Client-side sort
       data.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
       setGames(data);
     });
@@ -273,7 +348,6 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
     const qOrgan = query(collection(db, "organ_songs_UAT"), where("teamId", "==", userTeamId));
     const unsubOrgan = onSnapshot(qOrgan, (snap) => {
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() })) as StadiumSong[];
-      // Client-side sort
       data.sort((a, b) => (a.order || 0) - (b.order || 0));
       setOrganSongs(data);
     });
@@ -281,7 +355,6 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
     const qPump = query(collection(db, "pump_up_songs_UAT"), where("teamId", "==", userTeamId));
     const unsubPump = onSnapshot(qPump, (snap) => {
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() })) as StadiumSong[];
-      // Client-side sort
       data.sort((a, b) => (a.order || 0) - (b.order || 0));
       setPumpUpSongs(data);
     });
@@ -443,6 +516,7 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
       triggerSync,
       emailStats
     }}>
+      <UATGlobalMessagingListener />
       {children}
     </UATGameContext.Provider>
   );

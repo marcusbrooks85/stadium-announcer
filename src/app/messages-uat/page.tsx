@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import Image from "next/image";
+import { useRouter, useSearchParams } from "next/navigation";
 import { 
   Send, 
   Hash, 
@@ -75,8 +76,7 @@ import {
   setDoc,
   deleteDoc,
   serverTimestamp, 
-  limit,
-  collectionGroup
+  limit
 } from "firebase/firestore";
 import { useUATGame, UATGameProvider } from "@/app/context/uat-game-context";
 import { UATNavbar } from "@/components/UATNavbar";
@@ -87,7 +87,6 @@ import useSound from 'use-sound';
 const COMMON_EMOJIS = ["👍", "❤️", "🔥", "⚾", "😂", "😮", "😢", "🙌", "💯", "✅", "❌", "⏳"];
 
 const SEND_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3';
-const RECEIVE_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3';
 const REACTION_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2568/2358-preview.mp3';
 
 function MessageItem({ 
@@ -240,16 +239,16 @@ function MessageItem({
 function UATMessagesContent() {
   const db = useFirestore();
   const auth = useAuth();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { user: authUser, loading: authLoading } = useUser();
   const { userRole, userTeamId, teamData, isLoaded: gameLoaded, roster } = useUATGame();
   const { toast } = useToast();
   
   const [playSend] = useSound(SEND_SOUND, { volume: 0.5 });
-  const [playReceive] = useSound(RECEIVE_SOUND, { volume: 0.4 });
   const [playReaction] = useSound(REACTION_SOUND, { volume: 0.3 });
 
   const [channels, setChannels] = useState<any[]>([]);
-  const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
@@ -260,7 +259,6 @@ function UATMessagesContent() {
   const [showArchived, setShowArchived] = useState(false);
   const [listSearch, setListSearch] = useState("");
 
-  // Creation State
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [newChatType, setNewChatType] = useState<"dm" | "channel">("dm");
   const [newChatName, setNewChatName] = useState("");
@@ -268,64 +266,17 @@ function UATMessagesContent() {
   const [isCreating, setIsCreating] = useState(false);
   const [userSearchInDialog, setUserSearchInDialog] = useState("");
 
-  // Management State
   const [manageTarget, setManageTarget] = useState<any | null>(null);
   const [isRenaming, setIsRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState("");
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const lastMessageIdRef = useRef<string | null>(null);
-  const mountTimeRef = useRef<number>(Date.now());
+
+  // Derived selected channel ID from URL search params for back-button support
+  const selectedChannelId = searchParams.get('cid');
 
   const isAdmin = ["super_admin", "league_admin"].includes(userRole || "");
-
-  useEffect(() => {
-    if (typeof window !== "undefined" && "Notification" in window) {
-      if (Notification.permission !== "granted") Notification.requestPermission();
-    }
-  }, []);
-
-  // Global Audio Listener: Play sound for ANY message in the team
-  useEffect(() => {
-    if (!db || !userTeamId) return;
-    
-    // Use a Collection Group query to listen to all messages in the team
-    const q = query(
-      collectionGroup(db, "messages_UAT"), 
-      where("teamId", "==", userTeamId),
-      orderBy("timestamp", "desc"),
-      limit(1)
-    );
-
-    const unsubscribe = onSnapshot(q, (snap) => {
-      if (snap.empty) return;
-      const lastMsg = snap.docs[0].data();
-      const msgId = snap.docs[0].id;
-
-      // Only play if it's a NEW message sent AFTER component mount, 
-      // not sent by current user, and not one we've already processed
-      if (
-        lastMsg.senderId !== auth.currentUser?.uid && 
-        lastMsg.timestamp?.toMillis() > mountTimeRef.current &&
-        msgId !== lastMessageIdRef.current
-      ) {
-        playReceive();
-        lastMessageIdRef.current = msgId;
-
-        // Visual browser notification if tab is hidden
-        if (document.visibilityState !== "visible" && "Notification" in window && Notification.permission === "granted") {
-          const sender = userProfiles[lastMsg.senderId]?.firstName || "Teammate";
-          new Notification(`On Deck: ${sender}`, { 
-            body: lastMsg.text || "Sent an attachment",
-            icon: "/audio/icon.png"
-          });
-        }
-      }
-    });
-
-    return () => unsubscribe();
-  }, [db, userTeamId, auth.currentUser?.uid, userProfiles, playReceive]);
 
   useEffect(() => {
     if (!db || !userTeamId) return;
@@ -358,6 +309,14 @@ function UATMessagesContent() {
       setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
     });
   }, [db, selectedChannelId]);
+
+  const handleSetSelectedChannel = (id: string | null) => {
+    if (id) {
+      router.push(`/messages-uat?cid=${id}`);
+    } else {
+      router.push(`/messages-uat`);
+    }
+  };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -418,7 +377,7 @@ function UATMessagesContent() {
             createdAt: serverTimestamp()
           });
         }
-        setSelectedChannelId(dmId);
+        handleSetSelectedChannel(dmId);
       } else {
         const isPublic = newChatType === "channel";
         const finalName = newChatType === "dm" 
@@ -434,7 +393,7 @@ function UATMessagesContent() {
           createdBy: currentUid,
           createdAt: serverTimestamp()
         });
-        setSelectedChannelId(docRef.id);
+        handleSetSelectedChannel(docRef.id);
       }
       
       setIsCreateDialogOpen(false);
@@ -498,7 +457,7 @@ function UATMessagesContent() {
   const handleDeleteChannel = async (id: string) => {
     if (!confirm("Are you sure you want to delete this channel? All messages will be lost.")) return;
     await deleteDoc(doc(db, "channels_UAT", id));
-    if (selectedChannelId === id) setSelectedChannelId(null);
+    if (selectedChannelId === id) handleSetSelectedChannel(null);
     toast({ title: "Channel Deleted" });
     setManageTarget(null);
   };
@@ -520,7 +479,6 @@ function UATMessagesContent() {
     return groups;
   }, [messages]);
 
-  // Filter channels for the sidebar list
   const filteredChannels = useMemo(() => {
     return channels.filter(c => {
       const matchesSearch = c.name.toLowerCase().includes(listSearch.toLowerCase());
@@ -529,7 +487,6 @@ function UATMessagesContent() {
     });
   }, [channels, showArchived, listSearch]);
 
-  // Filter users for the creation dialog search
   const filteredUsersForDialog = useMemo(() => {
     return Object.values(userProfiles).filter(p => {
       if (p.id === auth.currentUser?.uid) return false;
@@ -537,7 +494,6 @@ function UATMessagesContent() {
       const searchTerm = userSearchInDialog.toLowerCase();
       const fullName = `${p.firstName || ''} ${p.lastName || ''}`.toLowerCase();
       
-      // Look up associated player info
       const player = roster.find(r => r.id === p.playerId);
       const playerName = player?.name.toLowerCase() || "";
       const playerNumber = player?.number.toString() || "";
@@ -559,7 +515,7 @@ function UATMessagesContent() {
       <header className="sticky top-0 z-50 flex items-center justify-between p-4 border-b border-border shadow-2xl bg-card/95 backdrop-blur-md">
         <div className="flex items-center gap-3">
           {selectedChannelId && (
-            <Button variant="ghost" size="icon" onClick={() => setSelectedChannelId(null)} className="lg:hidden h-9 w-9 mr-1 text-primary hover:bg-primary/10">
+            <Button variant="ghost" size="icon" onClick={() => handleSetSelectedChannel(null)} className="lg:hidden h-9 w-9 mr-1 text-primary hover:bg-primary/10">
               <ChevronLeft className="h-6 w-6" />
             </Button>
           )}
@@ -630,7 +586,7 @@ function UATMessagesContent() {
                 {filteredChannels.map(c => (
                   <button 
                     key={c.id} 
-                    onClick={() => setSelectedChannelId(c.id)}
+                    onClick={() => handleSetSelectedChannel(c.id)}
                     onContextMenu={(e) => { e.preventDefault(); setManageTarget(c); }}
                     className={cn(
                       "w-full flex items-center justify-between gap-4 p-4 rounded-2xl transition-all text-left group",
