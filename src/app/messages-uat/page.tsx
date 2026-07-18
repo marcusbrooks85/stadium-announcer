@@ -287,7 +287,7 @@ function UATMessagesContent() {
 
   /**
    * Secure Cloudflare R2 Upload Logic
-   * Strictly uses R2 with no Firebase fallback as per requirement.
+   * Strictly uses R2 with no Firebase fallback.
    */
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -305,7 +305,8 @@ function UATMessagesContent() {
       const presignData = await presignRes.json();
       
       if (!presignRes.ok) {
-        throw new Error(presignData.error || 'Presign failed');
+        // Detailed error for missing environment setup
+        throw new Error(presignData.error || 'Server rejected the upload request. Please ensure R2 credentials are set in .env and restart the server.');
       }
 
       const { uploadUrl, fileKey } = presignData;
@@ -318,7 +319,7 @@ function UATMessagesContent() {
       });
 
       if (!uploadRes.ok) {
-        throw new Error('R2 binary upload failed');
+        throw new Error('R2 binary upload failed at the network level.');
       }
 
       // Construct public URL using the bucket domain
@@ -330,8 +331,8 @@ function UATMessagesContent() {
       console.error('R2 Upload Error:', err);
       toast({ 
         variant: "destructive", 
-        title: "Upload Failed", 
-        description: err.message || "Could not complete upload to Cloudflare R2."
+        title: "Setup Required", 
+        description: err.message || "Cloudflare R2 credentials are missing or invalid."
       });
     } finally { setIsUploading(false); }
   };

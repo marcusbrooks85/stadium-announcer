@@ -1,10 +1,11 @@
+import 'dotenv/config';
 import { NextRequest, NextResponse } from 'next/server';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 /**
  * API route to generate a presigned PUT URL for secure browser-based uploads to Cloudflare R2.
- * Strictly enforced: No Firebase fallback, strict environment validation with detailed logging.
+ * Includes explicit dotenv config to ensure variables are loaded in all environments.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -28,12 +29,11 @@ export async function POST(req: NextRequest) {
     if (!bucketName) missingKeys.push('R2_BUCKET_NAME');
 
     if (missingKeys.length > 0) {
-      console.error('CRITICAL: Cloudflare R2 Configuration is incomplete.');
-      console.error('The following environment variables are MISSING from the current process:', missingKeys.join(', '));
-      console.error('Check your .env.local file in the project root and restart the dev server.');
+      const errorMsg = `Cloudflare R2 is not configured. Missing: ${missingKeys.join(', ')}. Please check your .env file and RESTART the server.`;
+      console.error('CRITICAL ERROR:', errorMsg);
       
       return NextResponse.json({ 
-        error: `Cloudflare R2 is not configured. Missing: ${missingKeys.join(', ')}. Uploads are strictly restricted to R2.` 
+        error: errorMsg 
       }, { status: 500 });
     }
 
