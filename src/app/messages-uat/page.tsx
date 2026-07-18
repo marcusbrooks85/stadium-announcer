@@ -17,7 +17,9 @@ import {
   Trash2,
   X,
   Check,
-  ArrowRight
+  ArrowRight,
+  User,
+  Search
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,6 +46,8 @@ import {
   addDoc, 
   updateDoc,
   doc,
+  getDoc,
+  setDoc,
   serverTimestamp, 
   limit
 } from "firebase/firestore";
@@ -93,13 +97,7 @@ function MessageItem({
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
-    
-    // Long Press logic
-    longPressTimer.current = setTimeout(() => {
-      setIsMenuOpen(true);
-    }, 500);
-
-    // Double Tap logic
+    longPressTimer.current = setTimeout(() => setIsMenuOpen(true), 500);
     const now = Date.now();
     if (now - lastTap.current < 300) {
       if (longPressTimer.current) clearTimeout(longPressTimer.current);
@@ -111,9 +109,7 @@ function MessageItem({
   const handleTouchMove = (e: React.TouchEvent) => {
     const deltaX = e.touches[0].clientX - touchStartX.current;
     if (deltaX > 0) setSwipeOffset(Math.min(deltaX, 80));
-    if (Math.abs(deltaX) > 10 && longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-    }
+    if (Math.abs(deltaX) > 10 && longPressTimer.current) clearTimeout(longPressTimer.current);
   };
 
   const handleTouchEnd = () => {
@@ -291,18 +287,64 @@ function UATMessagesContent() {
     });
   }, [db, selectedChannelId, playReceive, auth.currentUser?.uid, userProfiles]);
 
+  /**
+   * Secure Cloudflare R2 Upload Logic
+   */
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !userTeamId) return;
     setIsUploading(true);
     try {
-      const storageRef = ref(storage, `chat_media_UAT/${userTeamId}/${Date.now()}_${file.name}`);
-      await uploadBytes(storageRef, file);
-      const url = await getDownloadURL(storageRef);
-      setAttachmentUrl(url);
-    } catch (err) {
-      toast({ variant: "destructive", title: "Upload Failed" });
+      // 1. Request presigned URL from API route
+      const presignRes = await fetch('/api/chat/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileName: file.name, fileType: file.type }),
+      });
+      
+      if (!presignRes.ok) throw new Error('Presign failed');
+      const { uploadUrl, fileKey } = await presignRes.json();
+
+      // 2. Perform direct binary PUT request to Cloudflare R2
+      const uploadRes = await fetch(uploadUrl, {
+        method: 'PUT',
+        body: file,
+        headers: { 'Content-Type': file.type },
+      });
+
+      if (!uploadRes.ok) throw new Error('R2 Upload failed');
+
+      // 3. Construct final public URL (assuming R2 bucket is mapped to a public subdomain or custom domain)
+      // Replace with your actual R2 custom domain/public endpoint
+      const publicUrl = `https://on-deck-assets.r2.dev/${fileKey}`; 
+      setAttachmentUrl(publicUrl);
+      
+      toast({ title: "Attachment Ready" });
+    } catch (err: any) {
+      console.error('Upload error:', err);
+      toast({ variant: "destructive", title: "Upload Failed", description: err.message });
     } finally { setIsUploading(false); }
+  };
+
+  const startDM = async (targetUid: string) => {
+    if (!auth.currentUser || !userTeamId) return;
+    const currentUid = auth.currentUser.uid;
+    const dmId = `dm_${[currentUid, targetUid].sort().join('_')}`;
+    
+    const channelRef = doc(db, "channels_UAT", dmId);
+    const snap = await getDoc(channelRef);
+    if (!snap.exists()) {
+      const targetUser = userProfiles[targetUid];
+      await setDoc(channelRef, {
+        name: `${targetUser?.firstName || 'Private'}`,
+        type: "private",
+        teamId: userTeamId,
+        members: [currentUid, targetUid],
+        isDM: true,
+        createdAt: serverTimestamp()
+      });
+    }
+    setSelectedChannelId(dmId);
   };
 
   const handleSendMessage = async (e?: React.FormEvent) => {
@@ -368,6 +410,61 @@ function UATMessagesContent() {
       </header>
 
       <div className="flex-1 flex overflow-hidden">
+        {/* All Messages Sidebar (Desktop) */}
+        <aside className="w-72 bg-card/40 border-r border-border backdrop-blur-sm hidden lg:flex flex-col">
+          <div className="p-4 border-b border-white/5">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+              <Input placeholder="Search people..." className="h-9 bg-black/20 text-xs font-bold pl-9" />
+            </div>
+          </div>
+          <ScrollArea className="flex-1">
+            <div className="p-4 space-y-6">
+              <section className="space-y-2">
+                <h3 className="text-[10px] font-black uppercase text-muted-foreground tracking-[0.2em] px-2 mb-3">Team Channels</h3>
+                {channels.map(c => (
+                  <button 
+                    key={c.id} 
+                    onClick={() => setSelectedChannelId(c.id)} 
+                    className={cn(
+                      "w-full flex items-center gap-3 p-3 rounded-xl transition-all text-left",
+                      selectedChannelId === c.id ? "bg-primary text-white shadow-lg" : "hover:bg-white/5"
+                    )}
+                  >
+                    <Hash className={cn("h-4 w-4", selectedChannelId === c.id ? "text-white" : "opacity-40")} />
+                    <span className="text-xs font-bold uppercase tracking-wider">{c.name}</span>
+                  </button>
+                ))}
+              </section>
+
+              <section className="space-y-2">
+                <h3 className="text-[10px] font-black uppercase text-muted-foreground tracking-[0.2em] px-2 mb-3">Direct Messages</h3>
+                {Object.values(userProfiles)
+                  .filter(p => p.id !== auth.currentUser?.uid)
+                  .map(p => {
+                    const dmId = `dm_${[auth.currentUser?.uid, p.id].sort().join('_')}`;
+                    const isActive = selectedChannelId === dmId;
+                    return (
+                      <button 
+                        key={p.id} 
+                        onClick={() => startDM(p.id)} 
+                        className={cn(
+                          "w-full flex items-center gap-3 p-3 rounded-xl transition-all text-left",
+                          isActive ? "bg-primary text-white shadow-lg" : "hover:bg-white/5"
+                        )}
+                      >
+                        <Avatar className="h-6 w-6 border border-white/10">
+                          <AvatarFallback className="text-[8px] font-black">{(p.firstName?.[0] || "?").toUpperCase()}</AvatarFallback>
+                        </Avatar>
+                        <span className="text-xs font-bold">{p.firstName} {p.lastName}</span>
+                      </button>
+                    );
+                  })}
+              </section>
+            </div>
+          </ScrollArea>
+        </aside>
+
         <main className="flex-1 flex flex-col relative bg-black/10">
           <ScrollArea className="flex-1 p-4 pb-12">
             <div className="space-y-8 pl-4 pr-4">
@@ -407,8 +504,13 @@ function UATMessagesContent() {
             
             {attachmentUrl && (
               <div className="flex items-center gap-3 bg-white/5 p-2 rounded-lg border border-white/10 w-fit">
-                <div className="relative w-12 h-12 rounded overflow-hidden"><Image src={attachmentUrl} alt="Preview" fill className="object-cover" /></div>
-                <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => setAttachmentUrl(null)}><X className="h-4 w-4" /></Button>
+                <div className="relative w-12 h-12 rounded overflow-hidden border border-white/10">
+                  <Image src={attachmentUrl} alt="Preview" fill className="object-cover" unoptimized />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <span className="text-[8px] font-black text-green-500 uppercase">Ready to send</span>
+                  <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => setAttachmentUrl(null)}><X className="h-4 w-4" /></Button>
+                </div>
               </div>
             )}
 
