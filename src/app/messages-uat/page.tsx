@@ -19,6 +19,7 @@ import {
   X,
   Check,
   User as UserIcon,
+  ImageIcon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,7 +34,8 @@ import {
 import { 
   useFirestore, 
   useAuth, 
-  useUser 
+  useUser,
+  useStorage
 } from "@/firebase";
 import { 
   collection, 
@@ -48,13 +50,14 @@ import {
   serverTimestamp, 
   limit
 } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { useUATGame, UATGameProvider } from "@/app/context/uat-game-context";
 import { UATNavbar } from "@/components/UATNavbar";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import useSound from 'use-sound';
 
-const COMMON_EMOJIS = ["👍", "❤️", "🔥", "⚾", "😂", "😮", "😢"];
+const COMMON_EMOJIS = ["👍", "❤️", "🔥", "⚾", "😂", "😮", "😢", "🙌", "💯", "✅", "❌", "⏳"];
 
 // Sound URLs
 const SEND_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3';
@@ -64,6 +67,7 @@ const REACTION_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2568/2358-pr
 function UATMessagesContent() {
   const db = useFirestore();
   const auth = useAuth();
+  const storage = useStorage();
   const { user: authUser, loading: authLoading } = useUser();
   const { userRole, userTeamId, teamData, isLoaded: gameLoaded, roster } = useUATGame();
   const { toast } = useToast();
@@ -80,10 +84,12 @@ function UATMessagesContent() {
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [userProfiles, setUserProfiles] = useState<Record<string, any>>({});
   
-  // Mentions State
+  // Mentions & Attachments State
   const [showMentionDropdown, setShowMentionDropdown] = useState(false);
   const [mentionSearch, setMentionSearch] = useState("");
   const [mentionCursorPos, setMentionCursorPos] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
+  const [attachmentUrl, setAttachmentUrl] = useState<string | null>(null);
 
   // Edit State
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
@@ -91,12 +97,22 @@ function UATMessagesContent() {
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const lastMessageIdRef = useRef<string | null>(null);
 
   const selectedChannel = channels.find(c => c.id === selectedChannelId);
   const isAnnouncements = selectedChannel?.name === "Announcements";
   const canPostInSelected = !isAnnouncements || (userRole === "super_admin" || userRole === "league_admin");
   const isAdmin = userRole === "super_admin" || userRole === "league_admin";
+
+  // Request Notification Permissions
+  useEffect(() => {
+    if (typeof window !== "undefined" && "Notification" in window) {
+      if (Notification.permission !== "granted" && Notification.permission !== "denied") {
+        Notification.requestPermission();
+      }
+    }
+  }, []);
 
   // Group messages by date
   const groupedMessages = useMemo(() => {
@@ -125,7 +141,10 @@ function UATMessagesContent() {
       const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       list.sort((a: any, b: any) => (a.name || "").localeCompare(b.name || ""));
       setChannels(list);
-      if (!selectedChannelId && list.length > 0) setSelectedChannelId(list[0].id);
+      if (!selectedChannelId && list.length > 0) {
+        const general = list.find(c => c.name === "general") || list[0];
+        setSelectedChannelId(general.id);
+      }
     });
   }, [db, userTeamId, selectedChannelId]);
 
@@ -148,12 +167,20 @@ function UATMessagesContent() {
     return onSnapshot(q, (snap) => {
       const newMessages = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       
-      // Audio notification logic for received messages
+      // Notification Logic
       if (newMessages.length > 0) {
         const lastMsg = newMessages[newMessages.length - 1];
         if (lastMsg.id !== lastMessageIdRef.current) {
           if (lastMsg.senderId !== auth.currentUser?.uid && lastMessageIdRef.current !== null) {
             playReceive();
+            // Trigger Native Notification if backgrounded
+            if (document.visibilityState !== "visible" && "Notification" in window && Notification.permission === "granted") {
+              const sender = userProfiles[lastMsg.senderId]?.firstName || "Teammate";
+              new Notification(`On Deck: ${sender}`, {
+                body: lastMsg.text || "Sent an image",
+                icon: "/audio/icon.png"
+              });
+            }
           }
           lastMessageIdRef.current = lastMsg.id;
         }
@@ -163,7 +190,7 @@ function UATMessagesContent() {
       setIsLoadingMessages(false);
       setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
     });
-  }, [db, selectedChannelId, playReceive, auth.currentUser?.uid]);
+  }, [db, selectedChannelId, playReceive, auth.currentUser?.uid, userProfiles]);
 
   const resolveRichName = (senderId: string) => {
     const profile = userProfiles[senderId];
@@ -206,15 +233,35 @@ function UATMessagesContent() {
     inputRef.current?.focus();
   };
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !userTeamId) return;
+
+    setIsUploading(true);
+    try {
+      const fileName = `${Date.now()}_${file.name}`;
+      const storageRef = ref(storage, `chat_media_UAT/${userTeamId}/${fileName}`);
+      await uploadBytes(storageRef, file);
+      const url = await getDownloadURL(storageRef);
+      setAttachmentUrl(url);
+      toast({ title: "Image ready to send" });
+    } catch (err) {
+      toast({ variant: "destructive", title: "Upload Failed" });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     const activeUser = authUser || auth.currentUser;
-    if (!activeUser?.uid || !newMessage.trim() || !selectedChannelId || !canPostInSelected) return;
+    if (!activeUser?.uid || (!newMessage.trim() && !attachmentUrl) || !selectedChannelId || !canPostInSelected) return;
 
     try {
       playSend();
       await addDoc(collection(db, "channels_UAT", selectedChannelId, "messages_UAT"), {
         text: newMessage,
+        mediaUrl: attachmentUrl || null,
         senderId: activeUser.uid,
         timestamp: serverTimestamp(),
         teamId: userTeamId || "",
@@ -223,6 +270,7 @@ function UATMessagesContent() {
         reactions: {}
       });
       setNewMessage("");
+      setAttachmentUrl(null);
     } catch (err) {
       toast({ variant: "destructive", title: "Message Failed" });
     }
@@ -351,8 +399,8 @@ function UATMessagesContent() {
              </div>
           </div>
 
-          <ScrollArea className="flex-1 p-4">
-            <div className="space-y-8">
+          <ScrollArea className="flex-1 p-4 overflow-x-hidden">
+            <div className="space-y-8 pl-6">
               {Object.keys(groupedMessages).length === 0 && !isLoadingMessages && (
                 <div className="h-full flex flex-col items-center justify-center opacity-20 py-20">
                   <MessageSquare className="h-12 w-12 mb-4" />
@@ -361,7 +409,6 @@ function UATMessagesContent() {
               )}
               {Object.entries(groupedMessages).map(([date, msgs]) => (
                 <div key={date} className="space-y-6">
-                  {/* Date Header */}
                   <div className="flex items-center justify-center">
                     <div className="bg-white/5 border border-white/10 px-4 py-1 rounded-full">
                       <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">
@@ -372,8 +419,7 @@ function UATMessagesContent() {
 
                   {msgs.map((msg) => (
                     <div key={msg.id} className="flex flex-col group relative max-w-[85%]">
-                      {/* Avatar Overlaid on top left of bubble */}
-                      <Avatar className="h-8 w-8 border border-white/20 shadow-xl absolute -top-3 -left-3 z-10">
+                      <Avatar className="h-8 w-8 border-2 border-background shadow-xl absolute -top-3 -left-3 z-10">
                         <AvatarFallback className="bg-black/60 text-[8px] font-black uppercase">
                           {getInitials(msg.senderId)}
                         </AvatarFallback>
@@ -398,6 +444,12 @@ function UATMessagesContent() {
                             "relative text-[13px] font-bold leading-relaxed break-words p-3 rounded-2xl rounded-tl-none border border-white/5 shadow-sm",
                             msg.senderId === auth.currentUser?.uid ? "bg-white/20 text-white" : "bg-white/5 text-white/90"
                           )}>
+                            {msg.mediaUrl && (
+                              <div className="relative w-full aspect-video mb-2 rounded-lg overflow-hidden border border-white/10">
+                                <Image src={msg.mediaUrl} alt="Chat attachment" fill className="object-cover" unoptimized />
+                              </div>
+                            )}
+                            
                             {editingMessageId === msg.id ? (
                               <div className="space-y-2">
                                 <Input 
@@ -415,7 +467,6 @@ function UATMessagesContent() {
                               renderMessageText(msg.text)
                             )}
                             
-                            {/* Reactions Display */}
                             {msg.reactions && Object.keys(msg.reactions).length > 0 && (
                               <div className="flex flex-wrap gap-1 mt-2">
                                 {Object.entries(msg.reactions).map(([emoji, uids]: [string, any]) => (
@@ -437,7 +488,6 @@ function UATMessagesContent() {
                         )}
                       </div>
 
-                      {/* Message Actions Bar (Hover) */}
                       {!msg.isDeleted && !editingMessageId && (
                         <div className="absolute left-[100%] ml-2 top-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center bg-card border border-white/10 rounded-lg shadow-xl p-1 gap-1 z-10 whitespace-nowrap">
                           <Popover>
@@ -474,7 +524,6 @@ function UATMessagesContent() {
           </ScrollArea>
 
           <div className="p-4 bg-card/50 backdrop-blur-xl border-t border-white/5 relative">
-            {/* Mention Dropdown */}
             {showMentionDropdown && (
               <div className="absolute bottom-full left-4 w-64 bg-card border border-primary/20 rounded-xl shadow-2xl mb-2 overflow-hidden z-20">
                 <div className="p-2 border-b border-white/5 bg-white/5">
@@ -502,9 +551,29 @@ function UATMessagesContent() {
               </div>
             )}
 
-            <form onSubmit={handleSendMessage} className="max-w-4xl mx-auto">
+            <form onSubmit={handleSendMessage} className="max-w-4xl mx-auto space-y-3">
+              {attachmentUrl && (
+                <div className="flex items-center gap-3 bg-white/5 p-2 rounded-lg border border-white/10 w-fit">
+                   <div className="relative w-12 h-12 rounded overflow-hidden">
+                      <Image src={attachmentUrl} alt="Preview" fill className="object-cover" />
+                   </div>
+                   <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => setAttachmentUrl(null)}><X className="h-4 w-4" /></Button>
+                </div>
+              )}
+              
               <div className="flex items-center gap-3 bg-black/40 p-1.5 rounded-2xl border border-white/10">
-                <Button variant="ghost" size="icon" className="opacity-40" type="button"><Paperclip className="h-5 w-5" /></Button>
+                <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className={cn("opacity-40 hover:opacity-100", isUploading && "animate-pulse")} 
+                  type="button" 
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploading}
+                >
+                  {isUploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Paperclip className="h-5 w-5" />}
+                </Button>
+                
                 <Input 
                   ref={inputRef}
                   disabled={!canPostInSelected || !authUser} 
@@ -513,8 +582,19 @@ function UATMessagesContent() {
                   placeholder={canPostInSelected ? (authUser ? "Type a message... (@ for team)" : "Waiting for auth...") : "Announcements are read-only"} 
                   className="bg-transparent border-none focus-visible:ring-0 font-bold text-[13px] h-10 px-0" 
                 />
-                <Button variant="ghost" size="icon" className="opacity-40" type="button"><Smile className="h-5 w-5" /></Button>
-                <Button disabled={!newMessage.trim() || !canPostInSelected || !authUser} type="submit" size="icon" className="h-10 w-10 bg-[var(--tenant-primary)]"><Send className="h-4 w-4" /></Button>
+                
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" size="icon" className="opacity-40 hover:opacity-100" type="button"><Smile className="h-5 w-5" /></Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-2 grid grid-cols-6 gap-1 bg-card border-white/10">
+                    {COMMON_EMOJIS.map(e => (
+                      <button key={e} onClick={() => setNewMessage(prev => prev + e)} className="h-8 w-8 hover:bg-white/10 rounded text-lg">{e}</button>
+                    ))}
+                  </PopoverContent>
+                </Popover>
+
+                <Button disabled={(!newMessage.trim() && !attachmentUrl) || !canPostInSelected || !authUser || isUploading} type="submit" size="icon" className="h-10 w-10 bg-[var(--tenant-primary)]"><Send className="h-4 w-4" /></Button>
               </div>
             </form>
           </div>
