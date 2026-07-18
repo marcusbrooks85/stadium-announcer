@@ -37,6 +37,7 @@ import { UATNavbar } from "@/components/UATNavbar";
 import { useFirestore, useAuth } from "@/firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { Soundboard } from "@/components/Soundboard";
+import { StadiumScoreboard } from "@/components/StadiumScoreboard";
 
 function UATBoothContent() {
   const db = useFirestore();
@@ -234,6 +235,10 @@ function UATBoothContent() {
 
           <main className="flex-1 flex flex-col p-4 md:p-8 overflow-y-auto space-y-4 md:space-y-8 bg-black/10">
             <div className="max-w-5xl mx-auto w-full space-y-8 pb-40">
+              
+              {/* Stadium Scoreboard Integrated into UAT */}
+              <StadiumScoreboard />
+
               <Card className="bg-card/80 border-2 border-white/5 shadow-2xl">
                 <CardHeader><CardTitle className="text-xs font-black uppercase tracking-widest text-muted-foreground">UAT Walk-On Sequence</CardTitle></CardHeader>
                 <CardContent className="space-y-6">

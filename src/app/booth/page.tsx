@@ -56,6 +56,7 @@ import { cn } from "@/lib/utils";
 import { useGame, StadiumSong } from "@/app/context/game-context";
 import { AdminPanel } from "@/components/AdminPanel";
 import { Soundboard } from "@/components/Soundboard";
+import { StadiumScoreboard } from "@/components/StadiumScoreboard";
 
 export default function StadiumBoothDashboard() {
   const { 
@@ -466,6 +467,10 @@ export default function StadiumBoothDashboard() {
 
           <main className="flex-1 flex flex-col p-4 md:p-8 overflow-y-auto space-y-4 md:space-y-8 bg-black/10">
             <div className="max-w-5xl mx-auto w-full space-y-4 md:space-y-8 pb-40">
+              
+              {/* Scoreboard and Controller Integration */}
+              <StadiumScoreboard />
+
               <section className="flex justify-center">
                 <Card className="w-full md:max-w-2xl bg-card/80 border-2 border-white/5 overflow-hidden shadow-2xl">
                   <CardHeader className="pb-3 md:pb-4 border-b border-white/5 bg-white/5">
