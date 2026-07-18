@@ -15,11 +15,9 @@ import {
   Reply,
   Pencil,
   Trash2,
-  Pin,
   X,
   Check,
-  User as UserIcon,
-  ImageIcon
+  ArrowRight
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,7 +42,6 @@ import {
   orderBy, 
   onSnapshot, 
   addDoc, 
-  setDoc,
   updateDoc,
   doc,
   serverTimestamp, 
@@ -59,10 +56,163 @@ import useSound from 'use-sound';
 
 const COMMON_EMOJIS = ["👍", "❤️", "🔥", "⚾", "😂", "😮", "😢", "🙌", "💯", "✅", "❌", "⏳"];
 
-// Sound URLs
 const SEND_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3';
 const RECEIVE_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3';
 const REACTION_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2568/2358-preview.mp3';
+
+function MessageItem({ 
+  msg, 
+  isOwn, 
+  isAdmin, 
+  profiles, 
+  roster, 
+  onReact, 
+  onReply, 
+  onEdit, 
+  onDelete 
+}: any) {
+  const [editing, setEditing] = useState(false);
+  const [editValue, setEditValue] = useState(msg.text);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  
+  const touchStartX = useRef(0);
+  const lastTap = useRef(0);
+  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
+
+  const profile = profiles[msg.senderId];
+  const initials = (profile?.firstName?.[0] || profile?.lastName?.[0] || "?").toUpperCase();
+  
+  const displayName = useMemo(() => {
+    if (!profile) return "Unknown";
+    const base = profile.firstName || "User";
+    if (!profile.playerId) return base;
+    const player = roster.find((p: any) => p.id === profile.playerId);
+    return player ? `${base} [#${player.number}]` : base;
+  }, [profile, roster]);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    
+    // Long Press logic
+    longPressTimer.current = setTimeout(() => {
+      setIsMenuOpen(true);
+    }, 500);
+
+    // Double Tap logic
+    const now = Date.now();
+    if (now - lastTap.current < 300) {
+      if (longPressTimer.current) clearTimeout(longPressTimer.current);
+      onReact(msg, "❤️");
+    }
+    lastTap.current = now;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    const deltaX = e.touches[0].clientX - touchStartX.current;
+    if (deltaX > 0) setSwipeOffset(Math.min(deltaX, 80));
+    if (Math.abs(deltaX) > 10 && longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (longPressTimer.current) clearTimeout(longPressTimer.current);
+    if (swipeOffset > 60) onReply(msg);
+    setSwipeOffset(0);
+  };
+
+  if (msg.isDeleted) {
+    return (
+      <div className="flex flex-col ml-8 mb-4 opacity-40">
+        <div className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Message Deleted</div>
+        <div className="bg-white/5 border border-white/5 p-3 rounded-2xl italic text-xs">This content was removed.</div>
+      </div>
+    );
+  }
+
+  return (
+    <div 
+      className="flex flex-col group relative mb-6 select-none"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      style={{ transform: `translateX(${swipeOffset}px)`, transition: swipeOffset === 0 ? 'transform 0.2s' : 'none' }}
+    >
+      {swipeOffset > 20 && (
+        <div className="absolute -left-10 top-1/2 -translate-y-1/2 text-primary animate-in fade-in slide-in-from-left-2">
+          <Reply className="h-5 w-5" />
+        </div>
+      )}
+
+      <Avatar className="h-8 w-8 border-2 border-background shadow-xl absolute -top-3 -left-2 z-20">
+        <AvatarFallback className="bg-black/60 text-[8px] font-black">{initials}</AvatarFallback>
+      </Avatar>
+
+      <div className="flex flex-col flex-1 pl-4">
+        <div className="flex items-center gap-2 mb-1 ml-4">
+          <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">{displayName}</span>
+          <span className="text-[7px] text-muted-foreground opacity-40 uppercase">
+            {msg.timestamp?.toDate ? msg.timestamp.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Just now"}
+          </span>
+          {msg.isEdited && <span className="text-[7px] text-muted-foreground opacity-30 uppercase italic">(edited)</span>}
+        </div>
+
+        <div className={cn(
+          "relative text-[13px] font-bold leading-relaxed break-words p-3 rounded-2xl rounded-tl-none border border-white/5 shadow-sm max-w-[90%]",
+          isOwn ? "bg-white/20 text-white" : "bg-white/5 text-white/90"
+        )}>
+          {msg.replyTo && (
+            <div className="mb-2 p-2 bg-black/20 rounded-lg border-l-2 border-primary text-[10px] opacity-60 line-clamp-1">
+              {msg.replyTo.text}
+            </div>
+          )}
+
+          {msg.mediaUrl && (
+            <div className="relative w-full aspect-video mb-2 rounded-lg overflow-hidden border border-white/10">
+              <Image src={msg.mediaUrl} alt="Chat" fill className="object-cover" unoptimized />
+            </div>
+          )}
+
+          {editing ? (
+            <div className="space-y-2">
+              <Input value={editValue} onChange={e => setEditValue(e.target.value)} className="bg-black/40 h-8 text-sm" autoFocus />
+              <div className="flex gap-2">
+                <Button size="sm" className="h-7 text-[8px] font-black" onClick={() => { onEdit(msg.id, editValue); setEditing(false); }}><Check className="h-3 w-3 mr-1" /> SAVE</Button>
+                <Button size="sm" variant="ghost" className="h-7 text-[8px] font-black" onClick={() => setEditing(false)}>CANCEL</Button>
+              </div>
+            </div>
+          ) : (
+            <span>{msg.text}</span>
+          )}
+
+          {msg.reactions && Object.keys(msg.reactions).length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-2">
+              {Object.entries(msg.reactions).map(([emoji, uids]: [string, any]) => (
+                <button key={emoji} onClick={() => onReact(msg, emoji)} className="flex items-center gap-1 px-2 py-0.5 rounded-full border border-white/10 bg-black/20 text-[9px]">
+                  <span>{emoji}</span> <span className="font-black">{uids.length}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <Popover open={isMenuOpen} onOpenChange={setIsMenuOpen}>
+        <PopoverTrigger asChild><div className="absolute inset-0 pointer-events-none" /></PopoverTrigger>
+        <PopoverContent className="w-auto p-2 bg-card border-white/10 shadow-2xl flex gap-1">
+          {COMMON_EMOJIS.slice(0, 7).map(e => (
+            <button key={e} onClick={() => { onReact(msg, e); setIsMenuOpen(false); }} className="h-8 w-8 hover:bg-white/10 rounded text-lg">{e}</button>
+          ))}
+          <div className="w-[1px] bg-white/10 mx-1" />
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { onReply(msg); setIsMenuOpen(false); }}><Reply className="h-4 w-4" /></Button>
+          {isOwn && <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditing(true); setIsMenuOpen(false); }}><Pencil className="h-4 w-4" /></Button>}
+          {(isOwn || isAdmin) && <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => { onDelete(msg.id); setIsMenuOpen(false); }}><Trash2 className="h-4 w-4" /></Button>}
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+}
 
 function UATMessagesContent() {
   const db = useFirestore();
@@ -72,7 +222,6 @@ function UATMessagesContent() {
   const { userRole, userTeamId, teamData, isLoaded: gameLoaded, roster } = useUATGame();
   const { toast } = useToast();
   
-  // Audio Hooks
   const [playSend] = useSound(SEND_SOUND, { volume: 0.5 });
   const [playReceive] = useSound(RECEIVE_SOUND, { volume: 0.4 });
   const [playReaction] = useSound(REACTION_SOUND, { volume: 0.3 });
@@ -83,57 +232,20 @@ function UATMessagesContent() {
   const [newMessage, setNewMessage] = useState("");
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [userProfiles, setUserProfiles] = useState<Record<string, any>>({});
-  
-  // Mentions & Attachments State
-  const [showMentionDropdown, setShowMentionDropdown] = useState(false);
-  const [mentionSearch, setMentionSearch] = useState("");
-  const [mentionCursorPos, setMentionCursorPos] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [attachmentUrl, setAttachmentUrl] = useState<string | null>(null);
-
-  // Edit State
-  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
-  const [editValue, setEditValue] = useState("");
+  const [replyingTo, setReplyingTo] = useState<any | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const lastMessageIdRef = useRef<string | null>(null);
 
-  const selectedChannel = channels.find(c => c.id === selectedChannelId);
-  const isAnnouncements = selectedChannel?.name === "Announcements";
-  const canPostInSelected = !isAnnouncements || (userRole === "super_admin" || userRole === "league_admin");
-  const isAdmin = userRole === "super_admin" || userRole === "league_admin";
-
-  // Request Notification Permissions
   useEffect(() => {
     if (typeof window !== "undefined" && "Notification" in window) {
-      if (Notification.permission !== "granted" && Notification.permission !== "denied") {
-        Notification.requestPermission();
-      }
+      if (Notification.permission !== "granted") Notification.requestPermission();
     }
   }, []);
 
-  // Group messages by date
-  const groupedMessages = useMemo(() => {
-    const groups: Record<string, any[]> = {};
-    messages.forEach(msg => {
-      const date = msg.timestamp?.toDate ? msg.timestamp.toDate() : new Date();
-      const dateKey = date.toDateString();
-      if (!groups[dateKey]) groups[dateKey] = [];
-      groups[dateKey].push(msg);
-    });
-    return groups;
-  }, [messages]);
-
-  const formatDateHeader = (dateStr: string) => {
-    const d = new Date(dateStr);
-    const today = new Date();
-    if (d.toDateString() === today.toDateString()) return "Today";
-    return d.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
-  };
-
-  // Listen for Channels
   useEffect(() => {
     if (!db || !userTeamId) return;
     const q = query(collection(db, "channels_UAT"), where("teamId", "==", userTeamId));
@@ -141,14 +253,10 @@ function UATMessagesContent() {
       const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       list.sort((a: any, b: any) => (a.name || "").localeCompare(b.name || ""));
       setChannels(list);
-      if (!selectedChannelId && list.length > 0) {
-        const general = list.find(c => c.name === "general") || list[0];
-        setSelectedChannelId(general.id);
-      }
+      if (!selectedChannelId && list.length > 0) setSelectedChannelId(list.find(c => c.name === "general")?.id || list[0].id);
     });
   }, [db, userTeamId, selectedChannelId]);
 
-  // Listen for User Profiles
   useEffect(() => {
     if (!db || !userTeamId) return;
     const q = query(collection(db, "users_UAT"), where("teamId", "==", userTeamId));
@@ -159,363 +267,126 @@ function UATMessagesContent() {
     });
   }, [db, userTeamId]);
 
-  // Listen for Messages
   useEffect(() => {
     if (!db || !selectedChannelId) return;
     setIsLoadingMessages(true);
     const q = query(collection(db, "channels_UAT", selectedChannelId, "messages_UAT"), orderBy("timestamp", "asc"), limit(50));
     return onSnapshot(q, (snap) => {
       const newMessages = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      
-      // Notification Logic
       if (newMessages.length > 0) {
         const lastMsg = newMessages[newMessages.length - 1];
         if (lastMsg.id !== lastMessageIdRef.current) {
           if (lastMsg.senderId !== auth.currentUser?.uid && lastMessageIdRef.current !== null) {
             playReceive();
-            // Trigger Native Notification if backgrounded
             if (document.visibilityState !== "visible" && "Notification" in window && Notification.permission === "granted") {
-              const sender = userProfiles[lastMsg.senderId]?.firstName || "Teammate";
-              new Notification(`On Deck: ${sender}`, {
-                body: lastMsg.text || "Sent an image",
-                icon: "/audio/icon.png"
-              });
+              new Notification(`On Deck: ${userProfiles[lastMsg.senderId]?.firstName || "Team"}`, { body: lastMsg.text || "Image attachment" });
             }
           }
           lastMessageIdRef.current = lastMsg.id;
         }
       }
-
       setMessages(newMessages);
       setIsLoadingMessages(false);
       setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
     });
   }, [db, selectedChannelId, playReceive, auth.currentUser?.uid, userProfiles]);
 
-  const resolveRichName = (senderId: string) => {
-    const profile = userProfiles[senderId];
-    if (!profile) return "Unknown User";
-    const firstName = profile.firstName || "User";
-    if (!profile.playerId) return firstName;
-    const player = roster.find(p => p.id === profile.playerId);
-    return player ? `${firstName} [#${player.number} ${player.name}]` : firstName;
-  };
-
-  const getInitials = (senderId: string) => {
-    const profile = userProfiles[senderId];
-    if (!profile) return "??";
-    const f = profile.firstName?.[0] || "";
-    const l = profile.lastName?.[0] || "";
-    return (f + l).toUpperCase() || "??";
-  };
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    const pos = e.target.selectionStart || 0;
-    setNewMessage(val);
-
-    const lastAt = val.lastIndexOf("@", pos - 1);
-    if (lastAt !== -1 && !val.slice(lastAt, pos).includes(" ")) {
-      setShowMentionDropdown(true);
-      setMentionSearch(val.slice(lastAt + 1, pos).toLowerCase());
-      setMentionCursorPos(lastAt);
-    } else {
-      setShowMentionDropdown(false);
-    }
-  };
-
-  const selectMention = (profile: any) => {
-    const before = newMessage.slice(0, mentionCursorPos);
-    const after = newMessage.slice(inputRef.current?.selectionStart || 0);
-    const inserted = `@${profile.firstName} `;
-    setNewMessage(before + inserted + after);
-    setShowMentionDropdown(false);
-    inputRef.current?.focus();
-  };
-
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !userTeamId) return;
-
     setIsUploading(true);
     try {
-      const fileName = `${Date.now()}_${file.name}`;
-      const storageRef = ref(storage, `chat_media_UAT/${userTeamId}/${fileName}`);
+      const storageRef = ref(storage, `chat_media_UAT/${userTeamId}/${Date.now()}_${file.name}`);
       await uploadBytes(storageRef, file);
       const url = await getDownloadURL(storageRef);
       setAttachmentUrl(url);
-      toast({ title: "Image ready to send" });
     } catch (err) {
       toast({ variant: "destructive", title: "Upload Failed" });
-    } finally {
-      setIsUploading(false);
-    }
+    } finally { setIsUploading(false); }
   };
 
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const activeUser = authUser || auth.currentUser;
-    if (!activeUser?.uid || (!newMessage.trim() && !attachmentUrl) || !selectedChannelId || !canPostInSelected) return;
-
+  const handleSendMessage = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!auth.currentUser || (!newMessage.trim() && !attachmentUrl) || !selectedChannelId) return;
     try {
       playSend();
       await addDoc(collection(db, "channels_UAT", selectedChannelId, "messages_UAT"), {
         text: newMessage,
         mediaUrl: attachmentUrl || null,
-        senderId: activeUser.uid,
+        senderId: auth.currentUser.uid,
         timestamp: serverTimestamp(),
         teamId: userTeamId || "",
-        isEdited: false,
-        isDeleted: false,
+        replyTo: replyingTo ? { id: replyingTo.id, text: replyingTo.text || "Media" } : null,
         reactions: {}
       });
-      setNewMessage("");
-      setAttachmentUrl(null);
-    } catch (err) {
-      toast({ variant: "destructive", title: "Message Failed" });
-    }
-  };
-
-  const handleEditMessage = async (msgId: string) => {
-    if (!editValue.trim() || !selectedChannelId) return;
-    try {
-      await updateDoc(doc(db, "channels_UAT", selectedChannelId, "messages_UAT", msgId), {
-        text: editValue,
-        isEdited: true
-      });
-      setEditingMessageId(null);
-    } catch (e) {
-      toast({ variant: "destructive", title: "Edit Failed" });
-    }
-  };
-
-  const handleDeleteMessage = async (msgId: string) => {
-    if (!selectedChannelId || !confirm("Mark this message as deleted?")) return;
-    try {
-      await updateDoc(doc(db, "channels_UAT", selectedChannelId, "messages_UAT", msgId), {
-        isDeleted: true
-      });
-    } catch (e) {
-      toast({ variant: "destructive", title: "Delete Failed" });
-    }
+      setNewMessage(""); setAttachmentUrl(null); setReplyingTo(null);
+    } catch (e) { toast({ variant: "destructive", title: "Failed to send" }); }
   };
 
   const handleReaction = async (msg: any, emoji: string) => {
-    if (!selectedChannelId || !authUser) return;
+    if (!selectedChannelId || !auth.currentUser) return;
     playReaction();
-    const currentReactions = msg.reactions || {};
-    const users = currentReactions[emoji] || [];
-    const newUsers = users.includes(authUser.uid)
-      ? users.filter((u: string) => u !== authUser.uid)
-      : [...users, authUser.uid];
-
-    const updatedReactions = { ...currentReactions };
-    if (newUsers.length === 0) {
-      delete updatedReactions[emoji];
+    const current = msg.reactions || {};
+    const users = current[emoji] || [];
+    const updated = { ...current };
+    if (users.includes(auth.currentUser.uid)) {
+      updated[emoji] = users.filter((u: string) => u !== auth.currentUser.uid);
+      if (updated[emoji].length === 0) delete updated[emoji];
     } else {
-      updatedReactions[emoji] = newUsers;
+      updated[emoji] = [...users, auth.currentUser.uid];
     }
-
-    try {
-      await updateDoc(doc(db, "channels_UAT", selectedChannelId, "messages_UAT", msg.id), {
-        reactions: updatedReactions
-      });
-    } catch (e) {
-      toast({ variant: "destructive", title: "Reaction Failed" });
-    }
+    await updateDoc(doc(db, "channels_UAT", selectedChannelId, "messages_UAT", msg.id), { reactions: updated });
   };
 
-  const renderMessageText = (text: string) => {
-    if (!text) return null;
-    const parts = text.split(/(@\w+)/g);
-    return parts.map((part, i) => {
-      if (part.startsWith("@")) {
-        return <span key={i} className="text-[var(--tenant-primary)] font-black bg-[var(--tenant-primary)]/10 px-1 rounded">{part}</span>;
-      }
-      return part;
+  const handleEditMessage = async (id: string, text: string) => {
+    await updateDoc(doc(db, "channels_UAT", selectedChannelId!, "messages_UAT", id), { text, isEdited: true });
+  };
+
+  const handleDeleteMessage = async (id: string) => {
+    await updateDoc(doc(db, "channels_UAT", selectedChannelId!, "messages_UAT", id), { isDeleted: true });
+  };
+
+  const groupedMessages = useMemo(() => {
+    const groups: Record<string, any[]> = {};
+    messages.forEach(m => {
+      const d = m.timestamp?.toDate ? m.timestamp.toDate().toDateString() : new Date().toDateString();
+      if (!groups[d]) groups[d] = []; groups[d].push(m);
     });
-  };
+    return groups;
+  }, [messages]);
 
-  if (!gameLoaded || authLoading) {
-    return <div className="min-h-screen flex flex-col items-center justify-center stadium-gradient gap-4">
-      <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Syncing Communications...</span>
-    </div>;
-  }
-
-  const filteredMentions = Object.values(userProfiles).filter((p: any) => 
-    p.firstName?.toLowerCase().includes(mentionSearch) || 
-    p.lastName?.toLowerCase().includes(mentionSearch)
-  ).slice(0, 5);
+  if (!gameLoaded || authLoading) return <div className="min-h-screen flex flex-col items-center justify-center stadium-gradient gap-4"><Loader2 className="h-8 w-8 animate-spin text-primary" /><span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Connecting...</span></div>;
 
   return (
     <div className="flex flex-col h-screen bg-background text-foreground stadium-gradient overflow-hidden">
       <header className="sticky top-0 z-50 flex items-center justify-between p-4 border-b border-border shadow-2xl bg-card/95 backdrop-blur-md">
         <div className="flex items-center gap-3">
-          {teamData?.logoUrl ? (
-            <div className="relative w-6 h-6 md:w-8 md:h-8"><Image src={teamData.logoUrl} alt="Logo" fill className="object-contain" /></div>
-          ) : (<ShieldCheck className="h-5 w-5 text-[var(--tenant-primary)]" />)}
-          <div className="flex flex-col">
-            <h1 className="font-headline font-black uppercase tracking-[0.2em] text-[10px] md:text-sm">Team Chat</h1>
-            <span className="text-[8px] font-black uppercase text-[var(--tenant-primary)] tracking-tighter">{teamData?.name || "Workspace"}</span>
-          </div>
+          {teamData?.logoUrl ? <div className="relative w-6 h-6"><Image src={teamData.logoUrl} alt="Logo" fill className="object-contain" /></div> : <ShieldCheck className="h-5 w-5 text-primary" />}
+          <div className="flex flex-col"><h1 className="font-headline font-black uppercase tracking-[0.2em] text-[10px] md:text-sm">Team Chat</h1><span className="text-[8px] font-black uppercase text-primary tracking-tighter">{teamData?.name || "Workspace"}</span></div>
         </div>
         <UATNavbar />
       </header>
 
       <div className="flex-1 flex overflow-hidden">
-        <aside className="w-64 bg-black/20 border-r border-white/5 hidden md:flex flex-col">
-          <div className="p-4 border-b border-white/5 flex items-center justify-between">
-            <span className="text-[10px] font-black uppercase tracking-widest opacity-50">Channels</span>
-            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => {
-              const name = prompt("Enter Channel Name:");
-              if (name) addDoc(collection(db, "channels_UAT"), {
-                name: name.replace(/\s+/g, '-').toLowerCase(),
-                teamId: userTeamId || "",
-                type: "public",
-                createdBy: authUser?.uid || "",
-                createdAt: serverTimestamp()
-              });
-            }} disabled={!authUser}><Plus className="h-4 w-4" /></Button>
-          </div>
-          <ScrollArea className="flex-1">
-            <div className="p-2 space-y-1">
-              {channels.map((channel) => (
-                <button key={channel.id} onClick={() => setSelectedChannelId(channel.id)} className={cn("w-full flex items-center gap-3 p-3 rounded-xl transition-all", selectedChannelId === channel.id ? "bg-[var(--tenant-primary)] text-white" : "hover:bg-white/5 text-muted-foreground")}>
-                  {channel.name === "Announcements" ? <Megaphone className="h-4 w-4" /> : <Hash className="h-4 w-4" />}
-                  <span className="text-xs font-black uppercase tracking-widest">{channel.name}</span>
-                </button>
-              ))}
-            </div>
-          </ScrollArea>
-        </aside>
-
         <main className="flex-1 flex flex-col relative bg-black/10">
-          <div className="p-4 border-b border-white/5 bg-card/30 backdrop-blur-sm flex items-center justify-between">
-             <div className="flex items-center gap-3">
-                <Hash className="h-4 w-4 text-[var(--tenant-primary)]" />
-                <h2 className="text-sm font-black uppercase tracking-widest">{selectedChannel?.name || "Select Channel"}</h2>
-                {isAnnouncements && <Badge variant="outline" className="text-[8px] font-black uppercase border-yellow-500/50 text-yellow-500">Read-Only</Badge>}
-             </div>
-          </div>
-
-          <ScrollArea className="flex-1 p-4 overflow-x-hidden">
-            <div className="space-y-8 pl-6">
-              {Object.keys(groupedMessages).length === 0 && !isLoadingMessages && (
-                <div className="h-full flex flex-col items-center justify-center opacity-20 py-20">
-                  <MessageSquare className="h-12 w-12 mb-4" />
-                  <p className="text-[10px] font-black uppercase tracking-widest">No messages in this workspace yet</p>
-                </div>
-              )}
+          <ScrollArea className="flex-1 p-4 pb-12">
+            <div className="space-y-8 pl-4 pr-4">
               {Object.entries(groupedMessages).map(([date, msgs]) => (
                 <div key={date} className="space-y-6">
-                  <div className="flex items-center justify-center">
-                    <div className="bg-white/5 border border-white/10 px-4 py-1 rounded-full">
-                      <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">
-                        {formatDateHeader(date)}
-                      </span>
-                    </div>
-                  </div>
-
-                  {msgs.map((msg) => (
-                    <div key={msg.id} className="flex flex-col group relative max-w-[85%]">
-                      <Avatar className="h-8 w-8 border-2 border-background shadow-xl absolute -top-3 -left-3 z-10">
-                        <AvatarFallback className="bg-black/60 text-[8px] font-black uppercase">
-                          {getInitials(msg.senderId)}
-                        </AvatarFallback>
-                      </Avatar>
-
-                      <div className="flex flex-col flex-1 min-w-0 pl-2">
-                        <div className="flex items-center gap-2 mb-1 ml-4">
-                          <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
-                            {resolveRichName(msg.senderId)}
-                          </span>
-                          <span className="text-[7px] text-muted-foreground opacity-40 uppercase">
-                            {msg.timestamp?.toDate ? msg.timestamp.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Just now"}
-                          </span>
-                        </div>
-                        
-                        {msg.isDeleted ? (
-                          <div className="text-xs italic text-muted-foreground border border-white/5 bg-white/5 p-3 rounded-2xl rounded-tl-none">
-                            This message was deleted
-                          </div>
-                        ) : (
-                          <div className={cn(
-                            "relative text-[13px] font-bold leading-relaxed break-words p-3 rounded-2xl rounded-tl-none border border-white/5 shadow-sm",
-                            msg.senderId === auth.currentUser?.uid ? "bg-white/20 text-white" : "bg-white/5 text-white/90"
-                          )}>
-                            {msg.mediaUrl && (
-                              <div className="relative w-full aspect-video mb-2 rounded-lg overflow-hidden border border-white/10">
-                                <Image src={msg.mediaUrl} alt="Chat attachment" fill className="object-cover" unoptimized />
-                              </div>
-                            )}
-                            
-                            {editingMessageId === msg.id ? (
-                              <div className="space-y-2">
-                                <Input 
-                                  value={editValue} 
-                                  onChange={e => setEditValue(e.target.value)} 
-                                  className="bg-black/40 border-primary/20 text-sm h-8"
-                                  autoFocus
-                                />
-                                <div className="flex gap-2">
-                                  <Button size="sm" className="h-7 text-[8px] font-black" onClick={() => handleEditMessage(msg.id)}><Check className="h-3 w-3 mr-1" /> SAVE</Button>
-                                  <Button size="sm" variant="ghost" className="h-7 text-[8px] font-black" onClick={() => setEditingMessageId(null)}>CANCEL</Button>
-                                </div>
-                              </div>
-                            ) : (
-                              renderMessageText(msg.text)
-                            )}
-                            
-                            {msg.reactions && Object.keys(msg.reactions).length > 0 && (
-                              <div className="flex flex-wrap gap-1 mt-2">
-                                {Object.entries(msg.reactions).map(([emoji, uids]: [string, any]) => (
-                                  <button 
-                                    key={emoji} 
-                                    onClick={() => handleReaction(msg, emoji)}
-                                    className={cn(
-                                      "flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[9px] transition-all",
-                                      uids.includes(authUser?.uid) ? "bg-[var(--tenant-primary)]/30 border-[var(--tenant-primary)]/50" : "bg-black/20 border-white/10 hover:bg-white/10"
-                                    )}
-                                  >
-                                    <span>{emoji}</span>
-                                    <span className="font-black">{uids.length}</span>
-                                  </button>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-
-                      {!msg.isDeleted && !editingMessageId && (
-                        <div className="absolute left-[100%] ml-2 top-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center bg-card border border-white/10 rounded-lg shadow-xl p-1 gap-1 z-10 whitespace-nowrap">
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-7 w-7"><Smile className="h-4 w-4" /></Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-2 grid grid-cols-7 gap-1 bg-card border-white/10">
-                              {COMMON_EMOJIS.map(e => (
-                                <button key={e} onClick={() => handleReaction(msg, e)} className="h-8 w-8 hover:bg-white/10 rounded text-lg">{e}</button>
-                              ))}
-                            </PopoverContent>
-                          </Popover>
-                          
-                          <Button variant="ghost" size="icon" className="h-7 w-7"><Reply className="h-4 w-4" /></Button>
-                          
-                          {authUser?.uid === msg.senderId && (
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => {
-                              setEditingMessageId(msg.id);
-                              setEditValue(msg.text);
-                            }}><Pencil className="h-4 w-4" /></Button>
-                          )}
-                          
-                          {(isAdmin || authUser?.uid === msg.senderId) && (
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteMessage(msg.id)}><Trash2 className="h-4 w-4" /></Button>
-                          )}
-                        </div>
-                      )}
-                    </div>
+                  <div className="flex justify-center"><div className="bg-white/5 border border-white/10 px-4 py-1 rounded-full"><span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">{date === new Date().toDateString() ? "TODAY" : date}</span></div></div>
+                  {msgs.map(m => (
+                    <MessageItem 
+                      key={m.id} 
+                      msg={m} 
+                      isOwn={m.senderId === auth.currentUser?.uid} 
+                      isAdmin={["super_admin", "league_admin"].includes(userRole || "")} 
+                      profiles={userProfiles} 
+                      roster={roster}
+                      onReact={handleReaction}
+                      onReply={setReplyingTo}
+                      onEdit={handleEditMessage}
+                      onDelete={handleDeleteMessage}
+                    />
                   ))}
                 </div>
               ))}
@@ -523,79 +394,37 @@ function UATMessagesContent() {
             </div>
           </ScrollArea>
 
-          <div className="p-4 bg-card/50 backdrop-blur-xl border-t border-white/5 relative">
-            {showMentionDropdown && (
-              <div className="absolute bottom-full left-4 w-64 bg-card border border-primary/20 rounded-xl shadow-2xl mb-2 overflow-hidden z-20">
-                <div className="p-2 border-b border-white/5 bg-white/5">
-                  <span className="text-[8px] font-black uppercase tracking-widest opacity-50">Team Members</span>
+          <div className="p-4 bg-card/50 backdrop-blur-xl border-t border-white/5 space-y-3">
+            {replyingTo && (
+              <div className="flex items-center justify-between p-2 bg-primary/10 rounded-lg border border-primary/20 animate-in slide-in-from-bottom-2">
+                <div className="flex flex-col">
+                  <span className="text-[8px] font-black uppercase text-primary">Replying to {userProfiles[replyingTo.senderId]?.firstName}</span>
+                  <span className="text-[10px] font-bold line-clamp-1">{replyingTo.text || "Media"}</span>
                 </div>
-                {filteredMentions.length === 0 ? (
-                  <div className="p-4 text-center text-[10px] opacity-40 uppercase">No members found</div>
-                ) : (
-                  filteredMentions.map((p: any) => (
-                    <button 
-                      key={p.id} 
-                      onClick={() => selectMention(p)}
-                      className="w-full flex items-center gap-3 p-3 hover:bg-primary/10 transition-colors text-left border-b border-white/5 last:border-0"
-                    >
-                      <Avatar className="h-6 w-6">
-                        <AvatarFallback className="text-[8px] font-black">{p.firstName?.[0]}{p.lastName?.[0]}</AvatarFallback>
-                      </Avatar>
-                      <div className="flex flex-col">
-                        <span className="text-[10px] font-black uppercase">{p.firstName} {p.lastName}</span>
-                        <span className="text-[8px] font-bold opacity-40 uppercase">{p.role?.replace('_', ' ')}</span>
-                      </div>
-                    </button>
-                  ))
-                )}
+                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setReplyingTo(null)}><X className="h-4 w-4" /></Button>
+              </div>
+            )}
+            
+            {attachmentUrl && (
+              <div className="flex items-center gap-3 bg-white/5 p-2 rounded-lg border border-white/10 w-fit">
+                <div className="relative w-12 h-12 rounded overflow-hidden"><Image src={attachmentUrl} alt="Preview" fill className="object-cover" /></div>
+                <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => setAttachmentUrl(null)}><X className="h-4 w-4" /></Button>
               </div>
             )}
 
-            <form onSubmit={handleSendMessage} className="max-w-4xl mx-auto space-y-3">
-              {attachmentUrl && (
-                <div className="flex items-center gap-3 bg-white/5 p-2 rounded-lg border border-white/10 w-fit">
-                   <div className="relative w-12 h-12 rounded overflow-hidden">
-                      <Image src={attachmentUrl} alt="Preview" fill className="object-cover" />
-                   </div>
-                   <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => setAttachmentUrl(null)}><X className="h-4 w-4" /></Button>
-                </div>
-              )}
-              
-              <div className="flex items-center gap-3 bg-black/40 p-1.5 rounded-2xl border border-white/10">
-                <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className={cn("opacity-40 hover:opacity-100", isUploading && "animate-pulse")} 
-                  type="button" 
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isUploading}
-                >
-                  {isUploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Paperclip className="h-5 w-5" />}
-                </Button>
-                
-                <Input 
-                  ref={inputRef}
-                  disabled={!canPostInSelected || !authUser} 
-                  value={newMessage} 
-                  onChange={handleInputChange} 
-                  placeholder={canPostInSelected ? (authUser ? "Type a message... (@ for team)" : "Waiting for auth...") : "Announcements are read-only"} 
-                  className="bg-transparent border-none focus-visible:ring-0 font-bold text-[13px] h-10 px-0" 
-                />
-                
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="ghost" size="icon" className="opacity-40 hover:opacity-100" type="button"><Smile className="h-5 w-5" /></Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-2 grid grid-cols-6 gap-1 bg-card border-white/10">
-                    {COMMON_EMOJIS.map(e => (
-                      <button key={e} onClick={() => setNewMessage(prev => prev + e)} className="h-8 w-8 hover:bg-white/10 rounded text-lg">{e}</button>
-                    ))}
-                  </PopoverContent>
-                </Popover>
-
-                <Button disabled={(!newMessage.trim() && !attachmentUrl) || !canPostInSelected || !authUser || isUploading} type="submit" size="icon" className="h-10 w-10 bg-[var(--tenant-primary)]"><Send className="h-4 w-4" /></Button>
-              </div>
+            <form onSubmit={handleSendMessage} className="flex items-center gap-3 bg-black/40 p-1.5 rounded-2xl border border-white/10 max-w-4xl mx-auto w-full">
+              <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
+              <Button variant="ghost" size="icon" className={cn("opacity-40", isUploading && "animate-spin")} type="button" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
+                {isUploading ? <Loader2 className="h-5 w-5" /> : <Paperclip className="h-5 w-5" />}
+              </Button>
+              <Input value={newMessage} onChange={e => setNewMessage(e.target.value)} placeholder="Type a message..." className="bg-transparent border-none focus-visible:ring-0 font-bold text-[13px] h-10 px-0" />
+              <Popover>
+                <PopoverTrigger asChild><Button variant="ghost" size="icon" className="opacity-40" type="button"><Smile className="h-5 w-5" /></Button></PopoverTrigger>
+                <PopoverContent className="w-auto p-2 grid grid-cols-6 gap-1 bg-card border-white/10">
+                  {COMMON_EMOJIS.map(e => <button key={e} onClick={() => setNewMessage(p => p + e)} className="h-8 w-8 hover:bg-white/10 rounded text-lg">{e}</button>)}
+                </PopoverContent>
+              </Popover>
+              <Button disabled={(!newMessage.trim() && !attachmentUrl) || isUploading} type="submit" size="icon" className="h-10 w-10 bg-primary"><Send className="h-4 w-4" /></Button>
             </form>
           </div>
         </main>
@@ -605,9 +434,5 @@ function UATMessagesContent() {
 }
 
 export default function UATMessagesPage() {
-  return (
-    <UATGameProvider>
-      <UATMessagesContent />
-    </UATGameProvider>
-  );
+  return <UATGameProvider><UATMessagesContent /></UATGameProvider>;
 }
