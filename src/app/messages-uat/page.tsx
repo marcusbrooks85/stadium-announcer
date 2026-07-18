@@ -294,11 +294,15 @@ function UATMessagesContent() {
     
     setIsUploading(true);
     try {
-      // 1. Fetch the pre-signed URL from our internal API using a clean relative path
+      // 1. Resolve the type before making any requests (The Fix for Step 1)
+      // If the file extension is unrecognized, fallback to a standard binary stream to prevent signature mismatches.
+      const resolvedType = file.type || 'application/octet-stream';
+
+      // 2. Fetch the pre-signed URL from our internal API using a clean relative path
       const presignRes = await fetch('/api/chat/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fileName: file.name, fileType: file.type }),
+        body: JSON.stringify({ fileName: file.name, fileType: resolvedType }),
       });
       
       const presignData = await presignRes.json();
@@ -306,16 +310,20 @@ function UATMessagesContent() {
 
       const { uploadUrl, fileKey } = presignData;
 
-      // 2. Direct binary PUT request to Cloudflare R2 from browser
+      // Verification Step (The Fix for Step 2)
+      // Check your browser console: A "Good URL" should start with the Account ID pathing.
+      console.log("R2 Upload URL:", uploadUrl);
+
+      // 3. Direct binary PUT request to Cloudflare R2 from browser
       const uploadRes = await fetch(uploadUrl, {
         method: 'PUT',
         body: file,
-        headers: { 'Content-Type': file.type },
+        headers: { 'Content-Type': resolvedType },
       });
 
       if (!uploadRes.ok) throw new Error(`R2 storage rejected file: ${uploadRes.statusText}`);
 
-      // 3. Construct public URL (Assuming default R2 public bucket pathing)
+      // 4. Construct public URL (Assuming default R2 public bucket pathing)
       const publicUrl = `https://on-deck-assets.r2.dev/${fileKey}`; 
       setAttachmentUrl(publicUrl);
       toast({ title: "Attachment Ready" });
