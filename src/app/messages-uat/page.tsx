@@ -34,8 +34,7 @@ import {
 import { 
   useFirestore, 
   useAuth, 
-  useUser,
-  useStorage
+  useUser
 } from "@/firebase";
 import { 
   collection, 
@@ -287,7 +286,7 @@ function UATMessagesContent() {
 
   /**
    * Secure Cloudflare R2 Upload Logic
-   * Strictly uses R2 with diagnostic logging.
+   * Strictly uses R2 with pre-signed URL matching Content-Type.
    */
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -295,55 +294,40 @@ function UATMessagesContent() {
     
     setIsUploading(true);
     try {
-      // 1. Request presigned ticket from local R2 API
-      const presignRes = await fetch('/api/chat/upload', {
+      // 1. Fetch pre-signed URL from internal API
+      // In development, we use explicit port 3000 to prevent relative mismatches
+      const apiBase = process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : '';
+      const presignRes = await fetch(`${apiBase}/api/chat/upload`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fileName: file.name, fileType: file.type }),
       });
       
       const presignData = await presignRes.json();
-      
-      if (!presignRes.ok) {
-        console.error('R2 Presign Server Error:', presignData);
-        throw new Error(presignData.error || 'Server rejected the upload request.');
-      }
+      if (!presignRes.ok) throw new Error(presignData.error || 'Failed to get upload ticket');
 
       const { uploadUrl, fileKey } = presignData;
 
       // 2. Direct binary PUT request to Cloudflare R2 from browser
-      try {
-        const uploadRes = await fetch(uploadUrl, {
-          method: 'PUT',
-          body: file,
-          headers: { 'Content-Type': file.type },
-        });
+      const uploadRes = await fetch(uploadUrl, {
+        method: 'PUT',
+        body: file,
+        headers: { 'Content-Type': file.type },
+      });
 
-        if (!uploadRes.ok) {
-          const body = await uploadRes.text();
-          console.error('R2 Binary Upload Error Body:', body);
-          throw new Error(`R2 storage rejected the file: ${uploadRes.status} ${uploadRes.statusText}`);
-        }
+      if (!uploadRes.ok) throw new Error(`R2 storage rejected file: ${uploadRes.statusText}`);
 
-        // Construct public URL using the bucket domain
-        const publicUrl = `https://on-deck-assets.r2.dev/${fileKey}`; 
-        setAttachmentUrl(publicUrl);
-        toast({ title: "Attachment Ready" });
-      } catch (networkErr: any) {
-        // Detailed error for common CORS or network issues
-        console.error('Client Network/CORS error during binary PUT:', networkErr);
-        const isFetchError = networkErr instanceof TypeError && networkErr.message === 'Failed to fetch';
-        throw new Error(isFetchError 
-          ? 'Network error: Likely a CORS issue. Ensure your R2 bucket CORS settings allow PUT requests from this origin.' 
-          : 'Network error during file transmission.');
-      }
+      // 3. Construct public URL (Assuming default R2 public bucket pathing)
+      const publicUrl = `https://on-deck-assets.r2.dev/${fileKey}`; 
+      setAttachmentUrl(publicUrl);
+      toast({ title: "Attachment Ready" });
       
     } catch (err: any) {
-      console.error('Final File Upload Catch:', err);
+      console.error('Client upload error details:', err);
       toast({ 
         variant: "destructive", 
         title: "Upload Failed", 
-        description: err.message || "An unexpected error occurred during upload."
+        description: err.message || "An error occurred during binary R2 transmission."
       });
     } finally { setIsUploading(false); }
   };
@@ -432,7 +416,6 @@ function UATMessagesContent() {
       </header>
 
       <div className="flex-1 flex overflow-hidden">
-        {/* All Messages Sidebar (Desktop) */}
         <aside className="w-72 bg-card/40 border-r border-border backdrop-blur-sm hidden lg:flex flex-col">
           <div className="p-4 border-b border-white/5">
             <div className="relative">
