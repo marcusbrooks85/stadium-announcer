@@ -17,7 +17,8 @@ import {
   Lock,
   UserPlus,
   Phone,
-  User as UserIcon
+  User as UserIcon,
+  X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,6 +39,7 @@ import {
   sendEmailVerification,
 } from "firebase/auth";
 import { doc, setDoc, collection, addDoc, serverTimestamp, getDocs, updateDoc, query, where, limit, onSnapshot } from "firebase/firestore";
+import { cn } from "@/lib/utils";
 
 type Step = "acknowledgement" | "auth" | "verification" | "team-setup" | "success" | "tutorial";
 
@@ -45,9 +47,10 @@ export default function UATOnboardingPage() {
   const router = useRouter();
   const [step, setStep] = useState<Step>("acknowledgement");
   const [isRegisterMode, setIsRegisterMode] = useState(true);
-  const [isJoinMode, setIsJoinMode] = useState(false);
+  const [isJoinMode, setIsJoinMode] = useState(true); // Default to Join Team
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [generatedCode, setGeneratedCode] = useState<string>("");
   const [copied, setCopied] = useState(false);
   
@@ -115,6 +118,19 @@ export default function UATOnboardingPage() {
     fetchPlayers();
     return () => unsub?.();
   }, [formData.accessCode, isJoinMode, db]);
+
+  const formatPhoneNumber = (value: string) => {
+    // Only digits
+    const digits = value.replace(/\D/g, "");
+    if (digits.length <= 3) return digits;
+    if (digits.length <= 6) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+    return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
+  };
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatPhoneNumber(e.target.value);
+    setFormData({ ...formData, phoneNumber: formatted });
+  };
 
   const generateTeamCode = (teamName: string) => {
     const sanitizedName = teamName.replace(/[^a-zA-Z0-9]/g, "").toUpperCase().substring(0, 6);
@@ -231,6 +247,16 @@ export default function UATOnboardingPage() {
     } finally { setLoading(false); }
   };
 
+  const CriteriaItem = ({ met, label }: { met: boolean; label: string }) => (
+    <div className={cn(
+      "flex items-center gap-1.5 text-[8px] md:text-[9px] font-black uppercase tracking-tighter transition-colors",
+      met ? "text-green-500" : "text-red-500"
+    )}>
+      {met ? <Check className="h-2.5 w-2.5" /> : <X className="h-2.5 w-2.5" />}
+      {label}
+    </div>
+  );
+
   const renderAcknowledgement = () => (
     <Card className="w-full max-w-lg border-2 border-primary/20 bg-card/50 backdrop-blur-xl">
       <CardHeader className="text-center space-y-4">
@@ -265,7 +291,14 @@ export default function UATOnboardingPage() {
               </div>
               <div className="space-y-2">
                 <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1 flex items-center gap-2"><Phone className="h-3 w-3" /> Phone Number</Label>
-                <Input required placeholder="(555) 000-0000" value={formData.phoneNumber} onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })} className="h-12 bg-black/40" />
+                <Input 
+                  required 
+                  placeholder="xxx-xxx-xxxx" 
+                  value={formData.phoneNumber} 
+                  onChange={handlePhoneChange} 
+                  maxLength={12}
+                  className="h-12 bg-black/40 font-mono" 
+                />
               </div>
             </>
           )}
@@ -279,11 +312,25 @@ export default function UATOnboardingPage() {
               <Input required type={showPassword ? "text" : "password"} value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} className="h-12 bg-black/40 pr-10" />
               <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white" >{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button>
             </div>
+            
+            {isRegisterMode && (
+              <div className="grid grid-cols-2 gap-x-2 gap-y-1 mt-2 p-2 bg-black/20 rounded-lg border border-white/5">
+                <CriteriaItem met={passwordCriteria.length} label="8+ Characters" />
+                <CriteriaItem met={passwordCriteria.upper} label="Uppercase" />
+                <CriteriaItem met={passwordCriteria.lower} label="Lowercase" />
+                <CriteriaItem met={passwordCriteria.number} label="Number" />
+                <CriteriaItem met={passwordCriteria.special} label="Special Char" />
+              </div>
+            )}
           </div>
           {isRegisterMode && (
             <div className="space-y-2">
               <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Confirm Password</Label>
-              <Input required type="password" value={formData.confirmPassword} onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })} className="h-12 bg-black/40" />
+              <div className="relative">
+                <Input required type={showConfirmPassword ? "text" : "password"} value={formData.confirmPassword} onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })} className="h-12 bg-black/40 pr-10" />
+                <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white" >{showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button>
+              </div>
+              {formData.confirmPassword && !passwordsMatch && <p className="text-[8px] font-black text-red-500 uppercase ml-1">Passwords do not match</p>}
             </div>
           )}
           {isRegisterMode && isJoinMode && (
@@ -310,8 +357,20 @@ export default function UATOnboardingPage() {
         </form>
         <div className="flex flex-col gap-3 text-center">
           {isRegisterMode ? (
-            <><button onClick={() => setIsJoinMode(!isJoinMode)} className="text-[10px] font-black uppercase tracking-widest text-primary hover:underline flex items-center justify-center gap-2">{isJoinMode ? <Building2 className="h-3 w-3" /> : <UserPlus className="h-3 w-3" />}{isJoinMode ? "Wait, I need to create a new team" : "I'm a team member with an access code"}</button><button onClick={() => setIsRegisterMode(false)} className="text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-white">Already have an account? Sign In</button></>
-          ) : (<button onClick={() => setIsRegisterMode(true)} className="text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-white">Need a new workspace? Register</button>)}
+            <>
+              <button onClick={() => setIsJoinMode(!isJoinMode)} className="text-[10px] font-black uppercase tracking-widest text-primary hover:underline flex items-center justify-center gap-2">
+                {isJoinMode ? <Building2 className="h-3 w-3" /> : <UserPlus className="h-3 w-3" />}
+                {isJoinMode ? "Wait, I need to create a new team" : "I'm a team member with an access code"}
+              </button>
+              <button onClick={() => setIsRegisterMode(false)} className="text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-white">
+                Already have an account? Sign In
+              </button>
+            </>
+          ) : (
+            <button onClick={() => setIsRegisterMode(true)} className="text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-white">
+              Need a new workspace? Register
+            </button>
+          )}
         </div>
       </CardContent>
     </Card>
