@@ -154,11 +154,6 @@ export default function GameSchedulePage() {
                 <Zap className="h-4 w-4" />
               </Button>
             </Link>
-            <Link href="/scoreboard">
-              <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 text-muted-foreground hover:text-primary/80">
-                <Trophy className="h-4 w-4" />
-              </Button>
-            </Link>
             <Link href="/stats">
               <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 text-muted-foreground hover:text-primary/80">
                 <BarChart3 className="h-4 w-4" />
@@ -280,9 +275,9 @@ export default function GameSchedulePage() {
               <span className="text-[10px] font-black uppercase tracking-widest">Booth</span>
             </div>
           </Link>
-          <Link href="/scoreboard" className="flex-1">
+          <Link href="/stats" className="flex-1">
             <div className="flex items-center justify-center gap-2 h-11 border border-white/10 rounded-xl bg-white/5 text-primary">
-              <Trophy className="h-4 w-4" />
+              <BarChart3 className="h-4 w-4" />
               <span className="text-[10px] font-black uppercase tracking-widest">Live</span>
             </div>
           </Link>

@@ -12,7 +12,6 @@ import {
   Mail,
   Calendar,
   BarChart3,
-  ChevronLeft,
   Zap,
   MessageSquare
 } from "lucide-react";
@@ -37,6 +36,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useGame, GAME_SCHEDULE_LIST } from "@/app/context/game-context";
 import { cn } from "@/lib/utils";
 import { AdminPanel } from "@/components/AdminPanel";
+import { StadiumScoreboard } from "@/components/StadiumScoreboard";
 
 export default function GameStatsPage() {
   const { 
@@ -63,7 +63,7 @@ export default function GameStatsPage() {
       <div className="flex flex-col min-h-screen bg-background text-foreground stadium-gradient overflow-y-auto">
         <header className="sticky top-0 z-50 flex items-center justify-between p-4 border-b border-border shadow-2xl bg-card/95 backdrop-blur-md">
           <div className="flex items-center gap-4">
-             <h1 className="font-headline font-black uppercase tracking-[0.2em] text-[10px] md:text-sm">STATS CENTER</h1>
+             <h1 className="font-headline font-black uppercase tracking-[0.2em] text-[10px] md:text-sm">STATS & SCOREBOARD</h1>
           </div>
           
           <div className="flex items-center gap-1 md:gap-3">
@@ -95,6 +95,11 @@ export default function GameStatsPage() {
 
         <main className="flex-1 p-4 md:p-8 space-y-6 md:space-y-10 max-w-7xl mx-auto w-full pb-40">
           
+          {/* Stadium Scoreboard Unified View */}
+          <section className="animate-in fade-in zoom-in duration-500">
+            <StadiumScoreboard adminMode={isAdmin} />
+          </section>
+
           <section className="flex flex-col items-center justify-center space-y-4">
             <div className="flex items-center gap-3">
               <Calendar className="h-5 w-5 text-primary" />
@@ -115,7 +120,7 @@ export default function GameStatsPage() {
           <section className="flex flex-col items-center justify-center gap-6">
             <div className="flex items-center justify-center gap-2 md:gap-8 w-full max-w-2xl">
                 <div className="flex-1 flex flex-col items-center bg-secondary/10 px-2 py-4 md:px-6 rounded-2xl border-2 border-secondary/20 shadow-inner">
-                  <span className="text-[8px] md:text-[10px] font-black tracking-widest text-secondary uppercase mb-2 md:mb-3">Away Team</span>
+                  <span className="text-[8px] md:text-[10px] font-black tracking-widest text-secondary uppercase mb-2 md:mb-3">Away Team (Total)</span>
                   <div className="flex items-center gap-1 md:gap-4">
                     {isAdmin && <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 hover:bg-secondary/20" onClick={() => updateTeamScore('away', -1)}><Minus className="h-4 w-4 md:h-6 md:w-6" /></Button>}
                     <div className="w-10 md:w-16 text-center digit-font text-3xl md:text-5xl font-black text-secondary">{awayScore}</div>
@@ -124,7 +129,7 @@ export default function GameStatsPage() {
                 </div>
 
                 <div className="flex-1 flex flex-col items-center bg-primary/10 px-2 py-4 md:px-6 rounded-2xl border-2 border-primary/20 shadow-inner">
-                  <span className="text-[8px] md:text-[10px] font-black tracking-widest text-primary uppercase mb-2 md:mb-3">Home Team</span>
+                  <span className="text-[8px] md:text-[10px] font-black tracking-widest text-primary uppercase mb-2 md:mb-3">Home Team (Total)</span>
                   <div className="flex items-center gap-1 md:gap-4">
                     {isAdmin && <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 hover:bg-primary/20" onClick={() => updateTeamScore('home', -1)}><Minus className="h-4 w-4 md:h-6 md:w-6" /></Button>}
                     <div className="w-10 md:w-16 text-center digit-font text-3xl md:text-5xl font-black text-primary">{homeScore}</div>
@@ -144,7 +149,7 @@ export default function GameStatsPage() {
                 <CardHeader className="pb-3 md:pb-4 border-b border-primary/10 bg-primary/5">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-[10px] md:text-xs font-black uppercase tracking-widest text-primary flex items-center gap-2">
-                      <Target className="h-3 w-3 md:h-4 md:w-4" /> Live Game Stats Editor
+                      <Target className="h-3 w-3 md:h-4 md:w-4" /> Live Player Stats Editor
                     </CardTitle>
                   </div>
                 </CardHeader>

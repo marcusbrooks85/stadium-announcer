@@ -2,7 +2,7 @@
 "use client";
 
 import React from "react";
-import Link from "next/link";
+import Link from "next/navigation";
 import { usePathname } from "next/navigation";
 import { 
   Home, 
@@ -45,8 +45,7 @@ export function UATNavbar() {
   const navItems = [
     { label: "Home", href: "/uat", icon: Home },
     { label: "Booth", href: "/booth-uat", icon: Zap },
-    { label: "Scoreboard", href: "/scoreboard-uat", icon: Trophy },
-    { label: "Stats", href: "/stats-uat", icon: BarChart3 },
+    { label: "Stats & Scoreboard", href: "/stats-uat", icon: BarChart3 },
     { label: "Schedule", href: "/schedule-uat", icon: Calendar },
     { label: "Team Chat", href: "/messages-uat", icon: MessageSquare },
     { label: "Workspace", href: "/admin-uat", icon: LayoutDashboard },

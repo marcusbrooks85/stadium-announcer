@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useMemo } from "react";
@@ -34,6 +35,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useUATGame, GAME_SCHEDULE_LIST, UATGameProvider } from "@/app/context/uat-game-context";
 import { cn } from "@/lib/utils";
 import { UATNavbar } from "@/components/UATNavbar";
+import { StadiumScoreboard } from "@/components/StadiumScoreboard";
 
 function UATStatsContent() {
   const { 
@@ -59,7 +61,7 @@ function UATStatsContent() {
     <TooltipProvider>
       <div className="flex flex-col min-h-screen bg-background text-foreground stadium-gradient overflow-y-auto">
         <header className="sticky top-0 z-50 flex items-center justify-between p-4 border-b border-border shadow-2xl bg-card/95 backdrop-blur-md">
-          <h1 className="font-headline font-black uppercase tracking-[0.2em] text-[10px] md:text-sm">UAT STATS CENTER</h1>
+          <h1 className="font-headline font-black uppercase tracking-[0.2em] text-[10px] md:text-sm">UAT STATS & SCOREBOARD</h1>
           
           <div className="flex items-center gap-2">
             <UATNavbar />
@@ -67,6 +69,12 @@ function UATStatsContent() {
         </header>
 
         <main className="flex-1 p-4 md:p-8 space-y-10 max-w-7xl mx-auto w-full pb-40">
+          
+          {/* Stadium Scoreboard Unified View */}
+          <section className="animate-in fade-in zoom-in duration-500">
+            <StadiumScoreboard adminMode={isAdmin} />
+          </section>
+
           <section className="flex flex-col items-center justify-center space-y-4">
             <div className="flex items-center gap-3"><Calendar className="h-5 w-5 text-primary" /><span className="text-[10px] font-black uppercase tracking-widest text-primary">Target UAT Game</span></div>
             <Select value={selectedGameId} onValueChange={setSelectedGameId}>
@@ -78,11 +86,11 @@ function UATStatsContent() {
           <section className="flex flex-col items-center justify-center gap-6">
             <div className="flex items-center justify-center gap-8 w-full max-w-2xl">
               <div className="flex-1 flex flex-col items-center bg-secondary/10 px-6 py-4 rounded-2xl border-2 border-secondary/20">
-                <span className="text-[10px] font-black tracking-widest text-secondary uppercase mb-3">Away Team</span>
+                <span className="text-[10px] font-black tracking-widest text-secondary uppercase mb-3">Away Team (Total)</span>
                 <div className="digit-font text-5xl font-black text-secondary">{awayScore}</div>
               </div>
               <div className="flex-1 flex flex-col items-center bg-primary/10 px-6 py-4 rounded-2xl border-2 border-primary/20">
-                <span className="text-[10px] font-black tracking-widest text-primary uppercase mb-3">Home Team</span>
+                <span className="text-[10px] font-black tracking-widest text-primary uppercase mb-3">Home Team (Total)</span>
                 <div className="digit-font text-5xl font-black text-primary">{homeScore}</div>
               </div>
             </div>
@@ -92,7 +100,7 @@ function UATStatsContent() {
           </section>
 
           <section className="space-y-4">
-            <div className="flex items-center gap-3"><TableIcon className="h-5 w-5 text-secondary" /><h2 className="text-base font-black uppercase tracking-widest text-secondary">UAT Summary</h2></div>
+            <div className="flex items-center gap-3"><TableIcon className="h-5 w-5 text-secondary" /><h2 className="text-base font-black uppercase tracking-widest text-secondary">UAT Player Summary</h2></div>
             <Card className="bg-card/60 border-white/5 overflow-hidden">
               <Table>
                 <TableHeader className="bg-white/5">
