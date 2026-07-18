@@ -5,7 +5,7 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 /**
  * API route to generate a presigned PUT URL for secure browser-based uploads to Cloudflare R2.
- * Includes a development-only bypass to handle environment isolation issues during local testing.
+ * Includes a signature fix by incorporating the exact Content-Type from the client.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
       console.log('R2 Upload: Running in development mode with fallback credentials active.');
     }
 
-    // Strict validation (Always enforced in production)
+    // Strict validation
     const missingKeys = [];
     if (!accountId) missingKeys.push('R2_ACCOUNT_ID');
     if (!accessKeyId) missingKeys.push('R2_ACCESS_KEY_ID');
@@ -40,16 +40,13 @@ export async function POST(req: NextRequest) {
     if (!bucketName) missingKeys.push('R2_BUCKET_NAME');
 
     if (missingKeys.length > 0) {
-      const errorMsg = `Cloudflare R2 is not configured. Missing: ${missingKeys.join(', ')}. Please ensure your production environment variables are set.`;
+      const errorMsg = `Cloudflare R2 is not configured. Missing: ${missingKeys.join(', ')}`;
       console.error('CRITICAL ERROR:', errorMsg);
-      
-      return NextResponse.json({ 
-        error: errorMsg 
-      }, { status: 500 });
+      return NextResponse.json({ error: errorMsg }, { status: 500 });
     }
 
     try {
-      // Sanitize the account ID (trim spaces, ensure no protocol/slashes)
+      // Sanitize the account ID
       const cleanAccountId = accountId.trim().replace(/^https?:\/\//, '').replace(/\/$/, '');
 
       const s3Client = new S3Client({
@@ -64,6 +61,10 @@ export async function POST(req: NextRequest) {
       // Destination key prefix exactly as requested
       const fileKey = `on-deck-assets/Chat-attachments/${Date.now()}-${fileName}`;
 
+      /**
+       * CRITICAL: ContentType must be included in the command parameters 
+       * to match the binary 'Content-Type' header sent by the browser.
+       */
       const command = new PutObjectCommand({
         Bucket: bucketName.trim(),
         Key: fileKey,
@@ -77,12 +78,11 @@ export async function POST(req: NextRequest) {
     } catch (s3Error: any) {
       console.error('R2 Signing System Error (AWS SDK):', s3Error);
       return NextResponse.json({ 
-        error: `R2 SDK Failure: ${s3Error.message}`,
-        details: s3Error.stack 
+        error: `R2 SDK Failure: ${s3Error.message}`
       }, { status: 500 });
     }
   } catch (error: any) {
     console.error('R2 Presign Route Crash:', error);
-    return NextResponse.json({ error: error.message || 'Internal Server Error during R2 presign' }, { status: 500 });
+    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
   }
 }
