@@ -4,7 +4,7 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 /**
  * API route to generate a presigned PUT URL for secure browser-based uploads to Cloudflare R2.
- * Strictly enforced: No Firebase fallback, strict environment validation.
+ * Strictly enforced: No Firebase fallback, strict environment validation with detailed logging.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -14,16 +14,26 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing fileName or fileType' }, { status: 400 });
     }
 
-    // Validate Environment Variables - Hard enforcement
+    // Capture variables
     const accountId = process.env.R2_ACCOUNT_ID;
     const accessKeyId = process.env.R2_ACCESS_KEY_ID;
     const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
     const bucketName = process.env.R2_BUCKET_NAME;
 
-    if (!accountId || !accessKeyId || !secretAccessKey || !bucketName) {
-      console.error('R2 Config Missing. Server stopping upload request.');
+    // Build list of missing keys for debugging
+    const missingKeys = [];
+    if (!accountId) missingKeys.push('R2_ACCOUNT_ID');
+    if (!accessKeyId) missingKeys.push('R2_ACCESS_KEY_ID');
+    if (!secretAccessKey) missingKeys.push('R2_SECRET_ACCESS_KEY');
+    if (!bucketName) missingKeys.push('R2_BUCKET_NAME');
+
+    if (missingKeys.length > 0) {
+      console.error('CRITICAL: Cloudflare R2 Configuration is incomplete.');
+      console.error('The following environment variables are MISSING from the current process:', missingKeys.join(', '));
+      console.error('Check your .env.local file in the project root and restart the dev server.');
+      
       return NextResponse.json({ 
-        error: 'Cloudflare R2 is not configured. Uploads are strictly restricted to R2 and require R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, and R2_BUCKET_NAME.' 
+        error: `Cloudflare R2 is not configured. Missing: ${missingKeys.join(', ')}. Uploads are strictly restricted to R2.` 
       }, { status: 500 });
     }
 
@@ -31,8 +41,8 @@ export async function POST(req: NextRequest) {
       region: 'auto',
       endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
       credentials: {
-        accessKeyId: accessKeyId,
-        secretAccessKey: secretAccessKey,
+        accessKeyId: accessKeyId!,
+        secretAccessKey: secretAccessKey!,
       },
     });
 
@@ -50,7 +60,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ uploadUrl, fileKey });
   } catch (error: any) {
-    console.error('R2 Presign Error:', error);
+    console.error('R2 Presign System Error:', error);
     return NextResponse.json({ error: error.message || 'Internal Server Error during R2 presign' }, { status: 500 });
   }
 }
