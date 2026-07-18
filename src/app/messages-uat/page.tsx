@@ -17,9 +17,14 @@ import {
   Trash2,
   X,
   Check,
-  ArrowRight,
+  ArrowLeft,
   User,
-  Search
+  Search,
+  MoreVertical,
+  Archive,
+  MoreHorizontal,
+  ChevronLeft,
+  FolderArchive
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +36,20 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator
+} from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { 
   useFirestore, 
   useAuth, 
@@ -47,6 +66,7 @@ import {
   doc,
   getDoc,
   setDoc,
+  deleteDoc,
   serverTimestamp, 
   limit
 } from "firebase/firestore";
@@ -61,6 +81,31 @@ const COMMON_EMOJIS = ["👍", "❤️", "🔥", "⚾", "😂", "😮", "😢", 
 const SEND_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3';
 const RECEIVE_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3';
 const REACTION_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2568/2358-preview.mp3';
+
+/**
+ * Custom Hook for Long Press detection
+ */
+function useLongPress(callback: () => void, ms = 500) {
+  const [startLongPress, setStartLongPress] = useState(false);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (startLongPress) {
+      timer = setTimeout(callback, ms);
+    } else {
+      clearTimeout(timer!);
+    }
+    return () => clearTimeout(timer);
+  }, [startLongPress, callback, ms]);
+
+  return {
+    onMouseDown: () => setStartLongPress(true),
+    onMouseUp: () => setStartLongPress(false),
+    onMouseLeave: () => setStartLongPress(false),
+    onTouchStart: () => setStartLongPress(true),
+    onTouchEnd: () => setStartLongPress(false),
+  };
+}
 
 function MessageItem({ 
   msg, 
@@ -228,6 +273,12 @@ function UATMessagesContent() {
   const [isUploading, setIsUploading] = useState(false);
   const [attachmentUrl, setAttachmentUrl] = useState<string | null>(null);
   const [replyingTo, setReplyingTo] = useState<any | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
+
+  // Management State
+  const [manageTarget, setManageTarget] = useState<any | null>(null);
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState("");
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -246,9 +297,8 @@ function UATMessagesContent() {
       const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       list.sort((a: any, b: any) => (a.name || "").localeCompare(b.name || ""));
       setChannels(list);
-      if (!selectedChannelId && list.length > 0) setSelectedChannelId(list.find(c => c.name === "general")?.id || list[0].id);
     });
-  }, [db, userTeamId, selectedChannelId]);
+  }, [db, userTeamId]);
 
   useEffect(() => {
     if (!db || !userTeamId) return;
@@ -284,21 +334,13 @@ function UATMessagesContent() {
     });
   }, [db, selectedChannelId, playReceive, auth.currentUser?.uid, userProfiles]);
 
-  /**
-   * Secure Cloudflare R2 Upload Logic
-   * Strictly uses R2 with pre-signed URL matching Content-Type.
-   */
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !userTeamId) return;
     
     setIsUploading(true);
     try {
-      // 1. Resolve the type before making any requests (The Fix for Step 1)
-      // If the file extension is unrecognized, fallback to a standard binary stream to prevent signature mismatches.
       const resolvedType = file.type || 'application/octet-stream';
-
-      // 2. Fetch the pre-signed URL from our internal API using a clean relative path
       const presignRes = await fetch('/api/chat/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -309,12 +351,6 @@ function UATMessagesContent() {
       if (!presignRes.ok) throw new Error(presignData.error || 'Failed to get upload ticket');
 
       const { uploadUrl, fileKey } = presignData;
-
-      // Verification Step (The Fix for Step 2)
-      // Check your browser console: A "Good URL" should start with the Account ID pathing.
-      console.log("R2 Upload URL:", uploadUrl);
-
-      // 3. Direct binary PUT request to Cloudflare R2 from browser
       const uploadRes = await fetch(uploadUrl, {
         method: 'PUT',
         body: file,
@@ -322,19 +358,11 @@ function UATMessagesContent() {
       });
 
       if (!uploadRes.ok) throw new Error(`R2 storage rejected file: ${uploadRes.statusText}`);
-
-      // 4. Construct public URL (Assuming default R2 public bucket pathing)
       const publicUrl = `https://on-deck-assets.r2.dev/${fileKey}`; 
       setAttachmentUrl(publicUrl);
       toast({ title: "Attachment Ready" });
-      
     } catch (err: any) {
-      console.error('Client upload error details:', err);
-      toast({ 
-        variant: "destructive", 
-        title: "Upload Failed", 
-        description: err.message || "An error occurred during binary R2 transmission."
-      });
+      toast({ variant: "destructive", title: "Upload Failed", description: err.message });
     } finally { setIsUploading(false); }
   };
 
@@ -400,6 +428,28 @@ function UATMessagesContent() {
     await updateDoc(doc(db, "channels_UAT", selectedChannelId!, "messages_UAT", id), { isDeleted: true });
   };
 
+  const handleArchiveChannel = async (id: string, isArchived: boolean) => {
+    await updateDoc(doc(db, "channels_UAT", id), { isArchived: !isArchived });
+    toast({ title: isArchived ? "Channel Restored" : "Channel Archived" });
+    setManageTarget(null);
+  };
+
+  const handleDeleteChannel = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this channel? All messages will be lost.")) return;
+    await deleteDoc(doc(db, "channels_UAT", id));
+    if (selectedChannelId === id) setSelectedChannelId(null);
+    toast({ title: "Channel Deleted" });
+    setManageTarget(null);
+  };
+
+  const handleRenameChannel = async () => {
+    if (!manageTarget || !renameValue.trim()) return;
+    await updateDoc(doc(db, "channels_UAT", manageTarget.id), { name: renameValue.trim() });
+    setIsRenaming(false);
+    setManageTarget(null);
+    toast({ title: "Channel Renamed" });
+  };
+
   const groupedMessages = useMemo(() => {
     const groups: Record<string, any[]> = {};
     messages.forEach(m => {
@@ -409,12 +459,27 @@ function UATMessagesContent() {
     return groups;
   }, [messages]);
 
+  const filteredChannels = useMemo(() => {
+    return channels.filter(c => !!c.isArchived === showArchived && !c.isDM);
+  }, [channels, showArchived]);
+
+  const directMessages = useMemo(() => {
+    return Object.values(userProfiles).filter(p => p.id !== auth.currentUser?.uid);
+  }, [userProfiles, auth.currentUser?.uid]);
+
+  const activeChannel = useMemo(() => channels.find(c => c.id === selectedChannelId), [channels, selectedChannelId]);
+
   if (!gameLoaded || authLoading) return <div className="min-h-screen flex flex-col items-center justify-center stadium-gradient gap-4"><Loader2 className="h-8 w-8 animate-spin text-primary" /><span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Connecting...</span></div>;
 
   return (
     <div className="flex flex-col h-screen bg-background text-foreground stadium-gradient overflow-hidden">
       <header className="sticky top-0 z-50 flex items-center justify-between p-4 border-b border-border shadow-2xl bg-card/95 backdrop-blur-md">
         <div className="flex items-center gap-3">
+          {selectedChannelId && (
+            <Button variant="ghost" size="icon" onClick={() => setSelectedChannelId(null)} className="lg:hidden h-8 w-8 mr-1">
+              <ChevronLeft className="h-5 w-5" />
+            </Button>
+          )}
           {teamData?.logoUrl ? <div className="relative w-6 h-6"><Image src={teamData.logoUrl} alt="Logo" fill className="object-contain" /></div> : <ShieldCheck className="h-5 w-5 text-primary" />}
           <div className="flex flex-col"><h1 className="font-headline font-black uppercase tracking-[0.2em] text-[10px] md:text-sm">Team Chat</h1><span className="text-[8px] font-black uppercase text-primary tracking-tighter">{teamData?.name || "Workspace"}</span></div>
         </div>
@@ -422,37 +487,50 @@ function UATMessagesContent() {
       </header>
 
       <div className="flex-1 flex overflow-hidden">
-        <aside className="w-72 bg-card/40 border-r border-border backdrop-blur-sm hidden lg:flex flex-col">
-          <div className="p-4 border-b border-white/5">
+        {/* Chat List View / Sidebar */}
+        <aside className={cn(
+          "w-full lg:w-72 bg-card/40 border-r border-border backdrop-blur-sm flex flex-col transition-all duration-300",
+          selectedChannelId ? "hidden lg:flex" : "flex"
+        )}>
+          <div className="p-4 border-b border-white/5 space-y-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
               <Input placeholder="Search people..." className="h-9 bg-black/20 text-xs font-bold pl-9" />
             </div>
+            <div className="flex items-center justify-between px-2">
+              <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">View: {showArchived ? "Archived" : "Active"}</span>
+              <Button variant="ghost" size="sm" onClick={() => setShowArchived(!showArchived)} className="h-6 text-[8px] font-black uppercase tracking-widest px-2">
+                <Archive className="h-3 w-3 mr-1" /> {showArchived ? "EXIT ARCHIVE" : "ARCHIVED"}
+              </Button>
+            </div>
           </div>
+          
           <ScrollArea className="flex-1">
             <div className="p-4 space-y-6">
               <section className="space-y-2">
-                <h3 className="text-[10px] font-black uppercase text-muted-foreground tracking-[0.2em] px-2 mb-3">Team Channels</h3>
-                {channels.map(c => (
-                  <button 
+                <div className="flex items-center justify-between px-2 mb-3">
+                  <h3 className="text-[10px] font-black uppercase text-muted-foreground tracking-[0.2em]">Team Channels</h3>
+                  <Plus className="h-3 w-3 opacity-20 hover:opacity-100 cursor-pointer" />
+                </div>
+                {filteredChannels.length === 0 && (
+                  <p className="text-[8px] text-center py-4 opacity-30 font-black uppercase tracking-widest">No {showArchived ? "archived" : "active"} channels</p>
+                )}
+                {filteredChannels.map(c => (
+                  <ChannelListItem 
                     key={c.id} 
-                    onClick={() => setSelectedChannelId(c.id)} 
-                    className={cn(
-                      "w-full flex items-center gap-3 p-3 rounded-xl transition-all text-left",
-                      selectedChannelId === c.id ? "bg-primary text-white shadow-lg" : "hover:bg-white/5"
-                    )}
-                  >
-                    <Hash className={cn("h-4 w-4", selectedChannelId === c.id ? "text-white" : "opacity-40")} />
-                    <span className="text-xs font-bold uppercase tracking-wider">{c.name}</span>
-                  </button>
+                    channel={c} 
+                    isActive={selectedChannelId === c.id} 
+                    onClick={() => setSelectedChannelId(c.id)}
+                    isAdmin={["super_admin", "league_admin"].includes(userRole || "")}
+                    onManage={(target) => setManageTarget(target)}
+                  />
                 ))}
               </section>
 
-              <section className="space-y-2">
-                <h3 className="text-[10px] font-black uppercase text-muted-foreground tracking-[0.2em] px-2 mb-3">Direct Messages</h3>
-                {Object.values(userProfiles)
-                  .filter(p => p.id !== auth.currentUser?.uid)
-                  .map(p => {
+              {!showArchived && (
+                <section className="space-y-2">
+                  <h3 className="text-[10px] font-black uppercase text-muted-foreground tracking-[0.2em] px-2 mb-3">Direct Messages</h3>
+                  {directMessages.map(p => {
                     const dmId = `dm_${[auth.currentUser?.uid, p.id].sort().join('_')}`;
                     const isActive = selectedChannelId === dmId;
                     return (
@@ -471,77 +549,191 @@ function UATMessagesContent() {
                       </button>
                     );
                   })}
-              </section>
+                </section>
+              )}
             </div>
           </ScrollArea>
         </aside>
 
-        <main className="flex-1 flex flex-col relative bg-black/10">
-          <ScrollArea className="flex-1 p-4 pb-12">
-            <div className="space-y-8 pl-4 pr-4">
-              {Object.entries(groupedMessages).map(([date, msgs]) => (
-                <div key={date} className="space-y-6">
-                  <div className="flex justify-center"><div className="bg-white/5 border border-white/10 px-4 py-1 rounded-full"><span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">{date === new Date().toDateString() ? "TODAY" : date}</span></div></div>
-                  {msgs.map(m => (
-                    <MessageItem 
-                      key={m.id} 
-                      msg={m} 
-                      isOwn={m.senderId === auth.currentUser?.uid} 
-                      isAdmin={["super_admin", "league_admin"].includes(userRole || "")} 
-                      profiles={userProfiles} 
-                      roster={roster}
-                      onReact={handleReaction}
-                      onReply={setReplyingTo}
-                      onEdit={handleEditMessage}
-                      onDelete={handleDeleteMessage}
-                    />
-                  ))}
-                </div>
-              ))}
-              <div ref={scrollRef} />
+        {/* Active Chat View */}
+        <main className={cn(
+          "flex-1 flex flex-col relative bg-black/10 transition-all duration-300",
+          !selectedChannelId ? "hidden lg:flex" : "flex"
+        )}>
+          {!selectedChannelId ? (
+            <div className="flex-1 flex flex-col items-center justify-center opacity-30 gap-4">
+              <div className="h-16 w-16 rounded-full bg-white/5 flex items-center justify-center">
+                <MessageSquare className="h-8 w-8" />
+              </div>
+              <p className="text-[10px] font-black uppercase tracking-[0.3em]">Select a chat to begin</p>
             </div>
-          </ScrollArea>
-
-          <div className="p-4 bg-card/50 backdrop-blur-xl border-t border-white/5 space-y-3">
-            {replyingTo && (
-              <div className="flex items-center justify-between p-2 bg-primary/10 rounded-lg border border-primary/20 animate-in slide-in-from-bottom-2">
-                <div className="flex flex-col">
-                  <span className="text-[8px] font-black uppercase text-primary">Replying to {userProfiles[replyingTo.senderId]?.firstName}</span>
-                  <span className="text-[10px] font-bold line-clamp-1">{replyingTo.text || "Media"}</span>
+          ) : (
+            <>
+              {/* Active Chat Header */}
+              <div className="p-3 border-b border-white/5 bg-black/20 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                    {activeChannel?.isDM ? <User className="h-4 w-4" /> : <Hash className="h-4 w-4" />}
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-xs font-black uppercase tracking-wider">{activeChannel?.name || "Chat"}</span>
+                    <span className="text-[8px] text-muted-foreground font-bold uppercase tracking-tighter">
+                      {activeChannel?.isArchived ? "Archived Session" : "Active Session"}
+                    </span>
+                  </div>
                 </div>
-                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setReplyingTo(null)}><X className="h-4 w-4" /></Button>
-              </div>
-            )}
-            
-            {attachmentUrl && (
-              <div className="flex items-center gap-3 bg-white/5 p-2 rounded-lg border border-white/10 w-fit">
-                <div className="relative w-12 h-12 rounded overflow-hidden border border-white/10">
-                  <Image src={attachmentUrl} alt="Preview" fill className="object-cover" unoptimized />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <span className="text-[8px] font-black text-green-500 uppercase">Ready to send</span>
-                  <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => setAttachmentUrl(null)}><X className="h-4 w-4" /></Button>
+                <div className="flex items-center gap-2">
+                  <Button variant="ghost" size="icon" className="h-8 w-8 opacity-40"><MoreHorizontal className="h-4 w-4" /></Button>
                 </div>
               </div>
-            )}
 
-            <form onSubmit={handleSendMessage} className="flex items-center gap-3 bg-black/40 p-1.5 rounded-2xl border border-white/10 max-w-4xl mx-auto w-full">
-              <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
-              <Button variant="ghost" size="icon" className={cn("opacity-40", isUploading && "animate-spin")} type="button" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
-                {isUploading ? <Loader2 className="h-5 w-5" /> : <Paperclip className="h-5 w-5" />}
-              </Button>
-              <Input value={newMessage} onChange={e => setNewMessage(e.target.value)} placeholder="Type a message..." className="bg-transparent border-none focus-visible:ring-0 font-bold text-[13px] h-10 px-0" />
-              <Popover>
-                <PopoverTrigger asChild><Button variant="ghost" size="icon" className="opacity-40" type="button"><Smile className="h-5 w-5" /></Button></PopoverTrigger>
-                <PopoverContent className="w-auto p-2 grid grid-cols-6 gap-1 bg-card border-white/10">
-                  {COMMON_EMOJIS.map(e => <button key={e} onClick={() => setNewMessage(p => p + e)} className="h-8 w-8 hover:bg-white/10 rounded text-lg">{e}</button>)}
-                </PopoverContent>
-              </Popover>
-              <Button disabled={(!newMessage.trim() && !attachmentUrl) || isUploading} type="submit" size="icon" className="h-10 w-10 bg-primary"><Send className="h-4 w-4" /></Button>
-            </form>
-          </div>
+              <ScrollArea className="flex-1 p-4 pb-12">
+                <div className="space-y-8 pl-4 pr-4">
+                  {Object.entries(groupedMessages).map(([date, msgs]) => (
+                    <div key={date} className="space-y-6">
+                      <div className="flex justify-center"><div className="bg-white/5 border border-white/10 px-4 py-1 rounded-full"><span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">{date === new Date().toDateString() ? "TODAY" : date}</span></div></div>
+                      {msgs.map(m => (
+                        <MessageItem 
+                          key={m.id} 
+                          msg={m} 
+                          isOwn={m.senderId === auth.currentUser?.uid} 
+                          isAdmin={["super_admin", "league_admin"].includes(userRole || "")} 
+                          profiles={userProfiles} 
+                          roster={roster}
+                          onReact={handleReaction}
+                          onReply={setReplyingTo}
+                          onEdit={handleEditMessage}
+                          onDelete={handleDeleteMessage}
+                        />
+                      ))}
+                    </div>
+                  ))}
+                  <div ref={scrollRef} />
+                </div>
+              </ScrollArea>
+
+              <div className="p-4 bg-card/50 backdrop-blur-xl border-t border-white/5 space-y-3">
+                {replyingTo && (
+                  <div className="flex items-center justify-between p-2 bg-primary/10 rounded-lg border border-primary/20 animate-in slide-in-from-bottom-2">
+                    <div className="flex flex-col">
+                      <span className="text-[8px] font-black uppercase text-primary">Replying to {userProfiles[replyingTo.senderId]?.firstName}</span>
+                      <span className="text-[10px] font-bold line-clamp-1">{replyingTo.text || "Media"}</span>
+                    </div>
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setReplyingTo(null)}><X className="h-4 w-4" /></Button>
+                  </div>
+                )}
+                
+                {attachmentUrl && (
+                  <div className="flex items-center gap-3 bg-white/5 p-2 rounded-lg border border-white/10 w-fit">
+                    <div className="relative w-12 h-12 rounded overflow-hidden border border-white/10">
+                      <Image src={attachmentUrl} alt="Preview" fill className="object-cover" unoptimized />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[8px] font-black text-green-500 uppercase">Ready to send</span>
+                      <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => setAttachmentUrl(null)}><X className="h-4 w-4" /></Button>
+                    </div>
+                  </div>
+                )}
+
+                <form onSubmit={handleSendMessage} className="flex items-center gap-3 bg-black/40 p-1.5 rounded-2xl border border-white/10 max-w-4xl mx-auto w-full">
+                  <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
+                  <Button variant="ghost" size="icon" className={cn("opacity-40", isUploading && "animate-spin")} type="button" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
+                    {isUploading ? <Loader2 className="h-5 w-5" /> : <Paperclip className="h-5 w-5" />}
+                  </Button>
+                  <Input value={newMessage} onChange={e => setNewMessage(e.target.value)} placeholder="Type a message..." className="bg-transparent border-none focus-visible:ring-0 font-bold text-[13px] h-10 px-0" />
+                  <Popover>
+                    <PopoverTrigger asChild><Button variant="ghost" size="icon" className="opacity-40" type="button"><Smile className="h-5 w-5" /></Button></PopoverTrigger>
+                    <PopoverContent className="w-auto p-2 grid grid-cols-6 gap-1 bg-card border-white/10">
+                      {COMMON_EMOJIS.map(e => <button key={e} onClick={() => setNewMessage(p => p + e)} className="h-8 w-8 hover:bg-white/10 rounded text-lg">{e}</button>)}
+                    </PopoverContent>
+                  </Popover>
+                  <Button disabled={(!newMessage.trim() && !attachmentUrl) || isUploading} type="submit" size="icon" className="h-10 w-10 bg-primary"><Send className="h-4 w-4" /></Button>
+                </form>
+              </div>
+            </>
+          )}
         </main>
       </div>
+
+      {/* Channel Management Dialogs */}
+      <Dialog open={!!manageTarget && !isRenaming} onOpenChange={(val) => !val && setManageTarget(null)}>
+        <DialogContent className="bg-card border-white/10 max-w-xs p-6">
+          <DialogHeader>
+            <DialogTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-2">
+              <Hash className="h-4 w-4 text-primary" /> {manageTarget?.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-2 py-4">
+             <Button 
+               variant="outline" 
+               className="justify-start h-12 font-bold text-xs border-white/5 bg-black/20" 
+               onClick={() => { setIsRenaming(true); setRenameValue(manageTarget?.name || ""); }}
+             >
+                <Pencil className="h-4 w-4 mr-3 text-muted-foreground" /> Rename Channel
+             </Button>
+             <Button 
+               variant="outline" 
+               className="justify-start h-12 font-bold text-xs border-white/5 bg-black/20" 
+               onClick={() => handleArchiveChannel(manageTarget?.id, manageTarget?.isArchived)}
+             >
+                <Archive className="h-4 w-4 mr-3 text-muted-foreground" /> 
+                {manageTarget?.isArchived ? "Restore Channel" : "Archive Channel"}
+             </Button>
+             <DropdownMenuSeparator className="bg-white/5" />
+             <Button 
+               variant="outline" 
+               className="justify-start h-12 font-bold text-xs border-red-500/20 bg-red-500/5 text-red-500 hover:bg-red-500/10" 
+               onClick={() => handleDeleteChannel(manageTarget?.id)}
+             >
+                <Trash2 className="h-4 w-4 mr-3" /> Delete Permanently
+             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isRenaming} onOpenChange={setIsRenaming}>
+        <DialogContent className="bg-card border-white/10 max-w-sm">
+          <DialogHeader><DialogTitle className="text-xs font-black uppercase">Rename Channel</DialogTitle></DialogHeader>
+          <div className="py-4"><Input value={renameValue} onChange={e => setRenameValue(e.target.value)} className="bg-black/20 h-12" /></div>
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" className="font-black uppercase text-[10px]" onClick={() => setIsRenaming(false)}>Cancel</Button>
+            <Button className="font-black uppercase text-[10px]" onClick={handleRenameChannel}>Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function ChannelListItem({ channel, isActive, onClick, isAdmin, onManage }: any) {
+  const longPress = useLongPress(() => onManage(channel));
+
+  return (
+    <div className="relative group">
+      <button 
+        onClick={onClick} 
+        onContextMenu={(e) => { e.preventDefault(); onManage(channel); }}
+        {...longPress}
+        className={cn(
+          "w-full flex items-center justify-between gap-3 p-3 rounded-xl transition-all text-left group",
+          isActive ? "bg-primary text-white shadow-xl" : "hover:bg-white/5"
+        )}
+      >
+        <div className="flex items-center gap-3 overflow-hidden">
+          <Hash className={cn("h-4 w-4 shrink-0", isActive ? "text-white" : "opacity-40")} />
+          <span className="text-xs font-bold uppercase tracking-wider truncate">{channel.name}</span>
+        </div>
+        {channel.isArchived && <FolderArchive className="h-3 w-3 opacity-30 shrink-0" />}
+      </button>
+      
+      <Button 
+        variant="ghost" 
+        size="icon" 
+        onClick={(e) => { e.stopPropagation(); onManage(channel); }}
+        className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 opacity-0 group-hover:opacity-40 hover:opacity-100 transition-opacity hidden lg:flex"
+      >
+        <MoreVertical className="h-4 w-4" />
+      </Button>
     </div>
   );
 }
