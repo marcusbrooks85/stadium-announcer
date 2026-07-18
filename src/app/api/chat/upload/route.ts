@@ -48,30 +48,41 @@ export async function POST(req: NextRequest) {
       }, { status: 500 });
     }
 
-    const s3Client = new S3Client({
-      region: 'auto',
-      endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
-      credentials: {
-        accessKeyId: accessKeyId!,
-        secretAccessKey: secretAccessKey!,
-      },
-    });
+    try {
+      // Sanitize the account ID (trim spaces, ensure no protocol/slashes)
+      const cleanAccountId = accountId.trim().replace(/^https?:\/\//, '').replace(/\/$/, '');
 
-    // Destination key prefix exactly as requested
-    const fileKey = `on-deck-assets/Chat-attachments/${Date.now()}-${fileName}`;
+      const s3Client = new S3Client({
+        region: 'auto',
+        endpoint: `https://${cleanAccountId}.r2.cloudflarestorage.com`,
+        credentials: {
+          accessKeyId: accessKeyId.trim()!,
+          secretAccessKey: secretAccessKey.trim()!,
+        },
+      });
 
-    const command = new PutObjectCommand({
-      Bucket: bucketName,
-      Key: fileKey,
-      ContentType: fileType,
-    });
+      // Destination key prefix exactly as requested
+      const fileKey = `on-deck-assets/Chat-attachments/${Date.now()}-${fileName}`;
 
-    // Generate pre-signed URL valid for 60 seconds
-    const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 60 });
+      const command = new PutObjectCommand({
+        Bucket: bucketName.trim(),
+        Key: fileKey,
+        ContentType: fileType,
+      });
 
-    return NextResponse.json({ uploadUrl, fileKey });
+      // Generate pre-signed URL valid for 60 seconds
+      const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 60 });
+
+      return NextResponse.json({ uploadUrl, fileKey });
+    } catch (s3Error: any) {
+      console.error('R2 Signing System Error (AWS SDK):', s3Error);
+      return NextResponse.json({ 
+        error: `R2 SDK Failure: ${s3Error.message}`,
+        details: s3Error.stack 
+      }, { status: 500 });
+    }
   } catch (error: any) {
-    console.error('R2 Presign System Error:', error);
+    console.error('R2 Presign Route Crash:', error);
     return NextResponse.json({ error: error.message || 'Internal Server Error during R2 presign' }, { status: 500 });
   }
 }

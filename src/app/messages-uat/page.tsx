@@ -287,7 +287,7 @@ function UATMessagesContent() {
 
   /**
    * Secure Cloudflare R2 Upload Logic
-   * Strictly uses R2 with no Firebase fallback.
+   * Strictly uses R2 with diagnostic logging.
    */
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -305,34 +305,41 @@ function UATMessagesContent() {
       const presignData = await presignRes.json();
       
       if (!presignRes.ok) {
-        // Detailed error for missing environment setup
-        throw new Error(presignData.error || 'Server rejected the upload request. Please ensure R2 credentials are set in .env and restart the server.');
+        console.error('R2 Presign Server Error:', presignData);
+        throw new Error(presignData.error || 'Server rejected the upload request.');
       }
 
       const { uploadUrl, fileKey } = presignData;
 
       // 2. Direct binary PUT request to Cloudflare R2 from browser
-      const uploadRes = await fetch(uploadUrl, {
-        method: 'PUT',
-        body: file,
-        headers: { 'Content-Type': file.type },
-      });
+      try {
+        const uploadRes = await fetch(uploadUrl, {
+          method: 'PUT',
+          body: file,
+          headers: { 'Content-Type': file.type },
+        });
 
-      if (!uploadRes.ok) {
-        throw new Error('R2 binary upload failed at the network level.');
+        if (!uploadRes.ok) {
+          const body = await uploadRes.text();
+          console.error('R2 Binary Upload Error Body:', body);
+          throw new Error(`R2 storage rejected the file: ${uploadRes.status} ${uploadRes.statusText}`);
+        }
+
+        // Construct public URL using the bucket domain
+        const publicUrl = `https://on-deck-assets.r2.dev/${fileKey}`; 
+        setAttachmentUrl(publicUrl);
+        toast({ title: "Attachment Ready" });
+      } catch (networkErr: any) {
+        console.error('Client Network/CORS error during binary PUT:', networkErr);
+        throw new Error('Network error during file transmission. Check CORS settings in R2 dashboard.');
       }
-
-      // Construct public URL using the bucket domain
-      const publicUrl = `https://on-deck-assets.r2.dev/${fileKey}`; 
-      setAttachmentUrl(publicUrl);
-      toast({ title: "Attachment Ready" });
       
     } catch (err: any) {
-      console.error('R2 Upload Error:', err);
+      console.error('Final File Upload Catch:', err);
       toast({ 
         variant: "destructive", 
-        title: "Setup Required", 
-        description: err.message || "Cloudflare R2 credentials are missing or invalid."
+        title: "Upload Failed", 
+        description: err.message || "An unexpected error occurred during upload."
       });
     } finally { setIsUploading(false); }
   };
