@@ -302,8 +302,13 @@ function UATMessagesContent() {
         body: JSON.stringify({ fileName: file.name, fileType: file.type }),
       });
       
-      if (!presignRes.ok) throw new Error('Presign failed');
-      const { uploadUrl, fileKey } = await presignRes.json();
+      const presignData = await presignRes.json();
+      
+      if (!presignRes.ok) {
+        throw new Error(presignData.error || 'Presign failed');
+      }
+
+      const { uploadUrl, fileKey } = presignData;
 
       // 2. Perform direct binary PUT request to Cloudflare R2
       const uploadRes = await fetch(uploadUrl, {
@@ -312,17 +317,24 @@ function UATMessagesContent() {
         headers: { 'Content-Type': file.type },
       });
 
-      if (!uploadRes.ok) throw new Error('R2 Upload failed');
+      if (!uploadRes.ok) {
+        const uploadError = await uploadRes.text();
+        throw new Error(`R2 Upload failed: ${uploadError || uploadRes.statusText}`);
+      }
 
-      // 3. Construct final public URL (assuming R2 bucket is mapped to a public subdomain or custom domain)
-      // Replace with your actual R2 custom domain/public endpoint
+      // 3. Construct final public URL
+      // NOTE: Replace 'on-deck-assets.r2.dev' with your actual R2 custom domain/public endpoint
       const publicUrl = `https://on-deck-assets.r2.dev/${fileKey}`; 
       setAttachmentUrl(publicUrl);
       
       toast({ title: "Attachment Ready" });
     } catch (err: any) {
-      console.error('Upload error:', err);
-      toast({ variant: "destructive", title: "Upload Failed", description: err.message });
+      console.error('Upload error details:', err);
+      toast({ 
+        variant: "destructive", 
+        title: "Upload Failed", 
+        description: err.message || "An unexpected error occurred during upload."
+      });
     } finally { setIsUploading(false); }
   };
 
