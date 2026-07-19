@@ -29,7 +29,10 @@ import {
   MessagesSquare,
   Users,
   Lock,
-  Globe
+  Globe,
+  UserMinus,
+  UserPlus,
+  ChevronRight
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -76,7 +79,9 @@ import {
   setDoc,
   deleteDoc,
   serverTimestamp, 
-  limit
+  limit,
+  arrayUnion,
+  arrayRemove
 } from "firebase/firestore";
 import { useUATGame, UATGameProvider } from "@/app/context/uat-game-context";
 import { UATNavbar } from "@/components/UATNavbar";
@@ -268,6 +273,7 @@ function UATMessagesContent() {
 
   const [manageTarget, setManageTarget] = useState<any | null>(null);
   const [isRenaming, setIsRenaming] = useState(false);
+  const [isManagingMembers, setIsManagingMembers] = useState(false);
   const [renameValue, setRenameValue] = useState("");
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -468,6 +474,18 @@ function UATMessagesContent() {
     toast({ title: "Channel Renamed" });
   };
 
+  const handleUpdateMembership = async (userId: string, action: 'add' | 'remove') => {
+    if (!manageTarget) return;
+    try {
+      await updateDoc(doc(db, "channels_UAT", manageTarget.id), {
+        members: action === 'add' ? arrayUnion(userId) : arrayRemove(userId)
+      });
+      toast({ title: action === 'add' ? "Member Added" : "Member Removed" });
+    } catch (e) {
+      toast({ variant: "destructive", title: "Update Failed" });
+    }
+  };
+
   const groupedMessages = useMemo(() => {
     const groups: Record<string, any[]> = {};
     messages.forEach(m => {
@@ -477,30 +495,22 @@ function UATMessagesContent() {
     return groups;
   }, [messages]);
 
-  // Enhanced Universal Search Logic
   const filteredChannels = useMemo(() => {
     const term = listSearch.toLowerCase();
     return channels.filter(c => {
       if (!!c.isArchived !== showArchived) return false;
       if (!term) return true;
-
-      // 1. Match Channel/DM Name
       if (c.name.toLowerCase().includes(term)) return true;
-
-      // 2. Match Participants Names
       const participantMatch = c.members?.some((uid: string) => {
         const p = userProfiles[uid];
         const fullName = `${p?.firstName || ''} ${p?.lastName || ''}`.toLowerCase();
         return fullName.includes(term);
       });
       if (participantMatch) return true;
-
-      // 3. Match Content (within current thread if viewing)
       if (selectedChannelId === c.id) {
          const messageMatch = messages.some(m => m.text?.toLowerCase().includes(term));
          if (messageMatch) return true;
       }
-
       return false;
     });
   }, [channels, showArchived, listSearch, userProfiles, selectedChannelId, messages]);
@@ -508,25 +518,17 @@ function UATMessagesContent() {
   const filteredUsersForDialog = useMemo(() => {
     return Object.values(userProfiles).filter(p => {
       if (p.id === auth.currentUser?.uid) return false;
-      
       const searchTerm = userSearchInDialog.toLowerCase();
       const fullName = `${p.firstName || ''} ${p.lastName || ''}`.toLowerCase();
-      
       const player = roster.find(r => r.id === p.playerId);
       const playerName = player?.name.toLowerCase() || "";
       const playerNumber = player?.number.toString() || "";
-
-      return (
-        fullName.includes(searchTerm) || 
-        playerName.includes(searchTerm) || 
-        playerNumber.includes(searchTerm)
-      );
+      return (fullName.includes(searchTerm) || playerName.includes(searchTerm) || playerNumber.includes(searchTerm));
     });
   }, [userProfiles, userSearchInDialog, auth.currentUser?.uid, roster]);
 
   const activeChannel = useMemo(() => channels.find(c => c.id === selectedChannelId), [channels, selectedChannelId]);
 
-  // Resolves the correct name for DMs (the other person)
   const getResolvedChannelName = (c: any) => {
     if (!c.isDM) return c.name;
     const otherUid = c.members?.find((uid: string) => uid !== auth.currentUser?.uid);
@@ -564,7 +566,6 @@ function UATMessagesContent() {
                </Avatar>
                <div className="flex flex-col">
                   <span className="text-xs font-black uppercase tracking-wider">{activeChannel ? getResolvedChannelName(activeChannel) : "Chat"}</span>
-                  <span className="text-[8px] text-green-500 font-bold uppercase tracking-tighter">Active Thread</span>
                </div>
             </div>
           )}
@@ -627,9 +628,6 @@ function UATMessagesContent() {
                       </Avatar>
                       <div className="flex flex-col overflow-hidden">
                         <span className="text-xs font-black uppercase tracking-wider truncate">{getResolvedChannelName(c)}</span>
-                        <span className={cn("text-[8px] font-bold uppercase tracking-widest truncate", selectedChannelId === c.id ? "text-white/60" : "text-muted-foreground")}>
-                          {c.type === 'public' ? 'Public Channel' : 'Private Thread'}
-                        </span>
                       </div>
                     </div>
                     {c.isArchived && <FolderArchive className="h-4 w-4 opacity-40 shrink-0" />}
@@ -830,7 +828,7 @@ function UATMessagesContent() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!manageTarget && !isRenaming} onOpenChange={(val) => !val && setManageTarget(null)}>
+      <Dialog open={!!manageTarget && !isRenaming && !isManagingMembers} onOpenChange={(val) => !val && setManageTarget(null)}>
         <DialogContent className="bg-card border-white/10 max-w-xs p-6 rounded-3xl">
           <DialogHeader>
             <DialogTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-3">
@@ -839,7 +837,10 @@ function UATMessagesContent() {
           </DialogHeader>
           <div className="flex flex-col gap-3 py-4">
              <Button variant="outline" className="justify-start h-14 rounded-2xl font-black text-[10px] uppercase border-white/5 bg-black/20 hover:bg-primary/10" onClick={() => { setIsRenaming(true); setRenameValue(manageTarget?.name || ""); }}>
-                <Pencil className="h-4 w-4 mr-3" /> Rename Group
+                <Pencil className="h-4 w-4 mr-3" /> Rename Thread
+             </Button>
+             <Button variant="outline" className="justify-start h-14 rounded-2xl font-black text-[10px] uppercase border-white/5 bg-black/20 hover:bg-primary/10" onClick={() => setIsManagingMembers(true)}>
+                <Users className="h-4 w-4 mr-3" /> Manage Members
              </Button>
              <Button variant="outline" className="justify-start h-14 rounded-2xl font-black text-[10px] uppercase border-white/5 bg-black/20 hover:bg-secondary/10" onClick={() => handleArchiveChannel(manageTarget?.id, manageTarget?.isArchived)}>
                 <Archive className="h-4 w-4 mr-3" /> {manageTarget?.isArchived ? "Restore Thread" : "Archive Thread"}
@@ -862,6 +863,75 @@ function UATMessagesContent() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={isManagingMembers} onOpenChange={setIsManagingMembers}>
+        <DialogContent className="bg-card border-white/10 max-w-sm rounded-3xl p-6">
+          <DialogHeader>
+            <DialogTitle className="text-[10px] font-black uppercase tracking-widest flex items-center gap-3">
+              <Users className="h-4 w-4 text-primary" /> Member Roster
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6 py-4">
+            <ScrollArea className="h-64 rounded-xl border border-white/5 bg-black/20 p-2">
+               <div className="space-y-1">
+                  <p className="text-[8px] font-black uppercase text-primary ml-2 mb-2">Current Participants</p>
+                  {manageTarget?.members?.map((uid: string) => {
+                    const p = userProfiles[uid];
+                    const isCreator = uid === manageTarget.createdBy;
+                    return (
+                      <div key={uid} className="flex items-center justify-between p-2.5 rounded-lg bg-white/5">
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-7 w-7">
+                            <AvatarFallback className="text-[8px] font-black bg-black/40">
+                              {((p?.firstName?.[0] || "") + (p?.lastName?.[0] || "")).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex flex-col">
+                            <span className="text-[10px] font-bold">{p?.firstName} {p?.lastName}</span>
+                            {isCreator && <span className="text-[7px] font-black text-primary uppercase">Thread Owner</span>}
+                          </div>
+                        </div>
+                        {isAdmin && uid !== auth.currentUser?.uid && (
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleUpdateMembership(uid, 'remove')}>
+                            <UserMinus className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
+                    );
+                  })}
+               </div>
+            </ScrollArea>
+
+            <div className="space-y-3">
+               <p className="text-[8px] font-black uppercase text-secondary ml-2">Add Teammates</p>
+               <div className="relative mb-2">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                  <Input 
+                    value={userSearchInDialog}
+                    onChange={e => setUserSearchInDialog(e.target.value)}
+                    placeholder="Find others..." 
+                    className="h-9 bg-black/40 text-[10px] pl-10 border-white/5" 
+                  />
+                </div>
+                <ScrollArea className="h-40 rounded-xl border border-white/5 bg-black/10 p-2">
+                   <div className="space-y-1">
+                      {filteredUsersForDialog.filter(u => !manageTarget?.members?.includes(u.id)).map(u => (
+                        <div key={u.id} className="flex items-center justify-between p-2 hover:bg-white/5 rounded-lg group">
+                          <span className="text-[10px] font-bold">{u.firstName} {u.lastName}</span>
+                          <Button size="icon" variant="ghost" className="h-7 w-7 text-primary" onClick={() => handleUpdateMembership(u.id, 'add')}>
+                            <UserPlus className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ))}
+                   </div>
+                </ScrollArea>
+            </div>
+          </div>
+          <Button variant="outline" className="w-full h-12 rounded-2xl font-black text-[10px] uppercase border-white/10" onClick={() => setIsManagingMembers(false)}>
+            Close Manager
+          </Button>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -869,3 +939,4 @@ function UATMessagesContent() {
 export default function UATMessagesPage() {
   return <UATGameProvider><UATMessagesContent /></UATGameProvider>;
 }
+
