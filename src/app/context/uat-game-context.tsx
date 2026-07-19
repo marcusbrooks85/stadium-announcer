@@ -92,34 +92,6 @@ export const GAME_SCHEDULE_LIST = FULL_GAME_SCHEDULE.map(g => ({
   label: `Week ${g.week} - ${new Date(g.date + 'T00:00:00').toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })}`
 }));
 
-function hexToHSLComponents(hex: string): string {
-  let r = 0, g = 0, b = 0;
-  if (hex.length === 4) {
-    r = parseInt(hex[1] + hex[1], 16);
-    g = parseInt(hex[2] + hex[2], 16);
-    b = parseInt(hex[3] + hex[3], 16);
-  } else if (hex.length === 7) {
-    r = parseInt(hex.substring(1, 3), 16);
-    g = parseInt(hex.substring(3, 5), 16);
-    b = parseInt(hex.substring(5, 7), 16);
-  }
-  r /= 255; g /= 255; b /= 255;
-  const max = Math.max(r, g, b), min = Math.min(r, g, b);
-  let h = 0, s, l = (max + min) / 2;
-  if (max === min) h = s = 0;
-  else {
-    const d = max - min;
-    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-    switch (max) {
-      case r: h = (g - b) / d + (g < b ? 6 : 0); break;
-      case g: h = (b - r) / d + 2; break;
-      case b: h = (r - g) / d + 4; break;
-    }
-    h /= 6;
-  }
-  return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
-}
-
 interface UATGameContextType {
   user: FirebaseUser | null;
   userRole: "super_admin" | "league_admin" | "booth_admin" | "user" | null;
@@ -313,22 +285,6 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
       if (unsubProfile) unsubProfile();
     };
   }, [auth, db]);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined' && teamData) {
-      const root = document.documentElement;
-      const primaryHSL = hexToHSLComponents(teamData.primaryColor || '#4285FF');
-      const secondaryHSL = hexToHSLComponents(teamData.secondaryColor || '#2EB1D9');
-      
-      root.style.setProperty('--tenant-primary', teamData.primaryColor || '#4285FF');
-      root.style.setProperty('--tenant-secondary', teamData.secondaryColor || '#2EB1D9');
-      
-      root.style.setProperty('--primary', primaryHSL);
-      root.style.setProperty('--secondary', secondaryHSL);
-      root.style.setProperty('--accent', secondaryHSL);
-      root.style.setProperty('--ring', primaryHSL);
-    }
-  }, [teamData]);
 
   useEffect(() => {
     const now = new Date();

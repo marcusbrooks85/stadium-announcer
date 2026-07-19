@@ -23,7 +23,8 @@ import {
   Volume2,
   Play,
   Square,
-  Copy
+  Copy,
+  Building2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -85,7 +86,7 @@ function UATAdminPortalContent() {
 
   // Profile/Branding Form States
   const [profileForm, setProfileForm] = useState({ firstName: "", lastName: "", phoneNumber: "", playerId: "" });
-  const [brandingForm, setBrandingForm] = useState({ name: "", primary: "", secondary: "", logoUrl: "" });
+  const [brandingForm, setBrandingForm] = useState({ name: "", logoUrl: "" });
 
   // Player Editor State
   const [editingPlayerId, setEditingPlayerId] = useState<string | null>(null);
@@ -106,8 +107,6 @@ function UATAdminPortalContent() {
     if (teamData) {
       setBrandingForm({
         name: teamData.name || "",
-        primary: teamData.primaryColor || "#4285FF",
-        secondary: teamData.secondaryColor || "#2EB1D9",
         logoUrl: teamData.logoUrl || ""
       });
     }
@@ -143,7 +142,6 @@ function UATAdminPortalContent() {
   // Listen for Sound FX
   useEffect(() => {
     if (userTeamId && ["super_admin", "league_admin", "booth_admin"].includes(userRole || "")) {
-      // Fix: Removed orderBy("name", "asc") to avoid index requirement
       const q = query(
         collection(db, FX_COLLECTION), 
         where("teamId", "==", userTeamId)
@@ -163,10 +161,8 @@ function UATAdminPortalContent() {
     try {
       await saveTeamBranding({
         name: brandingForm.name,
-        primaryColor: brandingForm.primary,
-        secondaryColor: brandingForm.secondary
       });
-      toast({ title: "Workspace Updated" });
+      toast({ title: "Team Details Updated" });
     } catch (e: any) {
       toast({ variant: "destructive", title: "Update Failed", description: e.message });
     } finally { setIsSaving(false); }
@@ -412,7 +408,7 @@ function UATAdminPortalContent() {
               <Card className={cn("bg-card/50 border-white/10", !isSuperAdmin && "opacity-50 pointer-events-none")}>
                 <CardHeader>
                   <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-3">
-                    <Palette className="h-4 w-4 text-[var(--tenant-primary)]" /> Visual Identity
+                    <Building2 className="h-4 w-4 text-[var(--tenant-primary)]" /> Team Details
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
@@ -433,24 +429,8 @@ function UATAdminPortalContent() {
                     <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Official Team Name</Label>
                     <Input value={brandingForm.name} onChange={e => setBrandingForm({...brandingForm, name: e.target.value})} className="h-11 bg-black/40 font-bold" />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Primary Color</Label>
-                      <div className="flex gap-2">
-                        <Input type="color" value={brandingForm.primary} onChange={e => setBrandingForm({...brandingForm, primary: e.target.value})} className="w-10 h-10 p-1" />
-                        <Input value={brandingForm.primary} onChange={e => setBrandingForm({...brandingForm, primary: e.target.value})} className="h-10 uppercase font-mono text-[10px]" />
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Secondary Color</Label>
-                      <div className="flex gap-2">
-                        <Input type="color" value={brandingForm.secondary} onChange={e => setBrandingForm({...brandingForm, secondary: e.target.value})} className="w-10 h-10 p-1" />
-                        <Input value={brandingForm.secondary} onChange={e => setBrandingForm({...brandingForm, secondary: e.target.value})} className="h-10 uppercase font-mono text-[10px]" />
-                      </div>
-                    </div>
-                  </div>
                   <Button onClick={handleUpdateBranding} disabled={isSaving || !isSuperAdmin} className="w-full h-12 bg-primary font-black uppercase tracking-widest text-[10px]">
-                    {isSaving ? <Loader2 className="animate-spin" /> : <Save className="h-4 w-4 mr-2" />} Update Identity
+                    {isSaving ? <Loader2 className="animate-spin" /> : <Save className="h-4 w-4 mr-2" />} Update Team Details
                   </Button>
                 </CardContent>
               </Card>
