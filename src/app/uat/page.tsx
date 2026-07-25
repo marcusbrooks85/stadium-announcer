@@ -207,8 +207,11 @@ export default function UATOnboardingPage() {
         return;
       }
 
+      // Dynamically determine the origin to prevent hardcoded URL issues in production
+      const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://stadium-announcer.vercel.app';
+      
       const actionCodeSettings: ActionCodeSettings = {
-        url: 'https://stadium-announcer.vercel.app/auth/reset-password',
+        url: `${currentOrigin}/auth/reset-password`,
         handleCodeInApp: true,
       };
 

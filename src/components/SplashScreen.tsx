@@ -4,9 +4,15 @@ import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 
+/**
+ * Enhanced SplashScreen with Build ID for production verification.
+ */
 export function SplashScreen() {
   const [isVisible, setIsVisible] = useState(true);
   const [isFading, setIsFading] = useState(false);
+  
+  // Use a hardcoded date/time for build identification during the debugging process
+  const BUILD_VERSION = "2024-03-20-001"; 
 
   useEffect(() => {
     // Hold for 2.2 seconds, then start fading
@@ -52,6 +58,11 @@ export function SplashScreen() {
             Schedule • Stats • Announcer
           </p>
           <div className="h-[1px] w-16 bg-primary/20 rounded-full" />
+          
+          {/* Build Version Tag - Hidden in regular use, but visible for verification */}
+          <span className="text-[7px] font-black text-white/10 uppercase tracking-widest mt-2">
+            Ver: {BUILD_VERSION}
+          </span>
         </div>
       </div>
     </div>
