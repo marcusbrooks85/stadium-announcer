@@ -11,8 +11,8 @@ export function SplashScreen() {
   const [isVisible, setIsVisible] = useState(true);
   const [isFading, setIsFading] = useState(false);
   
-  // Use a hardcoded date/time for build identification during the debugging process
-  const BUILD_VERSION = "2024-03-20-001"; 
+  // Updated version string to force a visual change and bypass potential CDN/Browser caching
+  const BUILD_VERSION = "2024-03-21-002"; 
 
   useEffect(() => {
     // Hold for 2.2 seconds, then start fading
@@ -59,9 +59,9 @@ export function SplashScreen() {
           </p>
           <div className="h-[1px] w-16 bg-primary/20 rounded-full" />
           
-          {/* Build Version Tag - Hidden in regular use, but visible for verification */}
-          <span className="text-[7px] font-black text-white/10 uppercase tracking-widest mt-2">
-            Ver: {BUILD_VERSION}
+          {/* Build Version Tag - Visible for verification */}
+          <span className="text-[9px] font-black text-primary uppercase tracking-widest mt-2 px-3 py-1 bg-white/5 rounded-full border border-white/10">
+            Build: {BUILD_VERSION}
           </span>
         </div>
       </div>

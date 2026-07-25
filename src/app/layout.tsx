@@ -34,11 +34,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" className="dark border-none">
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+        {/* Force no-cache for the document during build updates debugging */}
+        <meta httpEquiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+        <meta httpEquiv="Pragma" content="no-cache" />
+        <meta httpEquiv="Expires" content="0" />
       </head>
       <body className="font-body antialiased min-h-screen">
         <ServiceWorkerRegistration />
@@ -51,6 +55,11 @@ export default function RootLayout({
             <Toaster />
           </GameProvider>
         </FirebaseClientProvider>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `console.log("ON DECK DEPLOYMENT LOADED: " + new Date().toISOString());`,
+          }}
+        />
       </body>
     </html>
   );
