@@ -1,4 +1,3 @@
-
 import type { Metadata } from 'next';
 import './globals.css';
 import { GameProvider } from './context/game-context';
@@ -33,6 +32,9 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Deployment Verification Logic
+  const BUILD_STAMP = "V-2025-02-18-001";
+
   return (
     <html lang="en" className="dark border-none">
       <head>
@@ -57,7 +59,7 @@ export default function RootLayout({
         </FirebaseClientProvider>
         <script
           dangerouslySetInnerHTML={{
-            __html: `console.log("ON DECK DEPLOYMENT LOADED: " + new Date().toISOString());`,
+            __html: `console.log("ON DECK DEPLOYMENT LOADED: ${BUILD_STAMP} - " + new Date().toISOString());`,
           }}
         />
       </body>

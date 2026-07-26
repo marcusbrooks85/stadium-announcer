@@ -11,8 +11,8 @@ export function SplashScreen() {
   const [isVisible, setIsVisible] = useState(true);
   const [isFading, setIsFading] = useState(false);
   
-  // Updated version string to force a visual change and bypass potential CDN/Browser caching
-  const BUILD_VERSION = "2024-03-21-002"; 
+  // Unique version string to force visual confirmation of new deployments
+  const BUILD_VERSION = "V-2025-02-18-001"; 
 
   useEffect(() => {
     // Hold for 2.2 seconds, then start fading
@@ -41,7 +41,7 @@ export function SplashScreen() {
       )}
     >
       <div className="relative flex flex-col items-center animate-in fade-in zoom-in-95 duration-1000 ease-out">
-        {/* Central Graphic (Tall Splash Asset) */}
+        {/* Central Graphic */}
         <div className="relative w-72 h-72 md:w-[600px] md:h-[600px]">
           <Image
             src="/audio/splash.png"
@@ -52,15 +52,15 @@ export function SplashScreen() {
           />
         </div>
 
-        {/* Tagline */}
+        {/* Tagline & Version */}
         <div className="mt-2 flex flex-col items-center gap-3">
           <p className="text-[10px] md:text-xs font-medium text-white/40 tracking-[0.5em] uppercase">
             Schedule • Stats • Announcer
           </p>
           <div className="h-[1px] w-16 bg-primary/20 rounded-full" />
           
-          {/* Build Version Tag - Visible for verification */}
-          <span className="text-[9px] font-black text-primary uppercase tracking-widest mt-2 px-3 py-1 bg-white/5 rounded-full border border-white/10">
+          {/* Build Version Tag - Prominent for verification */}
+          <span className="text-[10px] font-black text-primary uppercase tracking-[0.2em] mt-4 px-4 py-1.5 bg-primary/10 rounded-full border border-primary/20 shadow-lg shadow-primary/10">
             Build: {BUILD_VERSION}
           </span>
         </div>

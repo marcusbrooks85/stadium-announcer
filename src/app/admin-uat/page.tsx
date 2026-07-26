@@ -55,6 +55,8 @@ import { collection, query, where, onSnapshot, doc, setDoc, addDoc, deleteDoc, o
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { cn } from "@/lib/utils";
 
+const BUILD_VERSION = "V-2025-02-18-001";
+
 function UATAdminPortalContent() {
   const db = useFirestore();
   const auth = useAuth();
@@ -691,9 +693,12 @@ function UATAdminPortalContent() {
 
       <audio ref={audioPreviewRef} className="hidden" onEnded={() => setPreviewingId(null)} />
 
-      <footer className="fixed bottom-0 left-0 right-0 p-4 bg-card/90 backdrop-blur-md border-t border-white/5 flex items-center justify-center gap-8">
+      <footer className="fixed bottom-0 left-0 right-0 p-4 bg-card/90 backdrop-blur-md border-t border-white/5 flex flex-col items-center justify-center gap-2">
         <div className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
            <ShieldAlert className="h-3 w-3 text-primary" /> Workspace Access Control Active
+        </div>
+        <div className="text-[8px] font-black text-primary/40 uppercase tracking-[0.3em]">
+           System Build: {BUILD_VERSION}
         </div>
       </footer>
     </div>
