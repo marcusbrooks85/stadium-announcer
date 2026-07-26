@@ -87,6 +87,7 @@ function UATAdminPortalContent() {
   const [teamUsers, setTeamUsers] = useState<any[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isScheduleUploading, setIsScheduleUploading] = useState(false);
 
   // Sound FX State
   const [soundEffects, setSoundEffects] = useState<any[]>([]);
@@ -313,6 +314,22 @@ function UATAdminPortalContent() {
     } finally { setIsSaving(false); }
   };
 
+  const handleScheduleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !userTeamId) return;
+    setIsScheduleUploading(true);
+    try {
+      const storagePath = `schedule-uploads/${userTeamId}_${Date.now()}_${file.name}`;
+      const storageRef = ref(storage, storagePath);
+      await uploadBytes(storageRef, file);
+      toast({ title: "Schedule File Uploaded", description: "The file has been stored in schedule-uploads for processing." });
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Upload Failed", description: err.message });
+    } finally {
+      setIsScheduleUploading(false);
+    }
+  };
+
   const handleBulkSnackUpdate = async () => {
     if (!snackUpdateText.trim()) return;
     toast({ title: "Updating Snack Duty...", description: "Verifying strings..." });
@@ -475,8 +492,27 @@ function UATAdminPortalContent() {
                     <CardContent className="space-y-6">
                       <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl flex items-start gap-3"><AlertTriangle className="h-4 w-4 text-yellow-500 shrink-0" /><p className="text-[9px] font-bold text-yellow-500 uppercase leading-relaxed">Reminder: Review all generated entries before publishing. Automated parsing may require manual corrections.</p></div>
                       <div className="space-y-2">
-                        <Label className="text-[10px] font-black uppercase">Upload Schedule Data (CSV/JSON)</Label>
-                        <div className="h-32 border-2 border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center bg-black/20 cursor-pointer hover:border-primary/50 transition-all"><Upload className="h-6 w-6 text-muted-foreground mb-2" /><span className="text-[9px] font-black uppercase text-muted-foreground">Select File (R2: schedule-uploads)</span></div>
+                        <Label className="text-[10px] font-black uppercase">Upload Schedule Data (Any Format)</Label>
+                        <div className="relative">
+                          <input 
+                            type="file" 
+                            onChange={handleScheduleFileUpload} 
+                            className="absolute inset-0 opacity-0 cursor-pointer z-10" 
+                            accept="*" 
+                          />
+                          <div className="h-32 border-2 border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center bg-black/20 hover:border-primary/50 transition-all">
+                            {isScheduleUploading ? (
+                              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                            ) : (
+                              <>
+                                <Upload className="h-6 w-6 text-muted-foreground mb-2" />
+                                <span className="text-[9px] font-black uppercase text-muted-foreground px-4 text-center">
+                                  Click or Drag to Upload Schedule File<br/>(PDF, Images, CSV, JSON)
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
