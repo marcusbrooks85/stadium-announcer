@@ -33,7 +33,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   // Deployment Verification Logic
-  const BUILD_STAMP = "V-2025-02-18-003";
+  const BUILD_STAMP = "V-2025-02-18-006";
 
   return (
     <html lang="en" className="dark border-none">

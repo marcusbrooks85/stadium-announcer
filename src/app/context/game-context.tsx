@@ -152,12 +152,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
       const gameStart = new Date(`${game.date}T${convertTimeTo24h(game.time)}`);
       const syncThreshold = new Date(gameStart.getTime() + 2 * 60 * 60 * 1000);
 
-      // If game is past the 2-hour window
       if (now >= syncThreshold) {
         const stats = allGameStats[game.id];
         const winStatus = gameWins[game.id];
 
-        // Process if result is missing OR stats not synced
         if (stats && (!stats.statsSynced || !winStatus)) {
           const homeScore = stats.homeScore || 0;
           const awayScore = stats.awayScore || 0;

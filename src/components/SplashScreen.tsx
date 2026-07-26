@@ -12,7 +12,7 @@ export function SplashScreen() {
   const [isFading, setIsFading] = useState(false);
   
   // Unique version string to force visual confirmation of new deployments
-  const BUILD_VERSION = "V-2025-02-18-005"; 
+  const BUILD_VERSION = "V-2025-02-18-006"; 
 
   useEffect(() => {
     // Hold for 2.2 seconds, then start fading

@@ -60,7 +60,7 @@ import { collection, query, where, onSnapshot, doc, setDoc, addDoc, deleteDoc, s
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { cn } from "@/lib/utils";
 
-const BUILD_VERSION = "V-2025-02-18-005";
+const BUILD_VERSION = "V-2025-02-18-006";
 
 function UATAdminPortalContent() {
   const db = useFirestore();
@@ -340,7 +340,7 @@ function UATAdminPortalContent() {
   const isManagement = ["super_admin", "league_admin"].includes(userRole || "");
 
   return (
-    <div className="min-h-screen bg-background text-foreground stadium-gradient overflow-hidden flex flex-col">
+    <div className="flex flex-col min-h-screen bg-background text-foreground stadium-gradient overflow-hidden">
       <header className="sticky top-0 z-50 flex items-center justify-between p-4 border-b border-border shadow-2xl bg-card/95 backdrop-blur-md">
         <div className="flex items-center gap-3">
           {teamData?.logoUrl ? <div className="relative w-8 h-8 md:w-10 md:h-10"><Image src={teamData.logoUrl} alt="Logo" fill className="object-contain" /></div> : <div className="w-8 h-8 md:w-10 md:h-10 bg-primary/10 rounded flex items-center justify-center"><ShieldCheck className="h-5 w-5 text-[var(--tenant-primary)]" /></div>}
