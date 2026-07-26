@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
@@ -94,6 +93,7 @@ function UATBoothContent() {
           events: {
             onReady: (event: any) => { 
               setPlayerReady(true); 
+              event.target.unMute(); 
               event.target.setVolume(volume * 100); 
             },
           }
@@ -353,7 +353,7 @@ function UATBoothContent() {
                       </Button>
                     ))}
                   </CardContent>
-                </Card>
+                </div>
               </div>
             </div>
           </main>
