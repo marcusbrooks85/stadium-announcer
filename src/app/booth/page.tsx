@@ -307,7 +307,7 @@ export default function StadiumBoothDashboard() {
                     </Select>
 
                     {activePlayer && (
-                      <div className="space-y-3 p-3 md:p-4 bg-background/40 rounded-xl border border-white/5">
+                      <div className="space-y-4 p-3 md:p-4 bg-background/40 rounded-xl border border-white/5">
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-1.5 md:gap-2">
                           <Button
                             variant={selectedSongIndex === -1 ? "default" : "outline"}
@@ -317,18 +317,23 @@ export default function StadiumBoothDashboard() {
                           >
                             NO TRACK
                           </Button>
-                          {activePlayer.songs.map((song, idx) => (
+                          {activePlayer.songs.map((_, idx) => (
                             <Button
                               key={idx} variant={selectedSongIndex === idx ? "default" : "outline"} size="sm"
                               onClick={() => setSelectedSongIndex(idx)}
                               className={cn("h-9 md:h-12 text-[8px] md:text-[10px] uppercase font-black px-2", selectedSongIndex === idx && "bg-secondary text-secondary-foreground")}
                             >
-                              <div className="flex flex-col items-center gap-0.5 truncate">
-                                <span className="truncate w-full">{song.name || `Track ${idx + 1}`}</span>
-                              </div>
+                              Track {idx + 1}
                             </Button>
                           ))}
                         </div>
+                        {selectedSong && (
+                          <div className="text-center animate-in fade-in slide-in-from-top-1 duration-300">
+                             <p className="text-[10px] font-black text-primary uppercase tracking-[0.15em]">
+                               Selected: <span className="text-white">{selectedSong.name}</span>
+                             </p>
+                          </div>
+                        )}
                       </div>
                     )}
                     

@@ -192,24 +192,28 @@ export function StadiumScoreboard({ adminMode = true }: StadiumScoreboardProps) 
             <LightIndicator label="O" count={outs} max={2} activeColor="bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]" />
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-4 ml-auto">
+          <div className="flex items-start gap-2 sm:gap-4 ml-auto h-full">
              <div className="flex flex-col items-center">
-                <div className="min-w-[50px] sm:min-w-[70px] bg-secondary/10 border border-secondary/20 p-1 sm:p-2 rounded-lg flex flex-col items-center">
+                <div className="w-[60px] sm:w-[90px] h-[60px] sm:h-[90px] bg-secondary/10 border border-secondary/20 p-2 rounded-xl flex flex-col items-center justify-center transition-all">
                    <span className="text-[7px] sm:text-[9px] font-black uppercase text-secondary leading-none mb-1">AWAY</span>
-                   <span className="text-xl sm:text-3xl font-black digit-font text-white leading-none">{contextAwayScore || 0}</span>
+                   <span className="text-2xl sm:text-5xl font-black digit-font text-white leading-none">{contextAwayScore || 0}</span>
                 </div>
-                {isStrawhatsAway && (
-                  <span className="text-[8px] font-black text-secondary tracking-widest uppercase mt-1">STRAWHATS</span>
-                )}
+                <div className="h-4 flex items-center justify-center mt-1.5">
+                  {isStrawhatsAway && (
+                    <span className="text-[8px] font-black text-secondary tracking-widest uppercase whitespace-nowrap animate-in fade-in zoom-in duration-300">STRAWHATS</span>
+                  )}
+                </div>
              </div>
              <div className="flex flex-col items-center">
-                <div className="min-w-[50px] sm:min-w-[70px] bg-primary/10 border border-primary/20 p-1 sm:p-2 rounded-lg flex flex-col items-center">
+                <div className="w-[60px] sm:w-[90px] h-[60px] sm:h-[90px] bg-primary/10 border border-primary/20 p-2 rounded-xl flex flex-col items-center justify-center transition-all">
                    <span className="text-[7px] sm:text-[9px] font-black uppercase text-primary leading-none mb-1">HOME</span>
-                   <span className="text-xl sm:text-3xl font-black digit-font text-white leading-none">{contextHomeScore || 0}</span>
+                   <span className="text-2xl sm:text-5xl font-black digit-font text-white leading-none">{contextHomeScore || 0}</span>
                 </div>
-                {isStrawhatsHome && (
-                  <span className="text-[8px] font-black text-primary tracking-widest uppercase mt-1">STRAWHATS</span>
-                )}
+                <div className="h-4 flex items-center justify-center mt-1.5">
+                  {isStrawhatsHome && (
+                    <span className="text-[8px] font-black text-primary tracking-widest uppercase whitespace-nowrap animate-in fade-in zoom-in duration-300">STRAWHATS</span>
+                  )}
+                </div>
              </div>
           </div>
         </div>
