@@ -1,6 +1,6 @@
 'use server';
 /**
- * @fileOverview A Genkit flow for parsing baseball schedules from documents/images.
+ * @fileOverview A Genkit flow for parsing baseball schedules from documents/images using Gemini 1.5 Flash.
  * 
  * - runScheduleParser - A function that handles the AI parsing process.
  * - ParseScheduleInput - The input type for the parser.
@@ -9,6 +9,7 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
+import { googleAI } from '@genkit-ai/google-genai';
 
 const ParseScheduleInputSchema = z.object({
   fileDataUri: z.string().describe("A photo or document of a schedule, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."),
@@ -34,12 +35,13 @@ export type ParseScheduleOutput = z.infer<typeof ParseScheduleOutputSchema>;
 
 const parsePrompt = ai.definePrompt({
   name: 'parseSchedulePrompt',
+  model: googleAI.model('gemini-1.5-flash'),
   input: { schema: ParseScheduleInputSchema },
   output: { schema: ParseScheduleOutputSchema },
   prompt: `You are an expert baseball league administrator. 
     Analyze the provided document: {{media url=fileDataUri}}
     
-    Extract the full game schedule for the team named: "{{teamName}}".
+    Extract the full sports game schedule from this document or image for the team named: "{{teamName}}".
     
     For each game involving "{{teamName}}", identify:
     1. The exact date (formatted strictly as YYYY-MM-DD).
@@ -52,7 +54,8 @@ const parsePrompt = ai.definePrompt({
     STRICT RULES:
     - Only include games where "{{teamName}}" is participating.
     - If a date is ambiguous, use your best judgment based on the context of the season.
-    - Return a clean list of games in the requested JSON structure.`,
+    - Return a clean list of games in the requested JSON structure.
+    - If no games are found for "{{teamName}}", return an empty array.`,
 });
 
 const parseScheduleFlow = ai.defineFlow(
