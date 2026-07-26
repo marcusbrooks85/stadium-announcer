@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
@@ -117,6 +116,15 @@ export default function StadiumBoothDashboard() {
     }
   }, [volume]);
 
+  // Push local volume state to YT Player
+  useEffect(() => {
+    if (ytPlayerRef.current && playerReady) {
+      try {
+        ytPlayerRef.current.setVolume(volume * 100);
+      } catch (e) {}
+    }
+  }, [volume, playerReady]);
+
   const stopEverything = useCallback(() => {
     if (fadeIntervalRef.current) { clearInterval(fadeIntervalRef.current); fadeIntervalRef.current = null; }
     if (announcementAudioRef.current) {
@@ -132,14 +140,22 @@ export default function StadiumBoothDashboard() {
 
   const handleFadeOut = () => {
     if (fadeIntervalRef.current) return;
-    const duration = 3000;
+    const duration = 5000; // Slower fade as requested
     const interval = 50;
     const steps = duration / interval;
     const volumeStep = volume / steps;
+    
     fadeIntervalRef.current = setInterval(() => {
       setVolume((prev) => {
-        const next = prev - volumeStep;
-        if (next <= 0.01) { stopEverything(); return 0; }
+        const next = Math.max(0, prev - volumeStep);
+        if (next <= 0.01) { 
+          stopEverything(); 
+          return 0; 
+        }
+        // Explicitly update the YouTube player volume for real-time fading
+        if (ytPlayerRef.current && playerReady) {
+          try { ytPlayerRef.current.setVolume(next * 100); } catch (e) {}
+        }
         return next;
       });
     }, interval);
