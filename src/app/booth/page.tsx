@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
@@ -298,12 +297,12 @@ export default function StadiumBoothDashboard() {
 
                     {activePlayer && (
                       <div className="space-y-3 p-3 md:p-4 bg-background/40 rounded-xl border border-white/5">
-                        <div className="grid grid-cols-4 gap-1.5 md:gap-2">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-1.5 md:gap-2">
                           <Button
                             variant={selectedSongIndex === -1 ? "default" : "outline"}
                             size="sm"
                             onClick={() => setSelectedSongIndex(-1)}
-                            className={cn("h-9 md:h-10 text-[8px] md:text-[9px] uppercase font-black", selectedSongIndex === -1 && "bg-secondary text-secondary-foreground")}
+                            className={cn("h-9 md:h-12 text-[8px] md:text-[10px] uppercase font-black px-2", selectedSongIndex === -1 && "bg-secondary text-secondary-foreground")}
                           >
                             NO TRACK
                           </Button>
@@ -311,8 +310,12 @@ export default function StadiumBoothDashboard() {
                             <Button
                               key={idx} variant={selectedSongIndex === idx ? "default" : "outline"} size="sm"
                               onClick={() => setSelectedSongIndex(idx)}
-                              className={cn("h-9 md:h-10 text-[8px] md:text-[9px] uppercase font-black", selectedSongIndex === idx && "bg-secondary text-secondary-foreground")}
-                            >Track #{idx + 1}</Button>
+                              className={cn("h-9 md:h-12 text-[8px] md:text-[10px] uppercase font-black px-2", selectedSongIndex === idx && "bg-secondary text-secondary-foreground")}
+                            >
+                              <div className="flex flex-col items-center gap-0.5 truncate">
+                                <span className="truncate w-full">{song.name || `Track ${idx + 1}`}</span>
+                              </div>
+                            </Button>
                           ))}
                         </div>
                       </div>

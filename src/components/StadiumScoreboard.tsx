@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useMemo } from "react";
 import { 
   ChevronUp, 
   ChevronDown, 
@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useGame } from "@/app/context/game-context";
+import { useGame, FULL_GAME_SCHEDULE } from "@/app/context/game-context";
 import { cn } from "@/lib/utils";
 
 interface StadiumScoreboardProps {
@@ -29,7 +29,7 @@ interface StadiumScoreboardProps {
  * 3. Ergonomic Admin Controls with auto-transition logic
  */
 export function StadiumScoreboard({ adminMode = true }: StadiumScoreboardProps) {
-  const { homeScore: contextHomeScore, awayScore: contextAwayScore, updateTeamScore } = useGame();
+  const { homeScore: contextHomeScore, awayScore: contextAwayScore, updateTeamScore, selectedGameId } = useGame();
 
   // --- Game State ---
   const [balls, setBalls] = useState(0);
@@ -46,8 +46,18 @@ export function StadiumScoreboard({ adminMode = true }: StadiumScoreboardProps) 
   const [awayErrors, setAwayErrors] = useState(0);
   const [homeErrors, setHomeErrors] = useState(0);
 
+  // Determine if Strawhats are home or away
+  const isStrawhatsHome = useMemo(() => {
+    const game = FULL_GAME_SCHEDULE.find(g => g.id === selectedGameId);
+    return game?.home === "Coach Chewy";
+  }, [selectedGameId]);
+
+  const isStrawhatsAway = useMemo(() => {
+    const game = FULL_GAME_SCHEDULE.find(g => g.id === selectedGameId);
+    return game?.away === "Coach Chewy";
+  }, [selectedGameId]);
+
   // --- Derived Totals ---
-  // We use the context scores for the display to ensure consistency with historical data
   const awayRuns = awayLineScore.reduce((a, b) => a + b, 0);
   const homeRuns = homeLineScore.reduce((a, b) => a + b, 0);
 
@@ -122,10 +132,7 @@ export function StadiumScoreboard({ adminMode = true }: StadiumScoreboardProps) 
     else setHomeErrors(prev => Math.max(0, prev + delta));
   };
 
-  // Sync internal totals with context if context changes from elsewhere
   useEffect(() => {
-    // If the Context totals don't match our line score sum, we reset line score to 0 and set context total as a placeholder in first inning
-    // This handles the "past game scores" pulling through even if we don't have detailed line scores
     const contextAway = contextAwayScore || 0;
     const contextHome = contextHomeScore || 0;
 
@@ -139,9 +146,7 @@ export function StadiumScoreboard({ adminMode = true }: StadiumScoreboardProps) 
        next[0] = contextHome;
        setHomeLineScore(next);
     }
-  }, [contextHomeScore, contextAwayScore]);
-
-  // --- Sub-Components ---
+  }, [contextHomeScore, contextAwayScore, awayRuns, homeRuns]);
 
   const LightIndicator = ({ label, count, max, activeColor }: { label: string, count: number, max: number, activeColor: string }) => (
     <div className="flex flex-col items-center gap-1">
@@ -162,11 +167,9 @@ export function StadiumScoreboard({ adminMode = true }: StadiumScoreboardProps) 
 
   return (
     <div className="w-full space-y-6">
-      {/* --- PUBLIC SCOREBOARD VIEW --- */}
       <Card className="bg-black border-2 border-white/5 shadow-2xl overflow-hidden">
         <div className="bg-gradient-to-r from-blue-900/40 to-transparent p-2.5 sm:p-4 border-b border-white/5 flex flex-wrap items-center justify-start gap-4 sm:gap-8">
           
-          {/* Inning Box with Integrated Half Indicator */}
           <div className="h-12 sm:h-16 px-3 sm:px-5 bg-primary/20 border border-primary/40 rounded-lg flex items-center gap-3 sm:gap-4 shrink-0">
              <div className="flex flex-col items-center">
                 <span className="text-[7px] sm:text-[8px] font-black uppercase text-primary leading-none mb-1">INN</span>
@@ -182,27 +185,39 @@ export function StadiumScoreboard({ adminMode = true }: StadiumScoreboardProps) 
              </div>
           </div>
           
-          {/* BSO Indicators */}
           <div className="grid grid-cols-3 gap-3 sm:gap-6 border-r border-white/5 pr-4 sm:pr-8">
             <LightIndicator label="B" count={balls} max={3} activeColor="bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]" />
             <LightIndicator label="S" count={strikes} max={2} activeColor="bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.4)]" />
             <LightIndicator label="O" count={outs} max={2} activeColor="bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]" />
           </div>
 
-          {/* Inline Team Totals */}
           <div className="flex items-center gap-2 sm:gap-4 ml-auto">
-             <div className="flex flex-col items-center min-w-[50px] sm:min-w-[70px] bg-secondary/10 border border-secondary/20 p-1 sm:p-2 rounded-lg">
-                <span className="text-[7px] sm:text-[9px] font-black uppercase text-secondary leading-none mb-1">AWAY</span>
-                <span className="text-xl sm:text-3xl font-black digit-font text-white leading-none">{contextAwayScore || 0}</span>
+             <div className="flex flex-col items-center relative">
+                <div className="min-w-[50px] sm:min-w-[70px] bg-secondary/10 border border-secondary/20 p-1 sm:p-2 rounded-lg flex flex-col items-center">
+                   <span className="text-[7px] sm:text-[9px] font-black uppercase text-secondary leading-none mb-1">AWAY</span>
+                   <span className="text-xl sm:text-3xl font-black digit-font text-white leading-none">{contextAwayScore || 0}</span>
+                </div>
+                {isStrawhatsAway && (
+                  <div className="absolute -bottom-4 flex flex-col items-center">
+                    <span className="text-[8px] font-black text-secondary tracking-widest uppercase bg-black/80 px-2 py-0.5 rounded border border-secondary/30">👒 STRAWHATS</span>
+                  </div>
+                )}
              </div>
-             <div className="flex flex-col items-center min-w-[50px] sm:min-w-[70px] bg-primary/10 border border-primary/20 p-1 sm:p-2 rounded-lg">
-                <span className="text-[7px] sm:text-[9px] font-black uppercase text-primary leading-none mb-1">HOME</span>
-                <span className="text-xl sm:text-3xl font-black digit-font text-white leading-none">{contextHomeScore || 0}</span>
+             <div className="flex flex-col items-center relative">
+                <div className="min-w-[50px] sm:min-w-[70px] bg-primary/10 border border-primary/20 p-1 sm:p-2 rounded-lg flex flex-col items-center">
+                   <span className="text-[7px] sm:text-[9px] font-black uppercase text-primary leading-none mb-1">HOME</span>
+                   <span className="text-xl sm:text-3xl font-black digit-font text-white leading-none">{contextHomeScore || 0}</span>
+                </div>
+                {isStrawhatsHome && (
+                  <div className="absolute -bottom-4 flex flex-col items-center">
+                    <span className="text-[8px] font-black text-primary tracking-widest uppercase bg-black/80 px-2 py-0.5 rounded border border-primary/30">👒 STRAWHATS</span>
+                  </div>
+                )}
              </div>
           </div>
         </div>
 
-        <CardContent className="p-0 overflow-x-auto scrollbar-hide">
+        <CardContent className="p-0 overflow-x-auto scrollbar-hide mt-3">
           <table className="w-full border-collapse">
             <thead>
               <tr className="bg-white/5 border-b border-white/5 text-[9px] font-black uppercase tracking-widest text-muted-foreground">
@@ -217,7 +232,9 @@ export function StadiumScoreboard({ adminMode = true }: StadiumScoreboardProps) 
             </thead>
             <tbody className="digit-font">
               <tr className="border-b border-white/5">
-                <td className="p-3 font-black text-xs uppercase tracking-tighter text-muted-foreground">Away</td>
+                <td className="p-3 font-black text-xs uppercase tracking-tighter text-muted-foreground flex items-center gap-1.5">
+                   Away {isStrawhatsAway && <span className="text-[8px] opacity-60">👒</span>}
+                </td>
                 {awayLineScore.map((score, i) => (
                   <td key={i} className={cn("p-3 text-center border-l border-white/5 text-sm", inning === i + 1 && half === 'top' && "bg-white/5 font-black text-white")}>{score || '-'}</td>
                 ))}
@@ -226,7 +243,9 @@ export function StadiumScoreboard({ adminMode = true }: StadiumScoreboardProps) 
                 <td className="p-3 text-center border-l border-white/5 text-sm font-bold text-muted-foreground">{awayErrors}</td>
               </tr>
               <tr className="bg-white/[0.02]">
-                <td className="p-3 font-black text-xs uppercase tracking-tighter text-muted-foreground">Home</td>
+                <td className="p-3 font-black text-xs uppercase tracking-tighter text-muted-foreground flex items-center gap-1.5">
+                   Home {isStrawhatsHome && <span className="text-[8px] opacity-60">👒</span>}
+                </td>
                 {homeLineScore.map((score, i) => (
                   <td key={i} className={cn("p-3 text-center border-l border-white/5 text-sm", inning === i + 1 && half === 'bottom' && "bg-white/5 font-black text-white")}>{score || '-'}</td>
                 ))}
@@ -239,10 +258,8 @@ export function StadiumScoreboard({ adminMode = true }: StadiumScoreboardProps) 
         </CardContent>
       </Card>
 
-      {/* --- ADMIN CONTROL PANEL --- */}
       {adminMode && (
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Count Controls */}
           <Card className="bg-card/50 border-white/5 shadow-xl">
             <CardHeader className="py-3 border-b border-white/5">
               <CardTitle className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-2">
@@ -275,7 +292,6 @@ export function StadiumScoreboard({ adminMode = true }: StadiumScoreboardProps) 
             </CardContent>
           </Card>
 
-          {/* Scoring Controls */}
           <Card className="bg-card/50 border-white/5 shadow-xl">
              <CardHeader className="py-3 border-b border-white/5">
                 <CardTitle className="text-[10px] font-black uppercase tracking-widest text-secondary flex items-center gap-2">

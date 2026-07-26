@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
@@ -246,6 +245,17 @@ function UATBoothContent() {
                         ))}
                       </SelectContent>
                     </Select>
+
+                    {activePlayer && (
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                        <Button variant={selectedSongIndex === -1 ? "default" : "outline"} onClick={() => setSelectedSongIndex(-1)} className="h-10 md:h-12 text-[9px] font-black uppercase px-2">NO TRACK</Button>
+                        {activePlayer.songs.map((song, idx) => (
+                          <Button key={idx} variant={selectedSongIndex === idx ? "default" : "outline"} onClick={() => setSelectedSongIndex(idx)} className="h-10 md:h-12 text-[9px] font-black uppercase px-2 truncate">
+                             <span className="truncate w-full">{song.name || `Track ${idx + 1}`}</span>
+                          </Button>
+                        ))}
+                      </div>
+                    )}
 
                     <Button 
                       disabled={!activePlayer} 

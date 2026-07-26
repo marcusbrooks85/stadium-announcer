@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
@@ -245,10 +244,12 @@ function UATBoothContent() {
                   </Select>
 
                   {activePlayer && (
-                    <div className="grid grid-cols-4 gap-2">
-                      <Button variant={selectedSongIndex === -1 ? "default" : "outline"} onClick={() => setSelectedSongIndex(-1)} className="h-10 text-[9px] font-black uppercase">NO TRACK</Button>
-                      {activePlayer.songs.map((_, idx) => (
-                        <Button key={idx} variant={selectedSongIndex === idx ? "default" : "outline"} onClick={() => setSelectedSongIndex(idx)} className="h-10 text-[9px] font-black uppercase">Track #{idx + 1}</Button>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                      <Button variant={selectedSongIndex === -1 ? "default" : "outline"} onClick={() => setSelectedSongIndex(-1)} className="h-10 md:h-12 text-[9px] font-black uppercase px-2">NO TRACK</Button>
+                      {activePlayer.songs.map((song, idx) => (
+                        <Button key={idx} variant={selectedSongIndex === idx ? "default" : "outline"} onClick={() => setSelectedSongIndex(idx)} className="h-10 md:h-12 text-[9px] font-black uppercase px-2 truncate">
+                           <span className="truncate w-full">{song.name || `Track ${idx + 1}`}</span>
+                        </Button>
                       ))}
                     </div>
                   )}
@@ -282,7 +283,7 @@ function UATBoothContent() {
                       <Button key={song.id} variant="outline" onClick={() => playYoutubeTrack(song.link, song.title, song.startTime, "Hype")} className="w-full h-12 text-[8px] font-black uppercase text-left justify-start">📣 {song.title}</Button>
                     ))}
                   </CardContent>
-                </Card>
+                </div>
               </div>
             </div>
           </main>
