@@ -1,8 +1,7 @@
-
 "use client";
 
 import React from "react";
-import Link from "next/link";
+import Link from "next/navigation";
 import { usePathname } from "next/navigation";
 import { 
   Zap, BarChart3, Calendar, Activity, Menu, ChevronRight, ShieldCheck, MessageSquare, LayoutDashboard, Wifi, WifiOff
@@ -12,7 +11,7 @@ import { useUATGame } from "@/app/context/uat-game-context";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetClose } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 
-const BUILD_VERSION = "V-2025-02-18-003";
+const BUILD_VERSION = "V-2025-02-18-005";
 
 export function UATNavbar() {
   const pathname = usePathname();

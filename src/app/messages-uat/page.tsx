@@ -62,7 +62,6 @@ function UATMessagesContent() {
   const [channels, setChannels] = useState<any[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState("");
-  const [userProfiles, setUserProfiles] = useState<Record<string, any>>({});
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [selectedChannelId, setSelectedChannelId] = useState(searchParams.get('cid'));
 

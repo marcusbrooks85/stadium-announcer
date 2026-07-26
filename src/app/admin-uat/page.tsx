@@ -60,7 +60,7 @@ import { collection, query, where, onSnapshot, doc, setDoc, addDoc, deleteDoc, s
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { cn } from "@/lib/utils";
 
-const BUILD_VERSION = "V-2025-02-18-004";
+const BUILD_VERSION = "V-2025-02-18-005";
 
 function UATAdminPortalContent() {
   const db = useFirestore();
@@ -116,7 +116,6 @@ function UATAdminPortalContent() {
 
   const suffix = "_UAT";
   const FX_COLLECTION = `sound_fx${suffix}`;
-  const FX_STORAGE_PATH = `sound_fx${suffix}`;
 
   useEffect(() => {
     if (teamData) {
