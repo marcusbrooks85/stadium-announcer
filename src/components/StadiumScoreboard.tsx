@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useCallback, useEffect, useMemo } from "react";
@@ -192,26 +193,22 @@ export function StadiumScoreboard({ adminMode = true }: StadiumScoreboardProps) 
           </div>
 
           <div className="flex items-center gap-2 sm:gap-4 ml-auto">
-             <div className="flex flex-col items-center relative">
+             <div className="flex flex-col items-center">
                 <div className="min-w-[50px] sm:min-w-[70px] bg-secondary/10 border border-secondary/20 p-1 sm:p-2 rounded-lg flex flex-col items-center">
                    <span className="text-[7px] sm:text-[9px] font-black uppercase text-secondary leading-none mb-1">AWAY</span>
                    <span className="text-xl sm:text-3xl font-black digit-font text-white leading-none">{contextAwayScore || 0}</span>
                 </div>
                 {isStrawhatsAway && (
-                  <div className="absolute -bottom-4 flex flex-col items-center">
-                    <span className="text-[8px] font-black text-secondary tracking-widest uppercase bg-black/80 px-2 py-0.5 rounded border border-secondary/30">👒 STRAWHATS</span>
-                  </div>
+                  <span className="text-[8px] font-black text-secondary tracking-widest uppercase mt-1">STRAWHATS</span>
                 )}
              </div>
-             <div className="flex flex-col items-center relative">
+             <div className="flex flex-col items-center">
                 <div className="min-w-[50px] sm:min-w-[70px] bg-primary/10 border border-primary/20 p-1 sm:p-2 rounded-lg flex flex-col items-center">
                    <span className="text-[7px] sm:text-[9px] font-black uppercase text-primary leading-none mb-1">HOME</span>
                    <span className="text-xl sm:text-3xl font-black digit-font text-white leading-none">{contextHomeScore || 0}</span>
                 </div>
                 {isStrawhatsHome && (
-                  <div className="absolute -bottom-4 flex flex-col items-center">
-                    <span className="text-[8px] font-black text-primary tracking-widest uppercase bg-black/80 px-2 py-0.5 rounded border border-primary/30">👒 STRAWHATS</span>
-                  </div>
+                  <span className="text-[8px] font-black text-primary tracking-widest uppercase mt-1">STRAWHATS</span>
                 )}
              </div>
           </div>
@@ -232,8 +229,8 @@ export function StadiumScoreboard({ adminMode = true }: StadiumScoreboardProps) 
             </thead>
             <tbody className="digit-font">
               <tr className="border-b border-white/5">
-                <td className="p-3 font-black text-xs uppercase tracking-tighter text-muted-foreground flex items-center gap-1.5">
-                   Away {isStrawhatsAway && <span className="text-[8px] opacity-60">👒</span>}
+                <td className="p-3 font-black text-xs uppercase tracking-tighter text-muted-foreground">
+                   Away
                 </td>
                 {awayLineScore.map((score, i) => (
                   <td key={i} className={cn("p-3 text-center border-l border-white/5 text-sm", inning === i + 1 && half === 'top' && "bg-white/5 font-black text-white")}>{score || '-'}</td>
@@ -243,8 +240,8 @@ export function StadiumScoreboard({ adminMode = true }: StadiumScoreboardProps) 
                 <td className="p-3 text-center border-l border-white/5 text-sm font-bold text-muted-foreground">{awayErrors}</td>
               </tr>
               <tr className="bg-white/[0.02]">
-                <td className="p-3 font-black text-xs uppercase tracking-tighter text-muted-foreground flex items-center gap-1.5">
-                   Home {isStrawhatsHome && <span className="text-[8px] opacity-60">👒</span>}
+                <td className="p-3 font-black text-xs uppercase tracking-tighter text-muted-foreground">
+                   Home
                 </td>
                 {homeLineScore.map((score, i) => (
                   <td key={i} className={cn("p-3 text-center border-l border-white/5 text-sm", inning === i + 1 && half === 'bottom' && "bg-white/5 font-black text-white")}>{score || '-'}</td>

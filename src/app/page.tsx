@@ -159,6 +159,11 @@ export default function GameSchedulePage() {
                 <BarChart3 className="h-4 w-4" />
               </Button>
             </Link>
+            <a href="https://groupme.com/join_group/115533519/bxlMSOlb" target="_blank" rel="noopener noreferrer">
+              <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 text-muted-foreground hover:text-primary/80">
+                <MessageSquare className="h-4 w-4" />
+              </Button>
+            </a>
           </div>
           <AdminPanel />
         </div>
