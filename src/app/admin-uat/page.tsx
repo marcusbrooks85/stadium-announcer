@@ -29,7 +29,8 @@ import {
   MapPin,
   AlertTriangle,
   FileAudio,
-  FileCode
+  FileCode,
+  Utensils
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -56,7 +57,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useUATGame, UATGameProvider, Song, UploadedTrack } from "@/app/context/uat-game-context";
 import { UATNavbar } from "@/components/UATNavbar";
 import { useFirestore, useStorage, useAuth } from "@/firebase";
-import { collection, query, where, onSnapshot, doc, setDoc, addDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
+import { collection, query, where, onSnapshot, doc, setDoc, addDoc, deleteDoc, serverTimestamp, updateDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { cn } from "@/lib/utils";
 
