@@ -31,7 +31,11 @@ import {
   FileCode,
   Utensils,
   LayoutDashboard,
-  Pencil
+  Pencil,
+  BrainCircuit,
+  CheckCircle2,
+  ChevronDown,
+  ArrowRight
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -92,6 +96,8 @@ export function UATAdminPortalContent() {
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [isScheduleUploading, setIsScheduleUploading] = useState(false);
+  const [isParsing, setIsParsing] = useState(false);
+  const [parsedGames, setParsedGames] = useState<any[]>([]);
 
   // Sound FX State
   const [soundEffects, setSoundEffects] = useState<any[]>([]);
@@ -110,7 +116,7 @@ export function UATAdminPortalContent() {
   const [brandingForm, setBrandingForm] = useState({ name: "", logoUrl: "" });
 
   // Player Editor State
-  const [selectedPlayerId, setSelectedPlayerId] = useState<string>("new");
+  const [selectedPlayerId, setSelectedPlayerId] = useState<string>("none");
   const [playerForm, setPlayerForm] = useState({
     name: "",
     number: "",
@@ -175,7 +181,7 @@ export function UATAdminPortalContent() {
   }, [db, userTeamId, userRole, FX_COLLECTION]);
 
   useEffect(() => {
-    if (selectedPlayerId === "new") {
+    if (selectedPlayerId === "none") {
       setPlayerForm({ name: "", number: "", announcementAudioUrl: "", songs: [], uploadedTracks: [] });
     } else {
       const p = roster.find(r => r.id === selectedPlayerId);
@@ -268,7 +274,7 @@ export function UATAdminPortalContent() {
     setIsSaving(true);
     try {
       let finalAudioUrl = playerForm.announcementAudioUrl;
-      const playerId = selectedPlayerId === "new" ? doc(collection(db, "players_UAT")).id : selectedPlayerId;
+      const playerId = selectedPlayerId === "none" ? doc(collection(db, "players_UAT")).id : selectedPlayerId;
       if (audioFile) finalAudioUrl = await uploadToR2(audioFile, "announcement_audio_UAT");
       await savePlayer({
         name: playerForm.name,
@@ -278,7 +284,7 @@ export function UATAdminPortalContent() {
         uploadedTracks: playerForm.uploadedTracks,
         teamId: userTeamId
       }, playerId);
-      setSelectedPlayerId("new");
+      setSelectedPlayerId("none");
       setAudioFile(null);
       toast({ title: "Player Profile Saved" });
     } catch (e: any) {
@@ -296,7 +302,7 @@ export function UATAdminPortalContent() {
 
   const handleUploadTrackFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || selectedPlayerId === "new") {
+    if (!file || selectedPlayerId === "none") {
       toast({ variant: "destructive", title: "Action Required", description: "Save player first before uploading files." });
       return;
     }
@@ -341,14 +347,63 @@ export function UATAdminPortalContent() {
 
   const handleScheduleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !userTeamId) return;
+    if (!file || !userTeamId || !teamData?.name) return;
+    
     setIsScheduleUploading(true);
     try {
-      await uploadToR2(file, "schedule-uploads");
-      toast({ title: "Schedule File Uploaded", description: "Processing started in schedule-uploads." });
+      // 1. Upload to R2
+      const url = await uploadToR2(file, "schedule-uploads");
+      toast({ title: "File Uploaded", description: "AI Extracting Schedule Data..." });
+      
+      // 2. Trigger AI Parsing
+      setIsParsing(true);
+      const res = await fetch("/api/admin/parse-schedule", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileUrl: url, teamName: teamData.name })
+      });
+
+      if (!res.ok) throw new Error("AI parsing endpoint returned an error.");
+      
+      const { games } = await res.json();
+      setParsedGames(games || []);
+      
+      toast({ 
+        title: "AI Analysis Complete", 
+        description: `Identified ${games?.length || 0} games. Review them below.` 
+      });
     } catch (err: any) {
-      toast({ variant: "destructive", title: "Upload Failed", description: err.message });
-    } finally { setIsScheduleUploading(false); }
+      toast({ 
+        variant: "destructive", 
+        title: "AI Analysis Failed", 
+        description: "The file was uploaded but could not be parsed automatically. Please enter games manually." 
+      });
+    } finally { 
+      setIsScheduleUploading(false);
+      setIsParsing(false);
+    }
+  };
+
+  const handleImportParsedGames = async () => {
+    if (!userTeamId || parsedGames.length === 0) return;
+    setIsSaving(true);
+    try {
+      for (const game of parsedGames) {
+        await saveGame({
+          date: game.gameDate,
+          home: game.homeOrAway === 'home' ? teamData?.name : game.opponent,
+          away: game.homeOrAway === 'away' ? teamData?.name : game.opponent,
+          time: game.time,
+          location: game.location,
+          week: game.notes || "",
+          teamId: userTeamId
+        });
+      }
+      setParsedGames([]);
+      toast({ title: "Schedule Imported", description: "Extracted games have been added to your timeline." });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Import Failed" });
+    } finally { setIsSaving(false); }
   };
 
   const handleBulkSnackUpdate = async () => {
@@ -454,7 +509,7 @@ export function UATAdminPortalContent() {
                 <CardContent className="space-y-6">
                   {/* STANDALONE ADD BUTTON */}
                   <Button 
-                    onClick={() => setSelectedPlayerId("new")} 
+                    onClick={() => setSelectedPlayerId("none")} 
                     className="w-full h-12 bg-primary/20 text-primary border border-primary/30 font-black uppercase text-[10px] tracking-widest hover:bg-primary/30"
                   >
                     <Plus className="h-4 w-4 mr-2" /> + ADD NEW PLAYER
@@ -467,14 +522,14 @@ export function UATAdminPortalContent() {
                         <SelectValue placeholder="Select existing player..." />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="new" className="font-black text-muted-foreground">None Selected</SelectItem>
+                        <SelectItem value="none" className="font-black text-muted-foreground">None Selected</SelectItem>
                         {roster.map(p => <SelectItem key={p.id} value={p.id} className="font-bold">#{p.number} - {p.name}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
 
-                  {selectedPlayerId !== "new" && (
-                    <Button variant="destructive" className="w-full h-12 font-black uppercase text-[10px]" onClick={() => { if(confirm("Delete player?")) deletePlayer(selectedPlayerId); setSelectedPlayerId("new"); }}>
+                  {selectedPlayerId !== "none" && (
+                    <Button variant="destructive" className="w-full h-12 font-black uppercase text-[10px]" onClick={() => { if(confirm("Delete player?")) deletePlayer(selectedPlayerId); setSelectedPlayerId("none"); }}>
                       <Trash2 className="h-4 w-4 mr-2" /> Permanently Delete Player
                     </Button>
                   )}
@@ -482,7 +537,7 @@ export function UATAdminPortalContent() {
               </Card>
 
               <Card className="bg-card/50 border-white/10">
-                <CardHeader><CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-3"><Settings className="h-4 w-4 text-[var(--tenant-primary)]" /> {selectedPlayerId === "new" ? "Add New Player" : `Edit: ${playerForm.name}`}</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-3"><Settings className="h-4 w-4 text-[var(--tenant-primary)]" /> {selectedPlayerId === "none" ? "Add New Player" : `Edit: ${playerForm.name}`}</CardTitle></CardHeader>
                 <CardContent className="space-y-6">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2"><Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Full Name *</Label><Input value={playerForm.name} onChange={e => setPlayerForm({...playerForm, name: e.target.value})} className="h-11 bg-black/40 font-bold" /></div>
@@ -608,26 +663,34 @@ export function UATAdminPortalContent() {
 
                 <div className="space-y-8">
                   <Card className="bg-card/50 border-white/10">
-                    <CardHeader><CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-3"><FileCode className="h-4 w-4 text-[var(--tenant-primary)]" /> Automated Schedule Generation</CardTitle></CardHeader>
+                    <CardHeader><CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-3"><FileCode className="h-4 w-4 text-[var(--tenant-primary)]" /> AI Automated Schedule Parsing</CardTitle></CardHeader>
                     <CardContent className="space-y-6">
-                      <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl flex items-start gap-3"><AlertTriangle className="h-4 w-4 text-yellow-500 shrink-0" /><p className="text-[9px] font-bold text-yellow-500 uppercase leading-relaxed">Reminder: Review all generated entries before publishing. Automated parsing may require manual corrections.</p></div>
+                      <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl flex items-start gap-3"><AlertTriangle className="h-4 w-4 text-yellow-500 shrink-0" /><p className="text-[9px] font-bold text-yellow-500 uppercase leading-relaxed">Reminder: AI Extraction is experimental. Review all generated entries before importing. Automated parsing may require manual corrections.</p></div>
                       <div className="space-y-2">
-                        <Label className="text-[10px] font-black uppercase">Upload Schedule Data (Any Format)</Label>
+                        <Label className="text-[10px] font-black uppercase">Upload Schedule (Image or PDF)</Label>
                         <div className="relative">
                           <input 
                             type="file" 
                             onChange={handleScheduleFileUpload} 
                             className="absolute inset-0 opacity-0 cursor-pointer z-10" 
-                            accept="*" 
+                            accept="image/*,application/pdf" 
                           />
-                          <div className="h-32 border-2 border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center bg-black/20 hover:border-primary/50 transition-all">
-                            {isScheduleUploading ? (
-                              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                          <div className={cn(
+                            "h-32 border-2 border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center bg-black/20 hover:border-primary/50 transition-all",
+                            (isScheduleUploading || isParsing) && "opacity-50"
+                          )}>
+                            {isScheduleUploading || isParsing ? (
+                              <div className="flex flex-col items-center gap-2">
+                                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                                <span className="text-[9px] font-black uppercase text-primary animate-pulse">
+                                  {isScheduleUploading ? "Uploading to Cloud..." : "AI analyzing document..."}
+                                </span>
+                              </div>
                             ) : (
                               <>
-                                <Upload className="h-6 w-6 text-muted-foreground mb-2" />
+                                <BrainCircuit className="h-6 w-6 text-muted-foreground mb-2" />
                                 <span className="text-[9px] font-black uppercase text-muted-foreground px-4 text-center">
-                                  Click or Drag to Upload Schedule File<br/>(PDF, Images, CSV, JSON)
+                                  Click or Drag to Analyze Schedule File<br/>(AI Extracted Results will appear below)
                                 </span>
                               </>
                             )}
@@ -647,6 +710,64 @@ export function UATAdminPortalContent() {
                   </Card>
                 </div>
              </div>
+
+             {/* AI PARSED REVIEW SECTION */}
+             {parsedGames.length > 0 && (
+               <Card className="bg-card/50 border-primary/20 animate-in slide-in-from-bottom-4 duration-500">
+                 <CardHeader className="bg-primary/5 border-b border-white/5">
+                    <div className="flex items-center justify-between">
+                       <div className="flex items-center gap-3">
+                          <CheckCircle2 className="h-5 w-5 text-green-500" />
+                          <div>
+                             <CardTitle className="text-sm font-black uppercase tracking-widest">Review Extracted Schedule</CardTitle>
+                             <CardDescription className="text-[10px] font-bold uppercase">AI identified Participation for {teamData?.name}</CardDescription>
+                          </div>
+                       </div>
+                       <div className="flex gap-2">
+                          <Button variant="ghost" onClick={() => setParsedGames([])} className="text-[10px] font-black uppercase">Cancel</Button>
+                          <Button onClick={handleImportParsedGames} disabled={isSaving} className="bg-primary text-white text-[10px] font-black uppercase tracking-widest">
+                             {isSaving ? <Loader2 className="animate-spin h-3 w-3 mr-2" /> : <Save className="h-3 w-3 mr-2" />}
+                             Import Reviewed Games
+                          </Button>
+                       </div>
+                    </div>
+                 </CardHeader>
+                 <CardContent className="p-0">
+                    <Table>
+                       <TableHeader>
+                          <TableRow className="border-white/5">
+                             <TableHead className="text-[10px] font-black uppercase">Date</TableHead>
+                             <TableHead className="text-[10px] font-black uppercase">Time</TableHead>
+                             <TableHead className="text-[10px] font-black uppercase">Matchup</TableHead>
+                             <TableHead className="text-[10px] font-black uppercase">Location</TableHead>
+                             <TableHead className="text-[10px] font-black uppercase">Status</TableHead>
+                          </TableRow>
+                       </TableHeader>
+                       <TableBody>
+                          {parsedGames.map((game, i) => (
+                             <TableRow key={i} className="border-white/5 group hover:bg-white/5">
+                                <TableCell className="text-xs font-bold">{game.gameDate}</TableCell>
+                                <TableCell className="text-xs font-bold">{game.time}</TableCell>
+                                <TableCell className="text-xs font-bold">
+                                   <div className="flex items-center gap-2">
+                                      <span className={cn(game.homeOrAway === 'away' && "text-primary")}>{game.homeOrAway === 'away' ? teamData?.name : game.opponent}</span>
+                                      <span className="text-[9px] opacity-40">vs</span>
+                                      <span className={cn(game.homeOrAway === 'home' && "text-primary")}>{game.homeOrAway === 'home' ? teamData?.name : game.opponent}</span>
+                                   </div>
+                                </TableCell>
+                                <TableCell className="text-xs font-bold text-muted-foreground">{game.location}</TableCell>
+                                <TableCell>
+                                   <Badge variant="outline" className="text-[9px] font-black uppercase border-primary/20 text-primary">
+                                      {game.homeOrAway}
+                                   </Badge>
+                                </TableCell>
+                             </TableRow>
+                          ))}
+                       </TableBody>
+                    </Table>
+                 </CardContent>
+               </Card>
+             )}
           </TabsContent>
 
           <TabsContent value="soundfx" className="space-y-8">
