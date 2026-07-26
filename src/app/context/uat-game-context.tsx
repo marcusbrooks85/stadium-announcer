@@ -86,6 +86,25 @@ export interface Team {
   logoUrl?: string;
 }
 
+// Global Audio Constants for Migration
+const INITIAL_ORGAN_HITS = [
+  { title: "BULLFIGHTER", link: "melJslO0IJY", startTime: 0, order: 0 },
+  { title: "JAWS", link: "QPwozG816lk", startTime: 0, order: 1 },
+  { title: "LET'S GO TEAM", link: "kzTfu6LwbD8", startTime: 0, order: 2 },
+  { title: "TAKE ME OUT", link: "QamKhi1cxIs", startTime: 0, order: 3 },
+  { title: "THREE CHARGES", link: "jcylen-X1no", startTime: 0, order: 4 },
+  { title: "CAVALRY CHARGE", link: "1aQ3nk-W0GI", startTime: 0, order: 5 },
+];
+
+const INITIAL_PUMP_UP_SONGS = [
+  { title: "DODGERS", link: "4KwFuGtGU6c", startTime: 10, order: 0 },
+  { title: "ROCK YOU", link: "TXGbhniTBrU", startTime: 0, order: 1 },
+  { title: "PUMP IT", link: "fSvPktHcxtg", startTime: 0, order: 2 },
+  { title: "DANCE NOW", link: "l5Zox5O3jh4", startTime: 0, order: 3 },
+  { title: "CAN'T STOP", link: "0Ui-QzihJGo", startTime: 0, order: 4 },
+  { title: "PASSO BEM", link: "KgayxOF4Y7E", startTime: 0, order: 5 },
+];
+
 export const FULL_GAME_SCHEDULE = [
   { id: "game_1", week: 1, date: "2026-06-20", time: "2:00 PM", home: "Coach Alexis", away: "Coach Chewy", location: "Jim Thorpe - Cordary Field" },
   { id: "game_2", week: 2, date: "2026-06-27", time: "9:00 AM", home: "Coach Matt & Rene", away: "Coach Chewy", location: "Jim Thorpe - Cordary Field" },
@@ -133,6 +152,7 @@ interface UATGameContextType {
   deleteUserAccount: (uid: string) => Promise<void>;
   saveStadiumSong: (category: 'organ' | 'pumpup', song: Omit<StadiumSong, 'id'>, id?: string) => Promise<void>;
   deleteStadiumSong: (category: 'organ' | 'pumpup', id: string) => Promise<void>;
+  reorderStadiumSongs: (category: 'organ' | 'pumpup', updatedSongs: StadiumSong[]) => Promise<void>;
   adminLogin: (password: string) => boolean;
   adminLogout: () => void;
   isAdmin: boolean;
@@ -321,16 +341,29 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
       if (doc.exists()) setTeamData({ id: doc.id, ...doc.data() } as Team);
     });
 
+    // Audio Assets Migrated/Mapped from Prod
     const unsubOrgan = onSnapshot(query(collection(db, "organ_songs_UAT"), where("teamId", "==", userTeamId)), (snap) => {
-      const data = snap.docs.map(d => ({ id: d.id, ...d.data() })) as StadiumSong[];
-      data.sort((a, b) => (a.order || 0) - (b.order || 0));
-      setOrganSongs(data);
+      if (snap.empty && userTeamId) {
+        INITIAL_ORGAN_HITS.forEach((s, idx) => {
+          setDoc(doc(db, "organ_songs_UAT", `${userTeamId}_organ_${idx}`), { ...s, teamId: userTeamId }, { merge: true });
+        });
+      } else {
+        const data = snap.docs.map(d => ({ id: d.id, ...d.data() })) as StadiumSong[];
+        data.sort((a, b) => (a.order || 0) - (b.order || 0));
+        setOrganSongs(data);
+      }
     });
 
     const unsubPump = onSnapshot(query(collection(db, "pump_up_songs_UAT"), where("teamId", "==", userTeamId)), (snap) => {
-      const data = snap.docs.map(d => ({ id: d.id, ...d.data() })) as StadiumSong[];
-      data.sort((a, b) => (a.order || 0) - (b.order || 0));
-      setPumpUpSongs(data);
+      if (snap.empty && userTeamId) {
+        INITIAL_PUMP_UP_SONGS.forEach((s, idx) => {
+          setDoc(doc(db, "pump_up_songs_UAT", `${userTeamId}_pump_${idx}`), { ...s, teamId: userTeamId }, { merge: true });
+        });
+      } else {
+        const data = snap.docs.map(d => ({ id: d.id, ...d.data() })) as StadiumSong[];
+        data.sort((a, b) => (a.order || 0) - (b.order || 0));
+        setPumpUpSongs(data);
+      }
     });
 
     const unsubAllStats = onSnapshot(collection(db, "game_stats_UAT"), (snap) => {
@@ -407,6 +440,16 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
     await deleteDoc(doc(db, coll, id));
   };
 
+  const reorderStadiumSongs = async (category: 'organ' | 'pumpup', updatedSongs: StadiumSong[]) => {
+    if (!db || !userTeamId) return;
+    const coll = category === 'organ' ? "organ_songs_UAT" : "pump_up_songs_UAT";
+    const batch = writeBatch(db);
+    updatedSongs.forEach((song, index) => {
+      batch.update(doc(db, coll, song.id), { order: index });
+    });
+    await batch.commit();
+  };
+
   const updateTeamScore = (team: 'home' | 'away', delta: number) => {
     if (!isAdmin || !db || !userTeamId) return;
     const key = team === 'home' ? 'homeScore' : 'awayScore';
@@ -451,7 +494,7 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
       user, userRole, userTeamId, userProfile, teamData, roster: roster.map(p => ({ ...p, stats: gameStats.playerStats?.[p.id] || { ab: 0, h: 0, r: 0, rbi: 0 } })),
       games, organSongs, pumpUpSongs, selectedGameId, setSelectedGameId, homeScore: gameStats.homeScore || 0, awayScore: gameStats.awayScore || 0,
       updateTeamScore, updatePlayerStat, isLoaded, isOnline, savePlayer, deletePlayer, saveGame, deleteGame, saveTeamBranding,
-      updateUserProfile, deleteUserAccount, saveStadiumSong, deleteStadiumSong, adminLogin, adminLogout, isAdmin, triggerSync, emailStats
+      updateUserProfile, deleteUserAccount, saveStadiumSong, deleteStadiumSong, reorderStadiumSongs, adminLogin, adminLogout, isAdmin, triggerSync, emailStats
     }}>
       <UATGlobalMessagingListener />
       {children}

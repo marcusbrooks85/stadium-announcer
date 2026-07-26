@@ -18,16 +18,17 @@ export function UATNavbar() {
   const { userRole, isOnline, teamData } = useUATGame();
   const hasManagementAccess = ["super_admin", "league_admin", "booth_admin"].includes(userRole || "");
 
+  // Strictly reordered navigation items as requested
   const navItems = [
-    { label: "Booth Dashboard", href: "/booth-uat", icon: Zap },
-    { label: "Stats & Scoreboard", href: "/stats-uat", icon: BarChart3 },
     { label: "Game Schedule", href: "/schedule-uat", icon: Calendar },
+    { label: "Stats & Scoreboard", href: "/stats-uat", icon: BarChart3 },
+    { label: "Booth Dashboard", href: "/booth-uat", icon: Zap },
     { label: "Team Chat", href: "/messages-uat", icon: MessageSquare },
     { label: "Workspace Manager", href: "/admin-uat", icon: LayoutDashboard },
   ];
 
   if (hasManagementAccess) {
-    navItems.splice(5, 0, { label: "Analytics", href: "/analytics-uat", icon: Activity });
+    navItems.push({ label: "Analytics", href: "/analytics-uat", icon: Activity });
   }
 
   return (

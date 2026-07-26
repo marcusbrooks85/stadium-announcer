@@ -29,7 +29,9 @@ import {
   AlertTriangle,
   FileAudio,
   FileCode,
-  Utensils
+  Utensils,
+  LayoutDashboard,
+  Pencil
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,7 +55,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { useUATGame, UATGameProvider, Song, UploadedTrack } from "@/app/context/uat-game-context";
+import { useUATGame, UATGameProvider, Song, UploadedTrack, StadiumSong } from "@/app/context/uat-game-context";
 import { UATNavbar } from "@/components/UATNavbar";
 import { useFirestore, useAuth } from "@/firebase";
 import { collection, query, where, onSnapshot, doc, setDoc, addDoc, deleteDoc, serverTimestamp, lmit, updateDoc } from "firebase/firestore";
@@ -72,13 +74,18 @@ export function UATAdminPortalContent() {
     teamData, 
     roster, 
     games,
+    organSongs,
+    pumpUpSongs,
     saveTeamBranding,
     updateUserProfile,
     deleteUserAccount,
     savePlayer,
     deletePlayer,
     saveGame,
-    deleteGame
+    deleteGame,
+    saveStadiumSong,
+    deleteStadiumSong,
+    reorderStadiumSongs
   } = useUATGame();
 
   const [teamUsers, setTeamUsers] = useState<any[]>([]);
@@ -92,6 +99,11 @@ export function UATAdminPortalContent() {
   const [fxFile, setFxFile] = useState<File | null>(null);
   const [previewingId, setPreviewingId] = useState<string | null>(null);
   const audioPreviewRef = useRef<HTMLAudioElement | null>(null);
+
+  // Booth Config Form States
+  const [activeAudioCategory, setActiveAudioCategory] = useState<'organ' | 'pumpup'>("organ");
+  const [editingSongId, setEditingSongId] = useState<string | null>(null);
+  const [songForm, setSongForm] = useState({ title: "", link: "", startTime: 0, order: 0 });
 
   // Profile/Branding Form States
   const [profileForm, setProfileForm] = useState({ firstName: "", lastName: "", phoneNumber: "", playerId: "" });
@@ -179,49 +191,21 @@ export function UATAdminPortalContent() {
     }
   }, [selectedPlayerId, roster]);
 
-  /**
-   * Helper for uploading files to R2 via presigned URLs.
-   * Includes detailed error handling and header alignment.
-   */
   const uploadToR2 = async (file: File, folder: string) => {
     try {
-      // Step 1: Request presigned URL from API
       const res = await fetch("/api/upload", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fileName: file.name,
-          fileType: file.type,
-          folder
-        }),
+        body: JSON.stringify({ fileName: file.name, fileType: file.type, folder }),
       });
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        console.error(`R2 Presign Failure: ${res.status}`, errorData);
-        throw new Error(`Failed to get upload URL: ${errorData.error || res.statusText}`);
-      }
-
+      if (!res.ok) throw new Error("Failed to get upload URL");
       const { uploadUrl, key } = await res.json();
-      if (!uploadUrl) throw new Error("API returned no upload URL.");
-
-      // Step 2: Perform binary upload to R2
-      const uploadRes = await fetch(uploadUrl, {
-        method: "PUT",
-        headers: { "Content-Type": file.type }, // Must match the signature exactly
-        body: file,
-      });
-
-      if (!uploadRes.ok) {
-        const r2Error = await uploadRes.text();
-        console.error(`R2 PUT Failure: ${uploadRes.status}`, r2Error);
-        throw new Error(`Cloudflare R2 Rejected Upload: ${uploadRes.status}`);
-      }
-      
+      const uploadRes = await fetch(uploadUrl, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
+      if (!uploadRes.ok) throw new Error("Cloudflare R2 Rejected Upload");
       const accountId = "66e24ae6da0ca15e881f10c5889a6783";
       return `https://pub-${accountId}.r2.dev/${key}`;
     } catch (err: any) {
-      console.error("uploadToR2 diagnostic error:", err);
+      console.error("uploadToR2 error:", err);
       throw err;
     }
   };
@@ -276,11 +260,7 @@ export function UATAdminPortalContent() {
     try {
       let finalAudioUrl = playerForm.announcementAudioUrl;
       const playerId = selectedPlayerId === "new" ? doc(collection(db, "players_UAT")).id : selectedPlayerId;
-      
-      if (audioFile) {
-        finalAudioUrl = await uploadToR2(audioFile, "announcement_audio_UAT");
-      }
-
+      if (audioFile) finalAudioUrl = await uploadToR2(audioFile, "announcement_audio_UAT");
       await savePlayer({
         name: playerForm.name,
         number: parseInt(playerForm.number) || 0,
@@ -359,9 +339,7 @@ export function UATAdminPortalContent() {
       toast({ title: "Schedule File Uploaded", description: "Processing started in schedule-uploads." });
     } catch (err: any) {
       toast({ variant: "destructive", title: "Upload Failed", description: err.message });
-    } finally {
-      setIsScheduleUploading(false);
-    }
+    } finally { setIsScheduleUploading(false); }
   };
 
   const handleBulkSnackUpdate = async () => {
@@ -370,9 +348,27 @@ export function UATAdminPortalContent() {
     setTimeout(() => toast({ title: "Snack Duty Synced", description: "Please verify generated assignments below." }), 1500);
   };
 
+  const startEditingStadiumSong = (song: StadiumSong) => {
+    setEditingSongId(song.id);
+    setSongForm({ title: song.title, link: song.link, startTime: song.startTime, order: song.order || 0 });
+  };
+
+  const handleSaveStadiumSong = () => {
+    if (!songForm.title || !songForm.link) { toast({ variant: "destructive", title: "Missing Data" }); return; }
+    saveStadiumSong(activeAudioCategory, {
+      title: songForm.title,
+      link: songForm.link,
+      startTime: Number(songForm.startTime) || 0,
+      order: songForm.order
+    }, editingSongId || undefined);
+    setEditingSongId(null);
+    setSongForm({ title: "", link: "", startTime: 0, order: 0 });
+    toast({ title: editingSongId ? "Track Updated" : "Track Added to Stadium" });
+  };
+
   if (!isLoaded) return <div className="min-h-screen flex flex-col items-center justify-center stadium-gradient gap-4"><Loader2 className="h-8 w-8 animate-spin text-primary" /><span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Initializing Workspace...</span></div>;
 
-  const isManagement = ["super_admin", "league_admin"].includes(userRole || "");
+  const isManagement = ["super_admin", "league_admin", "booth_admin"].includes(userRole || "");
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground stadium-gradient overflow-hidden">
@@ -390,6 +386,7 @@ export function UATAdminPortalContent() {
             <TabsTrigger value="identity" className="text-[10px] font-black uppercase tracking-widest px-6 h-10">Identity</TabsTrigger>
             {isManagement && <TabsTrigger value="users" className="text-[10px] font-black uppercase tracking-widest px-6 h-10">Team Users</TabsTrigger>}
             {isManagement && <TabsTrigger value="logistics" className="text-[10px] font-black uppercase tracking-widest px-6 h-10">Team Roster</TabsTrigger>}
+            {isManagement && <TabsTrigger value="booth-config" className="text-[10px] font-black uppercase tracking-widest px-6 h-10">Booth Config</TabsTrigger>}
             {isManagement && <TabsTrigger value="builder" className="text-[10px] font-black uppercase tracking-widest px-6 h-10">Schedule Builder</TabsTrigger>}
             {isManagement && <TabsTrigger value="soundfx" className="text-[10px] font-black uppercase tracking-widest px-6 h-10">Sound FX</TabsTrigger>}
           </TabsList>
@@ -440,13 +437,38 @@ export function UATAdminPortalContent() {
           <TabsContent value="logistics" className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               <Card className="bg-card/50 border-white/10">
-                <CardHeader><CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-3"><Users className="h-4 w-4 text-[var(--tenant-primary)]" /> Select Player to Edit</CardTitle></CardHeader>
-                <CardContent className="space-y-4">
-                  <Select value={selectedPlayerId} onValueChange={setSelectedPlayerId}>
-                    <SelectTrigger className="h-14 bg-black/40 font-black uppercase text-xs tracking-widest border-white/10"><SelectValue placeholder="Add New Player..." /></SelectTrigger>
-                    <SelectContent><SelectItem value="new" className="font-black text-primary">+ ADD NEW PLAYER</SelectItem>{roster.map(p => <SelectItem key={p.id} value={p.id} className="font-bold">#{p.number} - {p.name}</SelectItem>)}</SelectContent>
-                  </Select>
-                  {selectedPlayerId !== "new" && <Button variant="destructive" className="w-full h-12 font-black uppercase text-[10px]" onClick={() => { if(confirm("Delete player?")) deletePlayer(selectedPlayerId); setSelectedPlayerId("new"); }}><Trash2 className="h-4 w-4 mr-2" /> Permanently Delete Player</Button>}
+                <CardHeader>
+                  <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-3">
+                    <Users className="h-4 w-4 text-[var(--tenant-primary)]" /> Select Player to Edit
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* STANDALONE ADD BUTTON */}
+                  <Button 
+                    onClick={() => setSelectedPlayerId("new")} 
+                    className="w-full h-12 bg-primary/20 text-primary border border-primary/30 font-black uppercase text-[10px] tracking-widest hover:bg-primary/30"
+                  >
+                    <Plus className="h-4 w-4 mr-2" /> + ADD NEW PLAYER
+                  </Button>
+
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Existing Roster</Label>
+                    <Select value={selectedPlayerId} onValueChange={setSelectedPlayerId}>
+                      <SelectTrigger className="h-14 bg-black/40 font-black uppercase text-xs tracking-widest border-white/10">
+                        <SelectValue placeholder="Select existing player..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="new" className="font-black text-muted-foreground">None Selected</SelectItem>
+                        {roster.map(p => <SelectItem key={p.id} value={p.id} className="font-bold">#{p.number} - {p.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {selectedPlayerId !== "new" && (
+                    <Button variant="destructive" className="w-full h-12 font-black uppercase text-[10px]" onClick={() => { if(confirm("Delete player?")) deletePlayer(selectedPlayerId); setSelectedPlayerId("new"); }}>
+                      <Trash2 className="h-4 w-4 mr-2" /> Permanently Delete Player
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
 
@@ -495,6 +517,62 @@ export function UATAdminPortalContent() {
                   <Button disabled={isSaving || isUploading} onClick={handleSavePlayerProfile} className="w-full h-14 bg-primary text-white font-black uppercase text-[10px] tracking-widest">{(isSaving || isUploading) ? <Loader2 className="animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />} Save Player Profile</Button>
                 </CardContent>
               </Card>
+            </div>
+          </TabsContent>
+
+          {/* NEW BOOTH CONFIG TAB */}
+          <TabsContent value="booth-config" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+               <Card className="bg-card/50 border-white/10">
+                 <CardHeader><CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-3"><Settings className="h-4 w-4 text-[var(--tenant-primary)]" /> Configure Asset</CardTitle></CardHeader>
+                 <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-black uppercase">Category</Label>
+                      <Select value={activeAudioCategory} onValueChange={(val: any) => { setActiveAudioCategory(val); setEditingSongId(null); setSongForm({title:"",link:"",startTime:0,order:0}); }}>
+                        <SelectTrigger className="h-11 bg-black/40"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="organ">Organ Master</SelectItem>
+                          <SelectItem value="pumpup">Crowd Pump-Up</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-black uppercase">Track Title</Label>
+                      <Input value={songForm.title} onChange={e => setSongForm({...songForm, title: e.target.value})} className="h-11 bg-black/40" placeholder="e.g. Bullfighter" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-black uppercase">YouTube ID / URL</Label>
+                      <Input value={songForm.link} onChange={e => setSongForm({...songForm, link: e.target.value})} className="h-11 bg-black/40" placeholder="YouTube Video ID" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-black uppercase">Start At (Seconds)</Label>
+                      <Input type="number" value={songForm.startTime || ""} onChange={e => setSongForm({...songForm, startTime: parseInt(e.target.value) || 0})} className="h-11 bg-black/40" />
+                    </div>
+                    <Button onClick={handleSaveStadiumSong} className="w-full h-12 bg-primary font-black uppercase text-[10px]">
+                      {editingSongId ? <Save className="h-4 w-4 mr-2" /> : <Plus className="h-4 w-4 mr-2" />} 
+                      {editingSongId ? "Update Track" : "Add Track"}
+                    </Button>
+                 </CardContent>
+               </Card>
+               <Card className="lg:col-span-2 bg-card/50 border-white/10">
+                 <CardHeader><CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-3"><Music className="h-4 w-4 text-[var(--tenant-primary)]" /> {activeAudioCategory === 'organ' ? "Organ Master" : "Crowd Pump-Up"} Inventory</CardTitle></CardHeader>
+                 <CardContent>
+                   <div className="space-y-3">
+                     {(activeAudioCategory === 'organ' ? organSongs : pumpUpSongs).map((song) => (
+                       <div key={song.id} className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/10 group">
+                         <div className="flex flex-col">
+                           <span className="text-xs font-black uppercase tracking-wider">{song.title}</span>
+                           <span className="text-[9px] text-muted-foreground font-bold uppercase">Start: {song.startTime}s • ID: {song.link}</span>
+                         </div>
+                         <div className="flex items-center gap-2">
+                            <Button variant="ghost" size="icon" onClick={() => startEditingStadiumSong(song)} className="h-8 w-8 text-primary opacity-40 group-hover:opacity-100 transition-opacity"><Pencil className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="icon" onClick={() => deleteStadiumSong(activeAudioCategory, song.id)} className="h-8 w-8 text-destructive opacity-40 group-hover:opacity-100 transition-opacity"><Trash2 className="h-4 w-4" /></Button>
+                         </div>
+                       </div>
+                     ))}
+                   </div>
+                 </CardContent>
+               </Card>
             </div>
           </TabsContent>
 
