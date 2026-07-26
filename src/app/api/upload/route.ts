@@ -15,26 +15,31 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     }
 
-    // Explicit Environment Variable Mapping with Trimming
+    // Explicit Environment Variable Mapping with Trimming and Sanitization
     const accountId = (process.env.CLOUDFLARE_ACCOUNT_ID || process.env.R2_ACCOUNT_ID || "").trim().replace(/^https?:\/\//, '').replace(/\/$/, '');
     const accessKeyId = (process.env.R2_ACCESS_KEY_ID || "").trim();
     const secretAccessKey = (process.env.R2_SECRET_ACCESS_KEY || "").trim();
     const bucketName = (process.env.R2_BUCKET_NAME || "on-deck-assets").trim();
 
-    // Diagnostic Server-Side Logging
-    console.log("R2 Proxy Diagnostic Check:");
-    console.log(`- AccountId Length: ${accountId.length}, Last 4: ...${accountId.slice(-4)}`);
-    console.log(`- AccessKeyId Length: ${accessKeyId.length}, Last 4: ...${accessKeyId.slice(-4)}`);
-    console.log(`- SecretKey Length: ${secretAccessKey.length}`);
-    console.log(`- Target Bucket: "${bucketName}"`);
-    console.log(`- Target Folder: "${folder}"`);
-
+    // Explicit Error Reporting for Missing Keys
     if (!accountId || !accessKeyId || !secretAccessKey) {
-      console.error("CRITICAL: R2 Configuration Missing in Environment Variables.");
+      const missing = [];
+      if (!accountId) missing.push("CLOUDFLARE_ACCOUNT_ID");
+      if (!accessKeyId) missing.push("R2_ACCESS_KEY_ID");
+      if (!secretAccessKey) missing.push("R2_SECRET_ACCESS_KEY");
+      
+      console.error(`CRITICAL: R2 Configuration Missing: ${missing.join(', ')}`);
       return NextResponse.json({ 
-        error: 'R2 environment configuration is incomplete.' 
+        error: `R2 environment configuration is incomplete. Missing: ${missing.join(', ')}` 
       }, { status: 500 });
     }
+
+    // Diagnostic Server-Side Logging
+    console.log("R2 Proxy Diagnostic Check:");
+    console.log(`- AccountId: ${accountId.length} chars, last 4: ...${accountId.slice(-4)}`);
+    console.log(`- AccessKeyId: ${accessKeyId.length} chars, last 4: ...${accessKeyId.slice(-4)}`);
+    console.log(`- Target Bucket: "${bucketName}"`);
+    console.log(`- Target Folder: "${folder}/"`);
 
     // Initialize S3 Client for Cloudflare R2 with clean endpoint
     const s3Client = new S3Client({
@@ -63,9 +68,7 @@ export async function POST(req: NextRequest) {
     }));
 
     // The public account identifier for R2 serving
-    // Note: We use the accountId for the endpoint, but serving usually happens via a public domain or pub-<id>.r2.dev
-    const publicId = accountId; 
-    const url = `https://pub-${publicId}.r2.dev/${key}`;
+    const url = `https://pub-${accountId}.r2.dev/${key}`;
 
     console.log("Successfully proxied upload to R2:", key);
 

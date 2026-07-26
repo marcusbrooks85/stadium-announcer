@@ -13,21 +13,30 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     }
 
-    // Explicit Environment Variable Mapping with Trimming
+    // Explicit Environment Variable Mapping with Trimming and Sanitization
     const accountId = (process.env.CLOUDFLARE_ACCOUNT_ID || process.env.R2_ACCOUNT_ID || "").trim().replace(/^https?:\/\//, '').replace(/\/$/, '');
     const accessKeyId = (process.env.R2_ACCESS_KEY_ID || "").trim();
     const secretAccessKey = (process.env.R2_SECRET_ACCESS_KEY || "").trim();
     const bucketName = (process.env.R2_BUCKET_NAME || "on-deck-assets").trim();
 
+    // Explicit Error Reporting for Missing Keys
+    if (!accountId || !accessKeyId || !secretAccessKey) {
+      const missing = [];
+      if (!accountId) missing.push("CLOUDFLARE_ACCOUNT_ID");
+      if (!accessKeyId) missing.push("R2_ACCESS_KEY_ID");
+      if (!secretAccessKey) missing.push("R2_SECRET_ACCESS_KEY");
+      
+      console.error(`CRITICAL: Chat R2 Configuration Missing: ${missing.join(', ')}`);
+      return NextResponse.json({ 
+        error: `Chat R2 environment configuration is incomplete. Missing: ${missing.join(', ')}` 
+      }, { status: 500 });
+    }
+
     // Diagnostic Server-Side Logging
     console.log("Chat R2 Proxy Diagnostic Check:");
-    console.log(`- AccountId Length: ${accountId.length}, Last 4: ...${accountId.slice(-4)}`);
-    console.log(`- AccessKeyId Length: ${accessKeyId.length}, Last 4: ...${accessKeyId.slice(-4)}`);
+    console.log(`- AccountId: ${accountId.length} chars, last 4: ...${accountId.slice(-4)}`);
+    console.log(`- AccessKeyId: ${accessKeyId.length} chars, last 4: ...${accessKeyId.slice(-4)}`);
     console.log(`- Target Bucket: "${bucketName}"`);
-
-    if (!accountId || !accessKeyId || !secretAccessKey) {
-      return NextResponse.json({ error: 'R2 configuration missing' }, { status: 500 });
-    }
 
     const s3Client = new S3Client({
       region: 'auto',
