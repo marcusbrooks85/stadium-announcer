@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Explicit Environment Variable Mapping with Trimming and Sanitization
-    const accountId = (process.env.CLOUDFLARE_ACCOUNT_ID || process.env.R2_ACCOUNT_ID || "").trim().replace(/^https?:\/\//, '').replace(/\/$/, '');
+    const accountId = (process.env.CLOUDFLARE_ACCOUNT_ID || "").trim().replace(/^https?:\/\//, '').replace(/\/$/, '');
     const accessKeyId = (process.env.R2_ACCESS_KEY_ID || "").trim();
     const secretAccessKey = (process.env.R2_SECRET_ACCESS_KEY || "").trim();
     const bucketName = (process.env.R2_BUCKET_NAME || "on-deck-assets").trim();
