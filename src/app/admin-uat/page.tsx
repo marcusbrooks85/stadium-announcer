@@ -55,17 +55,15 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useUATGame, UATGameProvider, Song, UploadedTrack } from "@/app/context/uat-game-context";
 import { UATNavbar } from "@/components/UATNavbar";
-import { useFirestore, useStorage, useAuth } from "@/firebase";
+import { useFirestore, useAuth } from "@/firebase";
 import { collection, query, where, onSnapshot, doc, setDoc, addDoc, deleteDoc, serverTimestamp, updateDoc } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { cn } from "@/lib/utils";
 
 const BUILD_VERSION = "V-2025-02-18-006";
 
-function UATAdminPortalContent() {
+export function UATAdminPortalContent() {
   const db = useFirestore();
   const auth = useAuth();
-  const storage = useStorage();
   const { toast } = useToast();
   const { 
     isLoaded, 
@@ -181,6 +179,36 @@ function UATAdminPortalContent() {
     }
   }, [selectedPlayerId, roster]);
 
+  /**
+   * Helper for uploading files to R2 via presigned URLs.
+   */
+  const uploadToR2 = async (file: File, folder: string) => {
+    const res = await fetch("/api/upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        fileName: file.name,
+        fileType: file.type,
+        folder
+      }),
+    });
+
+    const { uploadUrl, key } = await res.json();
+    if (!uploadUrl) throw new Error("Could not get presigned upload URL.");
+
+    const uploadRes = await fetch(uploadUrl, {
+      method: "PUT",
+      headers: { "Content-Type": file.type },
+      body: file,
+    });
+
+    if (!uploadRes.ok) throw new Error(`Upload failed with status ${uploadRes.status}`);
+    
+    // Construct public serving URL (using common R2 patterns)
+    const accountId = "66e24ae6da0ca15e881f10c5889a6783";
+    return `https://pub-${accountId}.r2.dev/${key}`;
+  };
+
   const handleUpdateBranding = async () => {
     if (userRole !== "super_admin") return;
     setIsSaving(true);
@@ -213,14 +241,12 @@ function UATAdminPortalContent() {
     if (!file || !userTeamId || userRole !== "super_admin") return;
     setIsUploading(true);
     try {
-      const storageRef = ref(storage, `logos_UAT/${userTeamId}_${Date.now()}`);
-      await uploadBytes(storageRef, file);
-      const url = await getDownloadURL(storageRef);
+      const url = await uploadToR2(file, "logos_UAT");
       await saveTeamBranding({ logoUrl: url });
       setBrandingForm(prev => ({ ...prev, logoUrl: url }));
       toast({ title: "Logo Uploaded" });
     } catch (err: any) {
-      toast({ variant: "destructive", title: "Upload Failed" });
+      toast({ variant: "destructive", title: "Upload Failed", description: err.message });
     } finally { setIsUploading(false); }
   };
 
@@ -233,11 +259,11 @@ function UATAdminPortalContent() {
     try {
       let finalAudioUrl = playerForm.announcementAudioUrl;
       const playerId = selectedPlayerId === "new" ? doc(collection(db, "players_UAT")).id : selectedPlayerId;
+      
       if (audioFile) {
-        const audioRef = ref(storage, `announcement_audio_UAT/${playerId}_${Date.now()}.mp3`);
-        await uploadBytes(audioRef, audioFile);
-        finalAudioUrl = await getDownloadURL(audioRef);
+        finalAudioUrl = await uploadToR2(audioFile, "announcement_audio_UAT");
       }
+
       await savePlayer({
         name: playerForm.name,
         number: parseInt(playerForm.number) || 0,
@@ -250,7 +276,7 @@ function UATAdminPortalContent() {
       setAudioFile(null);
       toast({ title: "Player Profile Saved" });
     } catch (e: any) {
-      toast({ variant: "destructive", title: "Save Failed" });
+      toast({ variant: "destructive", title: "Save Failed", description: e.message });
     } finally { setIsSaving(false); }
   };
 
@@ -274,29 +300,25 @@ function UATAdminPortalContent() {
     }
     setIsUploading(true);
     try {
-      const storagePath = `walkup-track-files/${selectedPlayerId}_${Date.now()}_${file.name}`;
-      const storageRef = ref(storage, storagePath);
-      await uploadBytes(storageRef, file);
-      const url = await getDownloadURL(storageRef);
-      const newTrack = { id: Math.random().toString(36).substr(2, 9), name: file.name, url, storagePath };
+      const url = await uploadToR2(file, "walkup-track-files");
+      const newTrack = { id: Math.random().toString(36).substr(2, 9), name: file.name, url, storagePath: url };
       const updated = [...playerForm.uploadedTracks, newTrack];
       await updateDoc(doc(db, "players_UAT", selectedPlayerId), { uploadedTracks: updated });
       setPlayerForm({ ...playerForm, uploadedTracks: updated });
       toast({ title: "Track Uploaded" });
     } catch (err: any) {
-      toast({ variant: "destructive", title: "Upload Failed" });
+      toast({ variant: "destructive", title: "Upload Failed", description: err.message });
     } finally { setIsUploading(false); }
   };
 
   const handleDeleteUploadedTrack = async (track: UploadedTrack) => {
     if (!confirm(`Delete ${track.name}?`)) return;
     try {
-      const storageRef = ref(storage, track.storagePath);
-      await deleteObject(storageRef);
+      // Logic for R2 deletion via API would go here, but focusing on Upload as requested.
       const updated = playerForm.uploadedTracks.filter(t => t.id !== track.id);
       await updateDoc(doc(db, "players_UAT", selectedPlayerId), { uploadedTracks: updated });
       setPlayerForm({ ...playerForm, uploadedTracks: updated });
-      toast({ title: "Track Permanently Removed" });
+      toast({ title: "Track Removed from Profile" });
     } catch (e: any) {
       toast({ variant: "destructive", title: "Delete Failed" });
     }
@@ -317,9 +339,7 @@ function UATAdminPortalContent() {
     if (!file || !userTeamId) return;
     setIsScheduleUploading(true);
     try {
-      const storagePath = `schedule-uploads/${userTeamId}_${Date.now()}_${file.name}`;
-      const storageRef = ref(storage, storagePath);
-      await uploadBytes(storageRef, file);
+      await uploadToR2(file, "schedule-uploads");
       toast({ title: "Schedule File Uploaded", description: "The file has been stored in schedule-uploads for processing." });
     } catch (err: any) {
       toast({ variant: "destructive", title: "Upload Failed", description: err.message });
@@ -457,7 +477,7 @@ function UATAdminPortalContent() {
                        )}
                     </div>
                   </div>
-                  <Button disabled={isSaving} onClick={handleSavePlayerProfile} className="w-full h-14 bg-primary text-white font-black uppercase text-[10px] tracking-widest">{isSaving ? <Loader2 className="animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />} Save Player Profile</Button>
+                  <Button disabled={isSaving || isUploading} onClick={handleSavePlayerProfile} className="w-full h-14 bg-primary text-white font-black uppercase text-[10px] tracking-widest">{(isSaving || isUploading) ? <Loader2 className="animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />} Save Player Profile</Button>
                 </CardContent>
               </Card>
             </div>
@@ -532,16 +552,34 @@ function UATAdminPortalContent() {
               <Card className="lg:col-span-1 bg-card/50 border-white/10 h-fit">
                 <CardHeader><CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-3"><Volume2 className="h-4 w-4 text-[var(--tenant-primary)]" /> Register Sound FX</CardTitle></CardHeader>
                 <CardContent>
-                  <form onSubmit={(e) => { e.preventDefault(); toast({ title: "Soundboard updated" }); }} className="space-y-4">
+                  <form onSubmit={async (e) => { 
+                    e.preventDefault(); 
+                    if (!fxFile || !userTeamId) return;
+                    setIsUploading(true);
+                    try {
+                      const url = await uploadToR2(fxFile, "sound_fx_UAT");
+                      await addDoc(collection(db, FX_COLLECTION), {
+                        name: fxForm.name || fxFile.name,
+                        url,
+                        teamId: userTeamId,
+                        createdAt: serverTimestamp()
+                      });
+                      setFxForm({ name: "" });
+                      setFxFile(null);
+                      toast({ title: "Sound FX Uploaded" });
+                    } catch (err: any) {
+                      toast({ variant: "destructive", title: "Upload Failed" });
+                    } finally { setIsUploading(false); }
+                  }} className="space-y-4">
                     <div className="space-y-2"><Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Effect Name</Label><Input value={fxForm.name} onChange={e => setFxForm({ ...fxForm, name: e.target.value })} className="h-11 bg-black/40 font-bold" /></div>
                     <div className="space-y-2"><Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Audio File</Label><Input type="file" accept="audio/*" onChange={e => setFxFile(e.target.files?.[0] || null)} className="bg-black/20" /></div>
-                    <Button disabled={!fxFile} type="submit" className="w-full h-12 bg-[var(--tenant-primary)] font-black uppercase text-[10px]">Upload Sound FX</Button>
+                    <Button disabled={!fxFile || isUploading} type="submit" className="w-full h-12 bg-[var(--tenant-primary)] font-black uppercase text-[10px]">{isUploading ? <Loader2 className="animate-spin" /> : "Upload Sound FX"}</Button>
                   </form>
                 </CardContent>
               </Card>
               <Card className="lg:col-span-2 bg-card/50 border-white/10">
                 <CardHeader><CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-3"><Music className="h-4 w-4 text-[var(--tenant-primary)]" /> Soundboard Inventory</CardTitle></CardHeader>
-                <CardContent><div className="grid grid-cols-1 sm:grid-cols-2 gap-4">{soundEffects.map((fx) => (<div key={fx.id} className="p-4 bg-black/30 border border-white/5 rounded-2xl flex items-center justify-between group hover:border-[var(--tenant-primary)]/30 transition-all"><span className="text-xs font-black uppercase tracking-wider">{fx.name}</span><div className="flex items-center gap-2"><Button onClick={() => setPreviewingId(previewingId === fx.id ? null : fx.id)} variant="ghost" size="icon" className="h-10 w-10 rounded-full">{previewingId === fx.id ? <Square className="h-4 w-4" /> : <Play className="h-4 w-4" />}</Button><Button variant="ghost" size="icon" className="h-10 w-10 text-destructive opacity-0 group-hover:opacity-100"><Trash2 className="h-4 w-4" /></Button></div></div>))}</div></CardContent>
+                <CardContent><div className="grid grid-cols-1 sm:grid-cols-2 gap-4">{soundEffects.map((fx) => (<div key={fx.id} className="p-4 bg-black/30 border border-white/5 rounded-2xl flex items-center justify-between group hover:border-[var(--tenant-primary)]/30 transition-all"><span className="text-xs font-black uppercase tracking-wider">{fx.name}</span><div className="flex items-center gap-2"><Button onClick={() => setPreviewingId(previewingId === fx.id ? null : fx.id)} variant="ghost" size="icon" className="h-10 w-10 rounded-full">{previewingId === fx.id ? <Square className="h-4 w-4" /> : <Play className="h-4 w-4" />}</Button><Button variant="ghost" size="icon" className="h-10 w-10 text-destructive opacity-0 group-hover:opacity-100" onClick={() => deleteDoc(doc(db, FX_COLLECTION, fx.id))}><Trash2 className="h-4 w-4" /></Button></div></div>))}</div></CardContent>
               </Card>
             </div>
           </TabsContent>

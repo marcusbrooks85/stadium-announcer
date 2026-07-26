@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -20,8 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { useGame, Player, StadiumSong } from "@/app/context/game-context";
-import { useStorage, useFirestore } from "@/firebase";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { useFirestore } from "@/firebase";
 import { collection, doc } from "firebase/firestore";
 import { 
   Settings, 
@@ -60,7 +58,6 @@ export function AdminPanel() {
     deleteStadiumSong 
   } = useGame();
   
-  const storage = useStorage();
   const db = useFirestore();
   const { toast } = useToast();
   
@@ -133,6 +130,35 @@ export function AdminPanel() {
     }
   };
 
+  /**
+   * Helper for uploading files to R2 via presigned URLs.
+   */
+  const uploadToR2 = async (file: File, folder: string) => {
+    const res = await fetch("/api/upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        fileName: file.name,
+        fileType: file.type,
+        folder
+      }),
+    });
+
+    const { uploadUrl, key } = await res.json();
+    if (!uploadUrl) throw new Error("Could not get presigned upload URL.");
+
+    const uploadRes = await fetch(uploadUrl, {
+      method: "PUT",
+      headers: { "Content-Type": file.type },
+      body: file,
+    });
+
+    if (!uploadRes.ok) throw new Error(`Upload failed with status ${uploadRes.status}`);
+    
+    const accountId = "66e24ae6da0ca15e881f10c5889a6783";
+    return `https://pub-${accountId}.r2.dev/${key}`;
+  };
+
   const parseYoutubeId = (url: string) => {
     if (!url) return "";
     const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
@@ -141,16 +167,14 @@ export function AdminPanel() {
   };
 
   const handleSavePlayer = async () => {
-    if (!db || !storage) return;
+    if (!db) return;
     setIsSaving(true);
     try {
       let playerId = selectedPlayerId === "new" ? doc(collection(db, "players")).id : selectedPlayerId;
       let audioUrl = playerForm.announcementAudioUrl;
 
       if (audioFile) {
-        const storageRef = ref(storage, `audio/${playerId}.mp3`);
-        await uploadBytes(storageRef, audioFile);
-        audioUrl = `${await getDownloadURL(storageRef)}?t=${Date.now()}`;
+        audioUrl = await uploadToR2(audioFile, "audio");
       }
 
       const data = {
@@ -169,6 +193,7 @@ export function AdminPanel() {
       savePlayer(data, playerId);
       toast({ title: "Player Profile Saved" });
       setSelectedPlayerId("new");
+      setAudioFile(null);
     } catch (e: any) {
       toast({ variant: "destructive", title: "Save Failed", description: e.message });
     } finally { setIsSaving(false); }
