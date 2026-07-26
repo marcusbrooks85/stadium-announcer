@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo } from "react";
@@ -16,6 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { Card } from "@/components/ui/card";
 import { useFirestore, useAuth, useUser } from "@/firebase";
 import { collection, query, where, orderBy, onSnapshot, addDoc, updateDoc, doc, getDoc, setDoc, deleteDoc, serverTimestamp, limit, arrayUnion, arrayRemove } from "firebase/firestore";
 import { useUATGame, UATGameProvider } from "@/app/context/uat-game-context";
@@ -113,7 +113,8 @@ function UATMessagesContent() {
     const currentVotes = poll.votes?.[opt.id] || [];
     
     if (poll.type === "snack-duty") {
-      const userProf = Object.values(userProfiles).find(p => p.id === auth.currentUser?.uid);
+      const userSnap = await getDoc(doc(db, "users_UAT", auth.currentUser.uid));
+      const userProf = userSnap.exists() ? userSnap.data() : null;
       if (userProf?.playerId) {
         await saveGame({ snackPlayerId: userProf.playerId }, opt.id);
         toast({ title: "Snack Duty Assigned", description: `You have signed up for ${opt.text}` });

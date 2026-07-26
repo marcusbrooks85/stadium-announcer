@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
@@ -61,7 +60,7 @@ import { collection, query, where, onSnapshot, doc, setDoc, addDoc, deleteDoc, s
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { cn } from "@/lib/utils";
 
-const BUILD_VERSION = "V-2025-02-18-003";
+const BUILD_VERSION = "V-2025-02-18-004";
 
 function UATAdminPortalContent() {
   const db = useFirestore();
@@ -480,7 +479,7 @@ function UATAdminPortalContent() {
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Start Time</Label><Input value={gameForm.time} onChange={e => setGameForm({...gameForm, time: e.target.value})} placeholder="e.g. 6:00 PM" className="bg-black/20" /></div>
-                      <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Field/Location</Label><Input value={gameForm.location} onChange={e => setGameForm({...gameForm, location: e.target.value})} placeholder="Jim Thorpe - Cordary" className="bg-black/20" /></div>
+                      <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Field/Location</Label><Input value={gameForm.location} onChange={e => setGameForm({...gameForm, location: e.target.value})} placeholder="Jim Thorpe - Cordary Field" className="bg-black/20" /></div>
                     </div>
                     <Button onClick={handleAddGameManual} className="w-full h-12 bg-secondary text-secondary-foreground font-black uppercase text-[10px]"><Plus className="h-4 w-4 mr-2" /> Add Weekly Game</Button>
                   </CardContent>
