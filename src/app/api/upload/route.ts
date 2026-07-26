@@ -33,9 +33,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'R2 configuration is incomplete.' }, { status: 500 });
     }
 
+    // Harden Account ID: Strip protocol and trailing slashes
+    const cleanAccountId = accountId.trim().replace(/^https?:\/\//, '').replace(/\/$/, '');
+
     const s3Client = new S3Client({
       region: 'auto',
-      endpoint: `https://${accountId.trim()}.r2.cloudflarestorage.com`,
+      endpoint: `https://${cleanAccountId}.r2.cloudflarestorage.com`,
       credentials: {
         accessKeyId: accessKeyId.trim(),
         secretAccessKey: secretAccessKey.trim(),

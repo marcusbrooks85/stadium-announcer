@@ -198,10 +198,13 @@ export function UATAdminPortalContent() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ fileName: file.name, fileType: file.type, folder }),
       });
-      if (!res.ok) throw new Error("Failed to get upload URL");
+      if (!res.ok) throw new Error(`API error: ${res.status}`);
       const { uploadUrl, key } = await res.json();
+      
+      console.log("GENERATED PRESIGNED URL:", uploadUrl);
+      
       const uploadRes = await fetch(uploadUrl, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
-      if (!uploadRes.ok) throw new Error("Cloudflare R2 Rejected Upload");
+      if (!uploadRes.ok) throw new Error(`R2 error: ${uploadRes.status}`);
       const accountId = "66e24ae6da0ca15e881f10c5889a6783";
       return `https://pub-${accountId}.r2.dev/${key}`;
     } catch (err: any) {

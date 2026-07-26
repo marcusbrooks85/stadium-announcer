@@ -38,10 +38,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Harden Account ID: Strip protocol and trailing slashes
+    const cleanAccountId = accountId.trim().replace(/^https?:\/\//, '').replace(/\/$/, '');
+
     // Initialize S3 Client for Cloudflare R2
     const s3Client = new S3Client({
       region: 'auto',
-      endpoint: `https://${accountId.trim()}.r2.cloudflarestorage.com`,
+      endpoint: `https://${cleanAccountId}.r2.cloudflarestorage.com`,
       forcePathStyle: true, // Required for certain R2 configurations to ensure correct pathing
       credentials: {
         accessKeyId: accessKeyId.trim(),

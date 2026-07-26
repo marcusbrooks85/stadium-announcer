@@ -156,6 +156,8 @@ export function AdminPanel() {
       const { uploadUrl, key } = await res.json();
       if (!uploadUrl) throw new Error("API returned no upload URL.");
 
+      console.log("GENERATED PRESIGNED URL:", uploadUrl);
+
       // Step 2: Binary PUT to R2
       const uploadRes = await fetch(uploadUrl, {
         method: "PUT",
