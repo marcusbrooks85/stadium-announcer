@@ -283,7 +283,7 @@ function UATBoothContent() {
                       <Button key={song.id} variant="outline" onClick={() => playYoutubeTrack(song.link, song.title, song.startTime, "Hype")} className="w-full h-12 text-[8px] font-black uppercase text-left justify-start">📣 {song.title}</Button>
                     ))}
                   </CardContent>
-                </div>
+                </Card>
               </div>
             </div>
           </main>
