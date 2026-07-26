@@ -1,4 +1,3 @@
-
 "use client";
 
 import React from "react";
@@ -30,6 +29,8 @@ import {
   SheetClose,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+
+const BUILD_VERSION = "V-2025-02-18-002";
 
 /**
  * A shared navigation bar for the UAT environment.
@@ -117,13 +118,16 @@ export function UATNavbar() {
           })}
         </nav>
 
-        <div className="p-6 border-t border-white/5 bg-black/40">
+        <div className="p-6 border-t border-white/5 bg-black/40 space-y-4">
           <div className="bg-primary/5 border border-primary/10 rounded-2xl p-4 flex flex-col gap-2">
             <span className="text-[8px] font-black uppercase text-primary tracking-widest">Operator Status</span>
             <div className="flex items-center gap-2">
                <ShieldCheck className="h-3 w-3 text-primary" />
                <span className="text-[10px] font-bold text-white uppercase">{userRole?.replace('_', ' ') || 'User'} Verified</span>
             </div>
+          </div>
+          <div className="text-center">
+             <span className="text-[8px] font-black text-muted-foreground/40 uppercase tracking-[0.3em]">Build: {BUILD_VERSION}</span>
           </div>
         </div>
       </SheetContent>

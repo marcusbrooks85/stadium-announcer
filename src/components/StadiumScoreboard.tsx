@@ -1,7 +1,6 @@
-
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { 
   ChevronUp, 
   ChevronDown, 
@@ -14,6 +13,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useGame } from "@/app/context/game-context";
 import { cn } from "@/lib/utils";
 
 interface StadiumScoreboardProps {
@@ -29,6 +29,8 @@ interface StadiumScoreboardProps {
  * 3. Ergonomic Admin Controls with auto-transition logic
  */
 export function StadiumScoreboard({ adminMode = true }: StadiumScoreboardProps) {
+  const { homeScore: contextHomeScore, awayScore: contextAwayScore, updateTeamScore } = useGame();
+
   // --- Game State ---
   const [balls, setBalls] = useState(0);
   const [strikes, setStrikes] = useState(0);
@@ -45,6 +47,7 @@ export function StadiumScoreboard({ adminMode = true }: StadiumScoreboardProps) 
   const [homeErrors, setHomeErrors] = useState(0);
 
   // --- Derived Totals ---
+  // We use the context scores for the display to ensure consistency with historical data
   const awayRuns = awayLineScore.reduce((a, b) => a + b, 0);
   const homeRuns = homeLineScore.reduce((a, b) => a + b, 0);
 
@@ -100,10 +103,12 @@ export function StadiumScoreboard({ adminMode = true }: StadiumScoreboardProps) 
       const next = [...awayLineScore];
       next[idx] = Math.max(0, next[idx] + delta);
       setAwayLineScore(next);
+      updateTeamScore('away', delta);
     } else {
       const next = [...homeLineScore];
       next[idx] = Math.max(0, next[idx] + delta);
       setHomeLineScore(next);
+      updateTeamScore('home', delta);
     }
   };
 
@@ -116,6 +121,25 @@ export function StadiumScoreboard({ adminMode = true }: StadiumScoreboardProps) 
     if (half === 'top') setAwayErrors(prev => Math.max(0, prev + delta));
     else setHomeErrors(prev => Math.max(0, prev + delta));
   };
+
+  // Sync internal totals with context if context changes from elsewhere
+  useEffect(() => {
+    // If the Context totals don't match our line score sum, we reset line score to 0 and set context total as a placeholder in first inning
+    // This handles the "past game scores" pulling through even if we don't have detailed line scores
+    const contextAway = contextAwayScore || 0;
+    const contextHome = contextHomeScore || 0;
+
+    if (contextAway !== awayRuns) {
+       const next = new Array(9).fill(0);
+       next[0] = contextAway;
+       setAwayLineScore(next);
+    }
+    if (contextHome !== homeRuns) {
+       const next = new Array(9).fill(0);
+       next[0] = contextHome;
+       setHomeLineScore(next);
+    }
+  }, [contextHomeScore, contextAwayScore]);
 
   // --- Sub-Components ---
 
@@ -169,11 +193,11 @@ export function StadiumScoreboard({ adminMode = true }: StadiumScoreboardProps) 
           <div className="flex items-center gap-2 sm:gap-4 ml-auto">
              <div className="flex flex-col items-center min-w-[50px] sm:min-w-[70px] bg-secondary/10 border border-secondary/20 p-1 sm:p-2 rounded-lg">
                 <span className="text-[7px] sm:text-[9px] font-black uppercase text-secondary leading-none mb-1">AWAY</span>
-                <span className="text-xl sm:text-3xl font-black digit-font text-white leading-none">{awayRuns}</span>
+                <span className="text-xl sm:text-3xl font-black digit-font text-white leading-none">{contextAwayScore || 0}</span>
              </div>
              <div className="flex flex-col items-center min-w-[50px] sm:min-w-[70px] bg-primary/10 border border-primary/20 p-1 sm:p-2 rounded-lg">
                 <span className="text-[7px] sm:text-[9px] font-black uppercase text-primary leading-none mb-1">HOME</span>
-                <span className="text-xl sm:text-3xl font-black digit-font text-white leading-none">{homeRuns}</span>
+                <span className="text-xl sm:text-3xl font-black digit-font text-white leading-none">{contextHomeScore || 0}</span>
              </div>
           </div>
         </div>
@@ -197,7 +221,7 @@ export function StadiumScoreboard({ adminMode = true }: StadiumScoreboardProps) 
                 {awayLineScore.map((score, i) => (
                   <td key={i} className={cn("p-3 text-center border-l border-white/5 text-sm", inning === i + 1 && half === 'top' && "bg-white/5 font-black text-white")}>{score || '-'}</td>
                 ))}
-                <td className="p-3 text-center border-l-2 border-white/10 font-black text-lg text-primary">{awayRuns}</td>
+                <td className="p-3 text-center border-l-2 border-white/10 font-black text-lg text-primary">{contextAwayScore || 0}</td>
                 <td className="p-3 text-center border-l border-white/5 text-sm font-bold text-muted-foreground">{awayHits}</td>
                 <td className="p-3 text-center border-l border-white/5 text-sm font-bold text-muted-foreground">{awayErrors}</td>
               </tr>
@@ -206,7 +230,7 @@ export function StadiumScoreboard({ adminMode = true }: StadiumScoreboardProps) 
                 {homeLineScore.map((score, i) => (
                   <td key={i} className={cn("p-3 text-center border-l border-white/5 text-sm", inning === i + 1 && half === 'bottom' && "bg-white/5 font-black text-white")}>{score || '-'}</td>
                 ))}
-                <td className="p-3 text-center border-l-2 border-white/10 font-black text-lg text-primary">{homeRuns}</td>
+                <td className="p-3 text-center border-l-2 border-white/10 font-black text-lg text-primary">{contextHomeScore || 0}</td>
                 <td className="p-3 text-center border-l border-white/5 text-sm font-bold text-muted-foreground">{homeHits}</td>
                 <td className="p-3 text-center border-l border-white/5 text-sm font-bold text-muted-foreground">{homeErrors}</td>
               </tr>

@@ -33,7 +33,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   // Deployment Verification Logic
-  const BUILD_STAMP = "V-2025-02-18-001";
+  const BUILD_STAMP = "V-2025-02-18-002";
 
   return (
     <html lang="en" className="dark border-none">
@@ -59,7 +59,31 @@ export default function RootLayout({
         </FirebaseClientProvider>
         <script
           dangerouslySetInnerHTML={{
-            __html: `console.log("ON DECK DEPLOYMENT LOADED: ${BUILD_STAMP} - " + new Date().toISOString());`,
+            __html: `
+              (function() {
+                const currentBuild = "${BUILD_STAMP}";
+                const storedBuild = localStorage.getItem("on-deck-build-v");
+                console.log("ON DECK DEPLOYMENT LOADED: " + currentBuild + " - " + new Date().toISOString());
+                
+                if (storedBuild && storedBuild !== currentBuild) {
+                  console.warn("New build detected. Purging cache and refreshing...");
+                  localStorage.setItem("on-deck-build-v", currentBuild);
+                  // Optional: location.reload(true) is deprecated, but we can try to force document refresh
+                  if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.getRegistrations().then(registrations => {
+                      for(let registration of registrations) {
+                        registration.unregister();
+                      }
+                      window.location.reload();
+                    });
+                  } else {
+                    window.location.reload();
+                  }
+                } else {
+                  localStorage.setItem("on-deck-build-v", currentBuild);
+                }
+              })();
+            `,
           }}
         />
       </body>

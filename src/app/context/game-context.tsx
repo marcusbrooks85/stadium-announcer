@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
@@ -130,7 +129,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const now = new Date();
     const sorted = [...FULL_GAME_SCHEDULE].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    const active = sorted.find(g => new Date(g.date).getTime() + (24 * 60 * 60 * 1000) > now.getTime()) || sorted[sorted.length - 1];
+    const active = sorted.find(g => new Date(g.date).getTime() + (2 * 60 * 60 * 1000) > now.getTime()) || sorted[sorted.length - 1];
     if (active && !selectedGameId) setSelectedGameId(active.id);
   }, [selectedGameId]);
 
@@ -243,7 +242,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }, [selectedGameId, allGameStats]);
 
   const adminLogin = (password: string) => {
-    if (password === "Chewy2026") {
+    if (password === "Mustard2026") {
       setIsAdmin(true);
       return true;
     }
