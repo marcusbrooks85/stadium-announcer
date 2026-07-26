@@ -129,50 +129,31 @@ export function UATAdminPanel() {
   };
 
   /**
-   * Helper for uploading files to R2 via presigned URLs.
-   * Ensures precise Content-Type header matching.
+   * Helper for uploading files to R2 via the Server-Side Proxy.
+   * This eliminates client-side CORS issues by proxying the binary transfer through our API route.
    */
   const uploadToR2 = async (file: File, folder: string) => {
     try {
-      // Step 1: Request presigned URL
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('folder', folder);
+
+      // POST to our server-side proxy route
       const res = await fetch("/api/upload", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fileName: file.name,
-          fileType: file.type, // Must exactly match step 2
-          folder
-        }),
+        body: formData,
       });
 
       if (!res.ok) {
         const errorData = await res.json();
-        console.error(`UAT Presign API Failure: ${res.status}`, errorData);
-        throw new Error(`UAT Presign API failed: ${errorData.error || res.statusText}`);
+        console.error(`UAT Proxy Upload Failure: ${res.status}`, errorData);
+        throw new Error(errorData.error || `UAT server rejected proxy upload: ${res.status}`);
       }
 
-      const { uploadUrl, key } = await res.json();
-      if (!uploadUrl) throw new Error("API returned no upload URL.");
-
-      console.log("GENERATED PRESIGNED URL:", uploadUrl);
-
-      // Step 2: Binary upload to R2
-      const uploadRes = await fetch(uploadUrl, {
-        method: "PUT",
-        headers: { "Content-Type": file.type }, // Signature match requirement
-        body: file,
-      });
-
-      if (!uploadRes.ok) {
-        const r2Error = await uploadRes.text();
-        console.error(`UAT R2 Binary PUT Failure: ${uploadRes.status}`, r2Error);
-        throw new Error(`UAT R2 Rejected Upload: ${uploadRes.status}`);
-      }
-      
-      const accountId = "66e24ae6da0ca15e881f10c5889a6783";
-      return `https://pub-${accountId}.r2.dev/${key}`;
+      const { url } = await res.json();
+      return url;
     } catch (err: any) {
-      console.error("UAT uploadToR2 diagnostic error:", err);
+      console.error("UAT uploadToR2 proxy diagnostic error:", err);
       throw err;
     }
   };

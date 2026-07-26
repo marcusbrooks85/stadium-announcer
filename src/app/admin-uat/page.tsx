@@ -191,24 +191,30 @@ export function UATAdminPortalContent() {
     }
   }, [selectedPlayerId, roster]);
 
+  /**
+   * Refactored R2 upload helper to use the Server-Side Proxy.
+   * Eliminates client-side CORS errors by proxying the binary transfer through our API route.
+   */
   const uploadToR2 = async (file: File, folder: string) => {
     try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('folder', folder);
+
       const res = await fetch("/api/upload", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fileName: file.name, fileType: file.type, folder }),
+        body: formData,
       });
-      if (!res.ok) throw new Error(`API error: ${res.status}`);
-      const { uploadUrl, key } = await res.json();
-      
-      console.log("GENERATED PRESIGNED URL:", uploadUrl);
-      
-      const uploadRes = await fetch(uploadUrl, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
-      if (!uploadRes.ok) throw new Error(`R2 error: ${uploadRes.status}`);
-      const accountId = "66e24ae6da0ca15e881f10c5889a6783";
-      return `https://pub-${accountId}.r2.dev/${key}`;
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || `Proxy upload failed with status: ${res.status}`);
+      }
+
+      const { url } = await res.json();
+      return url;
     } catch (err: any) {
-      console.error("uploadToR2 error:", err);
+      console.error("uploadToR2 proxy error:", err);
       throw err;
     }
   };

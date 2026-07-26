@@ -131,50 +131,31 @@ export function AdminPanel() {
   };
 
   /**
-   * Helper for uploading files to R2 via presigned URLs.
-   * Ensures strict Content-Type matching for the PUT request.
+   * Helper for uploading files to R2 via the Server-Side Proxy.
+   * This eliminates client-side CORS issues and signature mismatches.
    */
   const uploadToR2 = async (file: File, folder: string) => {
     try {
-      // Step 1: Request presigned URL
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('folder', folder);
+
+      // POST to our server-side proxy route
       const res = await fetch("/api/upload", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fileName: file.name,
-          fileType: file.type, // Exact type from file object
-          folder
-        }),
+        body: formData,
       });
 
       if (!res.ok) {
         const errorData = await res.json();
-        console.error(`Presign API Error: ${res.status}`, errorData);
-        throw new Error(`Presign API failed: ${errorData.error || res.statusText}`);
+        console.error(`Proxy Upload Failure: ${res.status}`, errorData);
+        throw new Error(errorData.error || `Server rejected proxy upload: ${res.status}`);
       }
 
-      const { uploadUrl, key } = await res.json();
-      if (!uploadUrl) throw new Error("API returned no upload URL.");
-
-      console.log("GENERATED PRESIGNED URL:", uploadUrl);
-
-      // Step 2: Binary PUT to R2
-      const uploadRes = await fetch(uploadUrl, {
-        method: "PUT",
-        headers: { "Content-Type": file.type }, // Must match step 1 exactly
-        body: file,
-      });
-
-      if (!uploadRes.ok) {
-        const r2Error = await uploadRes.text();
-        console.error(`R2 Binary PUT Failure: ${uploadRes.status}`, r2Error);
-        throw new Error(`Cloudflare R2 Rejected Binary Upload: ${uploadRes.status}`);
-      }
-      
-      const accountId = "66e24ae6da0ca15e881f10c5889a6783";
-      return `https://pub-${accountId}.r2.dev/${key}`;
+      const { url } = await res.json();
+      return url;
     } catch (err: any) {
-      console.error("uploadToR2 diagnostic error:", err);
+      console.error("uploadToR2 proxy diagnostic error:", err);
       throw err;
     }
   };
