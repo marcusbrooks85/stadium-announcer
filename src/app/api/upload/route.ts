@@ -15,38 +15,34 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     }
 
-    let accountId, accessKeyId, secretAccessKey, bucketName;
+    // Explicit Environment Variable Mapping with Trimming
+    const accountId = (process.env.CLOUDFLARE_ACCOUNT_ID || process.env.R2_ACCOUNT_ID || "").trim().replace(/^https?:\/\//, '').replace(/\/$/, '');
+    const accessKeyId = (process.env.R2_ACCESS_KEY_ID || "").trim();
+    const secretAccessKey = (process.env.R2_SECRET_ACCESS_KEY || "").trim();
+    const bucketName = (process.env.R2_BUCKET_NAME || "on-deck-assets").trim();
 
-    // Use hardcoded development credentials if env vars are missing
-    if (process.env.NODE_ENV === 'development' || !process.env.R2_ACCOUNT_ID) {
-      accountId = "66e24ae6da0ca15e881f10c5889a6783";
-      accessKeyId = "7aa2e9b42b7c9981579bfa690a43a0e3";
-      secretAccessKey = "37a9e9d11c0c4edadacd21ef99a232733d342fb586f747f0ccbe31bb7c26dab";
-      bucketName = "on-deck-assets";
-      console.log('R2 Proxy: Using hardcoded development credentials.');
-    } else {
-      accountId = process.env.R2_ACCOUNT_ID;
-      accessKeyId = process.env.R2_ACCESS_KEY_ID;
-      secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
-      bucketName = process.env.R2_BUCKET_NAME;
+    // Diagnostic Server-Side Logging
+    console.log("R2 Proxy Diagnostic Check:");
+    console.log(`- AccountId Length: ${accountId.length}, Last 4: ...${accountId.slice(-4)}`);
+    console.log(`- AccessKeyId Length: ${accessKeyId.length}, Last 4: ...${accessKeyId.slice(-4)}`);
+    console.log(`- SecretKey Length: ${secretAccessKey.length}`);
+    console.log(`- Target Bucket: "${bucketName}"`);
+    console.log(`- Target Folder: "${folder}"`);
 
-      if (!accountId || !accessKeyId || !secretAccessKey || !bucketName) {
-        return NextResponse.json({ 
-          error: 'Cloudflare R2 is not configured. Production requires R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, and R2_BUCKET_NAME.' 
-        }, { status: 500 });
-      }
+    if (!accountId || !accessKeyId || !secretAccessKey) {
+      console.error("CRITICAL: R2 Configuration Missing in Environment Variables.");
+      return NextResponse.json({ 
+        error: 'R2 environment configuration is incomplete.' 
+      }, { status: 500 });
     }
 
-    // Harden Account ID: Strip protocol and trailing slashes
-    const cleanAccountId = accountId.trim().replace(/^https?:\/\//, '').replace(/\/$/, '');
-
-    // Initialize S3 Client for Cloudflare R2
+    // Initialize S3 Client for Cloudflare R2 with clean endpoint
     const s3Client = new S3Client({
       region: 'auto',
-      endpoint: `https://${cleanAccountId}.r2.cloudflarestorage.com`,
+      endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
       credentials: {
-        accessKeyId: accessKeyId.trim(),
-        secretAccessKey: secretAccessKey.trim(),
+        accessKeyId,
+        secretAccessKey,
       },
     });
 
@@ -57,17 +53,18 @@ export async function POST(req: NextRequest) {
 
     /**
      * Perform the upload directly from the server.
-     * This eliminates CORS issues between the browser and R2.
+     * This eliminates CORS issues and Signature mismatches caused by client-side headers.
      */
     await s3Client.send(new PutObjectCommand({
-      Bucket: bucketName.trim(),
+      Bucket: bucketName,
       Key: key,
       Body: buffer,
       ContentType: file.type,
     }));
 
     // The public account identifier for R2 serving
-    const publicId = "66e24ae6da0ca15e881f10c5889a6783";
+    // Note: We use the accountId for the endpoint, but serving usually happens via a public domain or pub-<id>.r2.dev
+    const publicId = accountId; 
     const url = `https://pub-${publicId}.r2.dev/${key}`;
 
     console.log("Successfully proxied upload to R2:", key);
@@ -76,7 +73,7 @@ export async function POST(req: NextRequest) {
   } catch (error: any) {
     console.error('R2 Proxy System Error:', error);
     return NextResponse.json({ 
-      error: `Server-Side Upload Failure: ${error.message}`
+      error: `Server-Side Proxy Failure: ${error.message}`
     }, { status: 500 });
   }
 }
