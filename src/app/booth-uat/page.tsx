@@ -353,7 +353,7 @@ function UATBoothContent() {
                       </Button>
                     ))}
                   </CardContent>
-                </div>
+                </Card>
               </div>
             </div>
           </main>
