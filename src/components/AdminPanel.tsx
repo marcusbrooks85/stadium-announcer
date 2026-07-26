@@ -132,31 +132,49 @@ export function AdminPanel() {
 
   /**
    * Helper for uploading files to R2 via presigned URLs.
+   * Ensures strict Content-Type matching for the PUT request.
    */
   const uploadToR2 = async (file: File, folder: string) => {
-    const res = await fetch("/api/upload", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        fileName: file.name,
-        fileType: file.type,
-        folder
-      }),
-    });
+    try {
+      // Step 1: Request presigned URL
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fileName: file.name,
+          fileType: file.type, // Exact type from file object
+          folder
+        }),
+      });
 
-    const { uploadUrl, key } = await res.json();
-    if (!uploadUrl) throw new Error("Could not get presigned upload URL.");
+      if (!res.ok) {
+        const errorData = await res.json();
+        console.error(`Presign API Error: ${res.status}`, errorData);
+        throw new Error(`Presign API failed: ${errorData.error || res.statusText}`);
+      }
 
-    const uploadRes = await fetch(uploadUrl, {
-      method: "PUT",
-      headers: { "Content-Type": file.type },
-      body: file,
-    });
+      const { uploadUrl, key } = await res.json();
+      if (!uploadUrl) throw new Error("API returned no upload URL.");
 
-    if (!uploadRes.ok) throw new Error(`Upload failed with status ${uploadRes.status}`);
-    
-    const accountId = "66e24ae6da0ca15e881f10c5889a6783";
-    return `https://pub-${accountId}.r2.dev/${key}`;
+      // Step 2: Binary PUT to R2
+      const uploadRes = await fetch(uploadUrl, {
+        method: "PUT",
+        headers: { "Content-Type": file.type }, // Must match step 1 exactly
+        body: file,
+      });
+
+      if (!uploadRes.ok) {
+        const r2Error = await uploadRes.text();
+        console.error(`R2 Binary PUT Failure: ${uploadRes.status}`, r2Error);
+        throw new Error(`Cloudflare R2 Rejected Binary Upload: ${uploadRes.status}`);
+      }
+      
+      const accountId = "66e24ae6da0ca15e881f10c5889a6783";
+      return `https://pub-${accountId}.r2.dev/${key}`;
+    } catch (err: any) {
+      console.error("uploadToR2 diagnostic error:", err);
+      throw err;
+    }
   };
 
   const parseYoutubeId = (url: string) => {

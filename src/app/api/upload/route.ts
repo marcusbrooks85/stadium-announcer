@@ -4,6 +4,7 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 /**
  * API route to generate a presigned PUT URL for Cloudflare R2.
+ * Ensures strict header alignment and endpoint formatting.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -15,7 +16,7 @@ export async function POST(req: NextRequest) {
 
     let accountId, accessKeyId, secretAccessKey, bucketName;
 
-    // Use hardcoded development credentials if env vars are missing (for local testing parity with chat route)
+    // Use hardcoded development credentials if env vars are missing
     if (process.env.NODE_ENV === 'development' || !process.env.R2_ACCOUNT_ID) {
       accountId = "66e24ae6da0ca15e881f10c5889a6783";
       accessKeyId = "7aa2e9b42b7c9981579bfa690a43a0e3";
@@ -35,22 +36,25 @@ export async function POST(req: NextRequest) {
     const s3Client = new S3Client({
       region: 'auto',
       endpoint: `https://${accountId.trim()}.r2.cloudflarestorage.com`,
-      forcePathStyle: true,
       credentials: {
         accessKeyId: accessKeyId.trim(),
         secretAccessKey: secretAccessKey.trim(),
       },
     });
 
-    // Map to specific directory as requested
     const key = `${folder}/${Date.now()}_${fileName}`;
 
+    /**
+     * CRITICAL: ContentType must be included in the command parameters
+     * to match the signature with the actual 'Content-Type' header sent by the client.
+     */
     const command = new PutObjectCommand({
       Bucket: bucketName.trim(),
       Key: key,
       ContentType: fileType,
     });
 
+    // Generate pre-signed URL valid for 60 seconds
     const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 60 });
 
     return NextResponse.json({ uploadUrl, key });

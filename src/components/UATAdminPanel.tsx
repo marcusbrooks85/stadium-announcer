@@ -130,31 +130,49 @@ export function UATAdminPanel() {
 
   /**
    * Helper for uploading files to R2 via presigned URLs.
+   * Ensures precise Content-Type header matching.
    */
   const uploadToR2 = async (file: File, folder: string) => {
-    const res = await fetch("/api/upload", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        fileName: file.name,
-        fileType: file.type,
-        folder
-      }),
-    });
+    try {
+      // Step 1: Request presigned URL
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fileName: file.name,
+          fileType: file.type, // Must exactly match step 2
+          folder
+        }),
+      });
 
-    const { uploadUrl, key } = await res.json();
-    if (!uploadUrl) throw new Error("Could not get presigned upload URL.");
+      if (!res.ok) {
+        const errorData = await res.json();
+        console.error(`UAT Presign API Failure: ${res.status}`, errorData);
+        throw new Error(`UAT Presign API failed: ${errorData.error || res.statusText}`);
+      }
 
-    const uploadRes = await fetch(uploadUrl, {
-      method: "PUT",
-      headers: { "Content-Type": file.type },
-      body: file,
-    });
+      const { uploadUrl, key } = await res.json();
+      if (!uploadUrl) throw new Error("API returned no upload URL.");
 
-    if (!uploadRes.ok) throw new Error(`Upload failed with status ${uploadRes.status}`);
-    
-    const accountId = "66e24ae6da0ca15e881f10c5889a6783";
-    return `https://pub-${accountId}.r2.dev/${key}`;
+      // Step 2: Binary upload to R2
+      const uploadRes = await fetch(uploadUrl, {
+        method: "PUT",
+        headers: { "Content-Type": file.type }, // Signature match requirement
+        body: file,
+      });
+
+      if (!uploadRes.ok) {
+        const r2Error = await uploadRes.text();
+        console.error(`UAT R2 Binary PUT Failure: ${uploadRes.status}`, r2Error);
+        throw new Error(`UAT R2 Rejected Upload: ${uploadRes.status}`);
+      }
+      
+      const accountId = "66e24ae6da0ca15e881f10c5889a6783";
+      return `https://pub-${accountId}.r2.dev/${key}`;
+    } catch (err: any) {
+      console.error("UAT uploadToR2 diagnostic error:", err);
+      throw err;
+    }
   };
 
   const parseYoutubeId = (url: string) => {

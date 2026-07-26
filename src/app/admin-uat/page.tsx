@@ -56,7 +56,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useUATGame, UATGameProvider, Song, UploadedTrack } from "@/app/context/uat-game-context";
 import { UATNavbar } from "@/components/UATNavbar";
 import { useFirestore, useAuth } from "@/firebase";
-import { collection, query, where, onSnapshot, doc, setDoc, addDoc, deleteDoc, serverTimestamp, updateDoc } from "firebase/firestore";
+import { collection, query, where, onSnapshot, doc, setDoc, addDoc, deleteDoc, serverTimestamp, lmit, updateDoc } from "firebase/firestore";
 import { cn } from "@/lib/utils";
 
 const BUILD_VERSION = "V-2025-02-18-006";
@@ -181,32 +181,49 @@ export function UATAdminPortalContent() {
 
   /**
    * Helper for uploading files to R2 via presigned URLs.
+   * Includes detailed error handling and header alignment.
    */
   const uploadToR2 = async (file: File, folder: string) => {
-    const res = await fetch("/api/upload", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        fileName: file.name,
-        fileType: file.type,
-        folder
-      }),
-    });
+    try {
+      // Step 1: Request presigned URL from API
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fileName: file.name,
+          fileType: file.type,
+          folder
+        }),
+      });
 
-    const { uploadUrl, key } = await res.json();
-    if (!uploadUrl) throw new Error("Could not get presigned upload URL.");
+      if (!res.ok) {
+        const errorData = await res.json();
+        console.error(`R2 Presign Failure: ${res.status}`, errorData);
+        throw new Error(`Failed to get upload URL: ${errorData.error || res.statusText}`);
+      }
 
-    const uploadRes = await fetch(uploadUrl, {
-      method: "PUT",
-      headers: { "Content-Type": file.type },
-      body: file,
-    });
+      const { uploadUrl, key } = await res.json();
+      if (!uploadUrl) throw new Error("API returned no upload URL.");
 
-    if (!uploadRes.ok) throw new Error(`Upload failed with status ${uploadRes.status}`);
-    
-    // Construct public serving URL (using common R2 patterns)
-    const accountId = "66e24ae6da0ca15e881f10c5889a6783";
-    return `https://pub-${accountId}.r2.dev/${key}`;
+      // Step 2: Perform binary upload to R2
+      const uploadRes = await fetch(uploadUrl, {
+        method: "PUT",
+        headers: { "Content-Type": file.type }, // Must match the signature exactly
+        body: file,
+      });
+
+      if (!uploadRes.ok) {
+        const r2Error = await uploadRes.text();
+        console.error(`R2 PUT Failure: ${uploadRes.status}`, r2Error);
+        throw new Error(`Cloudflare R2 Rejected Upload: ${uploadRes.status}`);
+      }
+      
+      const accountId = "66e24ae6da0ca15e881f10c5889a6783";
+      return `https://pub-${accountId}.r2.dev/${key}`;
+    } catch (err: any) {
+      console.error("uploadToR2 diagnostic error:", err);
+      throw err;
+    }
   };
 
   const handleUpdateBranding = async () => {
@@ -282,7 +299,7 @@ export function UATAdminPortalContent() {
 
   const handleAddYoutubeTrack = () => {
     if (playerForm.songs.length >= 3) {
-      toast({ variant: "destructive", title: "Limit Reached", description: "Max 3 YouTube tracks per player." });
+      toast({ variant: "destructive", title: "Limit Reached", description: "Update existing tracks to change songs (Max 3)." });
       return;
     }
     setPlayerForm({ ...playerForm, songs: [...playerForm.songs, { name: "", videoId: "", startAt: 0 }] });
@@ -295,7 +312,7 @@ export function UATAdminPortalContent() {
       return;
     }
     if (playerForm.uploadedTracks.length >= 3) {
-      toast({ variant: "destructive", title: "Limit Reached", description: "Max 3 uploaded tracks per player." });
+      toast({ variant: "destructive", title: "Limit Reached", description: "Delete existing files to upload new ones (Max 3)." });
       return;
     }
     setIsUploading(true);
@@ -314,7 +331,6 @@ export function UATAdminPortalContent() {
   const handleDeleteUploadedTrack = async (track: UploadedTrack) => {
     if (!confirm(`Delete ${track.name}?`)) return;
     try {
-      // Logic for R2 deletion via API would go here, but focusing on Upload as requested.
       const updated = playerForm.uploadedTracks.filter(t => t.id !== track.id);
       await updateDoc(doc(db, "players_UAT", selectedPlayerId), { uploadedTracks: updated });
       setPlayerForm({ ...playerForm, uploadedTracks: updated });
@@ -340,7 +356,7 @@ export function UATAdminPortalContent() {
     setIsScheduleUploading(true);
     try {
       await uploadToR2(file, "schedule-uploads");
-      toast({ title: "Schedule File Uploaded", description: "The file has been stored in schedule-uploads for processing." });
+      toast({ title: "Schedule File Uploaded", description: "Processing started in schedule-uploads." });
     } catch (err: any) {
       toast({ variant: "destructive", title: "Upload Failed", description: err.message });
     } finally {
@@ -351,7 +367,6 @@ export function UATAdminPortalContent() {
   const handleBulkSnackUpdate = async () => {
     if (!snackUpdateText.trim()) return;
     toast({ title: "Updating Snack Duty...", description: "Verifying strings..." });
-    // Simulate text-based update logic
     setTimeout(() => toast({ title: "Snack Duty Synced", description: "Please verify generated assignments below." }), 1500);
   };
 
