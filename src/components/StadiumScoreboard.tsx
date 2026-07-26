@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useCallback, useEffect, useMemo } from "react";
@@ -15,21 +16,27 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useGame, FULL_GAME_SCHEDULE } from "@/app/context/game-context";
+import { useUATGame } from "@/app/context/uat-game-context";
 import { cn } from "@/lib/utils";
+import { usePathname } from "next/navigation";
 
 interface StadiumScoreboardProps {
   adminMode?: boolean;
 }
 
-/**
- * StadiumScoreboard Component
- * 
- * Features a balanced stadium-style score display with fixed-size cards.
- */
 export function StadiumScoreboard({ adminMode = true }: StadiumScoreboardProps) {
-  const { homeScore: contextHomeScore, awayScore: contextAwayScore, updateTeamScore, selectedGameId } = useGame();
+  const pathname = usePathname();
+  const isUAT = pathname.includes('-uat');
+  
+  // Conditionally use context based on environment
+  const prodContext = useGame();
+  const uatContext = useUATGame();
+  
+  const context = isUAT ? uatContext : prodContext;
+  const { homeScore: contextHomeScore, awayScore: contextAwayScore, updateTeamScore, selectedGameId, teamData } = context;
 
-  // --- Game State ---
+  const currentTeamName = isUAT ? (teamData?.name || "UAT TEAM") : "STRAWHATS";
+
   const [balls, setBalls] = useState(0);
   const [strikes, setStrikes] = useState(0);
   const [outs, setOuts] = useState(0);
@@ -44,66 +51,15 @@ export function StadiumScoreboard({ adminMode = true }: StadiumScoreboardProps) 
   const [awayErrors, setAwayErrors] = useState(0);
   const [homeErrors, setHomeErrors] = useState(0);
 
-  // Determine if Strawhats are home or away
-  const isStrawhatsHome = useMemo(() => {
-    const game = FULL_GAME_SCHEDULE.find(g => g.id === selectedGameId);
-    return game?.home === "Coach Chewy";
-  }, [selectedGameId]);
+  const activeGame = (context as any).games ? (context as any).games.find((g:any) => g.id === selectedGameId) : FULL_GAME_SCHEDULE.find(g => g.id === selectedGameId);
+  const isOurTeamHome = activeGame?.home?.includes('Chewy') || activeGame?.home === teamData?.name;
+  const isOurTeamAway = activeGame?.away?.includes('Chewy') || activeGame?.away === teamData?.name;
 
-  const isStrawhatsAway = useMemo(() => {
-    const game = FULL_GAME_SCHEDULE.find(g => g.id === selectedGameId);
-    return game?.away === "Coach Chewy";
-  }, [selectedGameId]);
-
-  // --- Derived Totals ---
-  const awayRuns = awayLineScore.reduce((a, b) => a + b, 0);
-  const homeRuns = homeLineScore.reduce((a, b) => a + b, 0);
-
-  // --- Game Logic Handlers ---
-  
   const nextHalfInning = useCallback(() => {
-    setBalls(0);
-    setStrikes(0);
-    setOuts(0);
-    if (half === 'top') {
-      setHalf('bottom');
-    } else {
-      setHalf('top');
-      setInning(prev => Math.min(prev + 1, 9));
-    }
+    setBalls(0); setStrikes(0); setOuts(0);
+    if (half === 'top') setHalf('bottom');
+    else { setHalf('top'); setInning(prev => Math.min(prev + 1, 9)); }
   }, [half]);
-
-  const addBall = () => {
-    if (balls === 3) {
-      setBalls(0);
-      setStrikes(0);
-    } else {
-      setBalls(prev => prev + 1);
-    }
-  };
-
-  const addStrike = () => {
-    if (strikes === 2) {
-      setStrikes(0);
-      setBalls(0);
-      addOut();
-    } else {
-      setStrikes(prev => prev + 1);
-    }
-  };
-
-  const addOut = () => {
-    if (outs === 2) {
-      nextHalfInning();
-    } else {
-      setOuts(prev => prev + 1);
-    }
-  };
-
-  const resetCount = () => {
-    setBalls(0);
-    setStrikes(0);
-  };
 
   const updateRuns = (delta: number) => {
     const idx = inning - 1;
@@ -120,200 +76,72 @@ export function StadiumScoreboard({ adminMode = true }: StadiumScoreboardProps) 
     }
   };
 
-  const updateHits = (delta: number) => {
-    if (half === 'top') setAwayHits(prev => Math.max(0, prev + delta));
-    else setHomeHits(prev => Math.max(0, prev + delta));
-  };
-
-  const updateErrors = (delta: number) => {
-    if (half === 'top') setAwayErrors(prev => Math.max(0, prev + delta));
-    else setHomeErrors(prev => Math.max(0, prev + delta));
-  };
-
   useEffect(() => {
-    const contextAway = contextAwayScore || 0;
-    const contextHome = contextHomeScore || 0;
-
-    if (contextAway !== awayRuns) {
-       const next = new Array(9).fill(0);
-       next[0] = contextAway;
-       setAwayLineScore(next);
+    if (contextAwayScore !== awayLineScore.reduce((a,b)=>a+b,0)) {
+       const next = new Array(9).fill(0); next[0] = contextAwayScore; setAwayLineScore(next);
     }
-    if (contextHome !== homeRuns) {
-       const next = new Array(9).fill(0);
-       next[0] = contextHome;
-       setHomeLineScore(next);
+    if (contextHomeScore !== homeLineScore.reduce((a,b)=>a+b,0)) {
+       const next = new Array(9).fill(0); next[0] = contextHomeScore; setHomeLineScore(next);
     }
-  }, [contextHomeScore, contextAwayScore, awayRuns, homeRuns]);
+  }, [contextHomeScore, contextAwayScore]);
 
-  const LightIndicator = ({ label, count, max, activeColor }: { label: string, count: number, max: number, activeColor: string }) => (
+  const LightIndicator = ({ label, count, max, activeColor }: any) => (
     <div className="flex flex-col items-center gap-1">
-      <span className="text-[7px] font-black text-muted-foreground uppercase tracking-widest leading-none mb-0.5">{label}</span>
-      <div className="flex gap-1">
-        {Array.from({ length: max }).map((_, i) => (
-          <div 
-            key={i} 
-            className={cn(
-              "h-2.5 w-2.5 sm:h-3 sm:w-3 rounded-full border border-white/10 transition-all duration-300",
-              i < count ? activeColor : "bg-black/40 shadow-inner"
-            )}
-          />
-        ))}
-      </div>
+      <span className="text-[7px] font-black text-muted-foreground uppercase">{label}</span>
+      <div className="flex gap-1">{Array.from({ length: max }).map((_, i) => (<div key={i} className={cn("h-2.5 w-2.5 rounded-full border border-white/10 transition-all", i < count ? activeColor : "bg-black/40")} />))}</div>
     </div>
   );
 
   return (
     <div className="w-full space-y-6">
       <Card className="bg-black border-2 border-white/5 shadow-2xl overflow-hidden">
-        <div className="bg-gradient-to-r from-blue-900/40 to-transparent p-2.5 sm:p-4 border-b border-white/5 flex flex-wrap items-center justify-start gap-4 sm:gap-8">
-          
-          <div className="h-12 sm:h-20 px-3 sm:px-6 bg-primary/10 border border-primary/20 rounded-lg flex items-center gap-3 sm:gap-6 shrink-0">
-             <div className="flex flex-col items-center">
-                <span className="text-[7px] sm:text-[10px] font-black uppercase text-primary leading-none mb-1">INN</span>
-                <span className="text-2xl sm:text-4xl font-black digit-font text-white leading-none">{inning}</span>
-             </div>
-             <div className="h-8 sm:h-12 w-[1px] bg-white/10" />
-             <div className="flex items-center">
-                {half === 'top' ? (
-                  <ChevronUp className="h-6 w-6 sm:h-10 sm:w-10 text-secondary animate-pulse" />
-                ) : (
-                  <ChevronDown className="h-6 w-6 sm:h-10 sm:w-10 text-primary animate-pulse" />
-                )}
-             </div>
+        <div className="bg-gradient-to-r from-blue-900/40 to-transparent p-4 flex items-center justify-between gap-8">
+          <div className="h-16 px-6 bg-primary/10 border border-primary/20 rounded-lg flex items-center gap-6">
+             <div className="flex flex-col items-center"><span className="text-[8px] font-black uppercase text-primary">INN</span><span className="text-3xl font-black digit-font text-white">{inning}</span></div>
+             {half === 'top' ? <ChevronUp className="h-8 w-8 text-secondary animate-pulse" /> : <ChevronDown className="h-8 w-8 text-primary animate-pulse" />}
           </div>
-          
-          <div className="grid grid-cols-3 gap-3 sm:gap-8 border-r border-white/5 pr-4 sm:pr-10">
-            <LightIndicator label="B" count={balls} max={3} activeColor="bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]" />
-            <LightIndicator label="S" count={strikes} max={2} activeColor="bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.4)]" />
-            <LightIndicator label="O" count={outs} max={2} activeColor="bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]" />
+          <div className="grid grid-cols-3 gap-8 border-r border-white/5 pr-10">
+            <LightIndicator label="B" count={balls} max={3} activeColor="bg-green-500 shadow-green-500" />
+            <LightIndicator label="S" count={strikes} max={2} activeColor="bg-yellow-500 shadow-yellow-500" />
+            <LightIndicator label="O" count={outs} max={2} activeColor="bg-red-500 shadow-red-500" />
           </div>
-
-          <div className="flex items-start gap-3 sm:gap-6 ml-auto">
+          <div className="flex items-start gap-6 ml-auto">
              <div className="flex flex-col items-center gap-2">
-                <div className="w-[70px] sm:w-[110px] h-[70px] sm:h-[110px] bg-secondary/10 border border-secondary/20 p-2 rounded-xl flex flex-col items-center justify-center transition-all shadow-inner">
-                   <span className="text-[8px] sm:text-[10px] font-black uppercase text-secondary leading-none mb-1">AWAY</span>
-                   <span className="text-3xl sm:text-6xl font-black digit-font text-white leading-none">{contextAwayScore || 0}</span>
-                </div>
-                <div className="h-5 flex items-center justify-center">
-                  {isStrawhatsAway && (
-                    <Badge className="bg-primary text-white font-black text-[7px] sm:text-[9px] uppercase tracking-[0.2em] rounded-md px-2 py-0.5 border-none">STRAWHATS</Badge>
-                  )}
-                </div>
+                <div className="w-[110px] h-[110px] bg-secondary/10 border border-secondary/20 rounded-xl flex flex-col items-center justify-center"><span className="text-[10px] font-black uppercase text-secondary">AWAY</span><span className="text-5xl font-black digit-font text-white">{contextAwayScore}</span></div>
+                {isOurTeamAway && <Badge className="bg-primary text-white font-black text-[9px] uppercase tracking-widest">{currentTeamName}</Badge>}
              </div>
              <div className="flex flex-col items-center gap-2">
-                <div className="w-[70px] sm:w-[110px] h-[70px] sm:h-[110px] bg-primary/10 border border-primary/20 p-2 rounded-xl flex flex-col items-center justify-center transition-all shadow-inner">
-                   <span className="text-[8px] sm:text-[10px] font-black uppercase text-primary leading-none mb-1">HOME</span>
-                   <span className="text-3xl sm:text-6xl font-black digit-font text-white leading-none">{contextHomeScore || 0}</span>
-                </div>
-                <div className="h-5 flex items-center justify-center">
-                  {isStrawhatsHome && (
-                    <Badge className="bg-primary text-white font-black text-[7px] sm:text-[9px] uppercase tracking-[0.2em] rounded-md px-2 py-0.5 border-none">STRAWHATS</Badge>
-                  )}
-                </div>
+                <div className="w-[110px] h-[110px] bg-primary/10 border border-primary/20 rounded-xl flex flex-col items-center justify-center"><span className="text-[10px] font-black uppercase text-primary">HOME</span><span className="text-5xl font-black digit-font text-white">{contextHomeScore}</span></div>
+                {isOurTeamHome && <Badge className="bg-primary text-white font-black text-[9px] uppercase tracking-widest">{currentTeamName}</Badge>}
              </div>
           </div>
         </div>
-
-        <CardContent className="p-0 overflow-x-auto scrollbar-hide mt-4">
+        <CardContent className="p-0 overflow-x-auto">
           <table className="w-full border-collapse">
-            <thead>
-              <tr className="bg-white/5 border-b border-white/5 text-[9px] font-black uppercase tracking-widest text-muted-foreground">
-                <th className="p-3 text-left w-24">Team</th>
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(i => (
-                  <th key={i} className={cn("p-3 text-center border-l border-white/5 w-10", inning === i && "bg-primary/20 text-primary")}>{i}</th>
-                ))}
-                <th className="p-3 text-center border-l-2 border-white/10 w-12 text-white">R</th>
-                <th className="p-3 text-center border-l border-white/5 w-12">H</th>
-                <th className="p-3 text-center border-l border-white/5 w-12">E</th>
-              </tr>
-            </thead>
+            <thead><tr className="bg-white/5 text-[9px] font-black uppercase tracking-widest text-muted-foreground"><th className="p-3 text-left w-24">Team</th>{[1,2,3,4,5,6,7,8,9].map(i=><th key={i} className="p-3 border-l border-white/5">{i}</th>)}<th className="p-3 border-l-2 border-white/10">R</th><th className="p-3 border-l border-white/5">H</th><th className="p-3 border-l border-white/5">E</th></tr></thead>
             <tbody className="digit-font">
-              <tr className="border-b border-white/5">
-                <td className="p-3 font-black text-xs uppercase tracking-tighter text-muted-foreground">
-                   Away
-                </td>
-                {awayLineScore.map((score, i) => (
-                  <td key={i} className={cn("p-3 text-center border-l border-white/5 text-sm", inning === i + 1 && half === 'top' && "bg-white/5 font-black text-white")}>{score || '-'}</td>
-                ))}
-                <td className="p-3 text-center border-l-2 border-white/10 font-black text-lg text-primary">{contextAwayScore || 0}</td>
-                <td className="p-3 text-center border-l border-white/5 text-sm font-bold text-muted-foreground">{awayHits}</td>
-                <td className="p-3 text-center border-l border-white/5 text-sm font-bold text-muted-foreground">{awayErrors}</td>
-              </tr>
-              <tr className="bg-white/[0.02]">
-                <td className="p-3 font-black text-xs uppercase tracking-tighter text-muted-foreground">
-                   Home
-                </td>
-                {homeLineScore.map((score, i) => (
-                  <td key={i} className={cn("p-3 text-center border-l border-white/5 text-sm", inning === i + 1 && half === 'bottom' && "bg-white/5 font-black text-white")}>{score || '-'}</td>
-                ))}
-                <td className="p-3 text-center border-l-2 border-white/10 font-black text-lg text-primary">{contextHomeScore || 0}</td>
-                <td className="p-3 text-center border-l border-white/5 text-sm font-bold text-muted-foreground">{homeHits}</td>
-                <td className="p-3 text-center border-l border-white/5 text-sm font-bold text-muted-foreground">{homeErrors}</td>
-              </tr>
+              <tr className="border-b border-white/5"><td className="p-3 text-xs font-black uppercase text-muted-foreground">Away</td>{awayLineScore.map((s,i)=><td key={i} className="p-3 text-center border-l border-white/5 text-sm">{s||'-'}</td>)}<td className="p-3 text-center border-l-2 border-white/10 font-black text-primary">{contextAwayScore}</td><td className="p-3 text-center border-l border-white/5 text-sm">{awayHits}</td><td className="p-3 text-center border-l border-white/5 text-sm">{awayErrors}</td></tr>
+              <tr className="bg-white/[0.02]"><td className="p-3 text-xs font-black uppercase text-muted-foreground">Home</td>{homeLineScore.map((s,i)=><td key={i} className="p-3 text-center border-l border-white/5 text-sm">{s||'-'}</td>)}<td className="p-3 text-center border-l-2 border-white/10 font-black text-primary">{contextHomeScore}</td><td className="p-3 text-center border-l border-white/5 text-sm">{homeHits}</td><td className="p-3 text-center border-l border-white/5 text-sm">{homeErrors}</td></tr>
             </tbody>
           </table>
         </CardContent>
       </Card>
-
       {adminMode && (
-        <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <Card className="bg-card/50 border-white/5 shadow-xl">
-            <CardHeader className="py-3 border-b border-white/5">
-              <CardTitle className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-2">
-                 <Activity className="h-3 w-3" /> Live Count Controller
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 space-y-4">
-               <div className="grid grid-cols-3 gap-3">
-                  <Button onClick={addBall} className="h-24 flex flex-col gap-1 bg-green-900/40 hover:bg-green-800/60 border border-green-500/20 group">
-                     <span className="text-[8px] font-black uppercase tracking-widest text-green-400 opacity-60 group-hover:opacity-100">+ Ball</span>
-                     <span className="text-3xl font-black text-white">{balls}</span>
-                  </Button>
-                  <Button onClick={addStrike} className="h-24 flex flex-col gap-1 bg-yellow-900/40 hover:bg-yellow-800/60 border border-yellow-500/20 group">
-                     <span className="text-[8px] font-black uppercase tracking-widest text-yellow-400 opacity-60 group-hover:opacity-100">+ Strike</span>
-                     <span className="text-3xl font-black text-white">{strikes}</span>
-                  </Button>
-                  <Button onClick={addOut} className="h-24 flex flex-col gap-1 bg-red-900/40 hover:bg-red-800/60 border border-red-500/20 group">
-                     <span className="text-[8px] font-black uppercase tracking-widest text-red-400 opacity-60 group-hover:opacity-100">+ Out</span>
-                     <span className="text-3xl font-black text-white">{outs}</span>
-                  </Button>
-               </div>
-               <div className="flex gap-2">
-                  <Button variant="outline" onClick={resetCount} className="flex-1 h-12 text-[10px] font-black uppercase border-white/5 hover:bg-white/5">
-                     <RotateCcw className="h-3 w-3 mr-2" /> Reset Count
-                  </Button>
-                  <Button variant="outline" onClick={nextHalfInning} className="flex-1 h-12 text-[10px] font-black uppercase border-white/5 hover:bg-white/5">
-                     <History className="h-3 w-3 mr-2" /> Change Half
-                  </Button>
-               </div>
-            </CardContent>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <Card className="bg-card/50 border-white/5 p-4 space-y-4">
+            <div className="grid grid-cols-3 gap-3">
+              <Button onClick={()=>setBalls(prev=>prev===3?0:prev+1)} className="h-20 flex flex-col bg-green-900/40 font-black"><span className="text-[8px]">+ BALL</span><span className="text-2xl">{balls}</span></Button>
+              <Button onClick={()=>setStrikes(prev=>prev===2?0:prev+1)} className="h-20 flex flex-col bg-yellow-900/40 font-black"><span className="text-[8px]">+ STRIKE</span><span className="text-2xl">{strikes}</span></Button>
+              <Button onClick={()=>setOuts(prev=>prev===2?0:prev+1)} className="h-20 flex flex-col bg-red-900/40 font-black"><span className="text-[8px]">+ OUT</span><span className="text-2xl">{outs}</span></Button>
+            </div>
+            <div className="flex gap-2"><Button variant="outline" onClick={()=>{setBalls(0);setStrikes(0);}} className="flex-1 h-12 font-black uppercase text-[10px]">Reset Count</Button><Button variant="outline" onClick={nextHalfInning} className="flex-1 h-12 font-black uppercase text-[10px]">Change Half</Button></div>
           </Card>
-
-          <Card className="bg-card/50 border-white/5 shadow-xl">
-             <CardHeader className="py-3 border-b border-white/5">
-                <CardTitle className="text-[10px] font-black uppercase tracking-widest text-secondary flex items-center gap-2">
-                   <Trophy className="h-3 w-3" /> Event Scorer ({half === 'top' ? "Away" : "Home"})
-                </CardTitle>
-             </CardHeader>
-             <CardContent className="p-4 grid grid-cols-3 gap-4">
-                {[
-                  { label: "Runs", value: half === 'top' ? awayRuns : homeRuns, update: updateRuns },
-                  { label: "Hits", value: half === 'top' ? awayHits : homeHits, update: updateHits },
-                  { label: "Errors", value: half === 'top' ? awayErrors : homeErrors, update: updateErrors },
-                ].map((item) => (
-                  <div key={item.label} className="bg-black/20 rounded-xl border border-white/5 p-3 flex flex-col items-center gap-2">
-                     <span className="text-[8px] font-black uppercase tracking-widest text-muted-foreground">{item.label}</span>
-                     <span className="text-2xl font-black text-white digit-font">{item.value}</span>
-                     <div className="flex gap-1 w-full mt-1">
-                        <Button variant="ghost" size="icon" onClick={() => item.update(-1)} className="flex-1 h-8 hover:bg-white/5 border border-white/5"><Minus className="h-3 w-3" /></Button>
-                        <Button variant="ghost" size="icon" onClick={() => item.update(1)} className="flex-1 h-8 hover:bg-white/5 border border-white/5"><Plus className="h-3 w-3" /></Button>
-                     </div>
-                  </div>
-                ))}
-             </CardContent>
+          <Card className="bg-card/50 border-white/5 p-4 grid grid-cols-3 gap-4">
+             <div className="bg-black/20 p-3 rounded-xl flex flex-col items-center gap-2"><span className="text-[8px] font-black uppercase">Runs</span><span className="text-2xl font-black">{half==='top'?awayRuns:homeRuns}</span><div className="flex gap-1"><Button onClick={()=>updateRuns(-1)} variant="ghost" size="icon" className="h-8"><Minus className="h-3 w-3" /></Button><Button onClick={()=>updateRuns(1)} variant="ghost" size="icon" className="h-8"><Plus className="h-3 w-3" /></Button></div></div>
+             <div className="bg-black/20 p-3 rounded-xl flex flex-col items-center gap-2"><span className="text-[8px] font-black uppercase">Hits</span><span className="text-2xl font-black">{half==='top'?awayHits:homeHits}</span><div className="flex gap-1"><Button onClick={()=>updateHits(-1)} variant="ghost" size="icon" className="h-8"><Minus className="h-3 w-3" /></Button><Button onClick={()=>updateHits(1)} variant="ghost" size="icon" className="h-8"><Plus className="h-3 w-3" /></Button></div></div>
+             <div className="bg-black/20 p-3 rounded-xl flex flex-col items-center gap-2"><span className="text-[8px] font-black uppercase">Errors</span><span className="text-2xl font-black">{half==='top'?awayErrors:homeErrors}</span><div className="flex gap-1"><Button onClick={()=>updateErrors(-1)} variant="ghost" size="icon" className="h-8"><Minus className="h-3 w-3" /></Button><Button onClick={()=>updateErrors(1)} variant="ghost" size="icon" className="h-8"><Plus className="h-3 w-3" /></Button></div></div>
           </Card>
-        </section>
+        </div>
       )}
     </div>
   );

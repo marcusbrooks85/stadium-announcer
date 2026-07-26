@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from "react";
@@ -16,7 +17,10 @@ import {
   where,
   orderBy,
   collectionGroup,
-  limit
+  limit,
+  updateDoc,
+  arrayUnion,
+  arrayRemove
 } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -26,6 +30,13 @@ export interface Song {
   name: string;
   videoId: string;
   startAt: number;
+}
+
+export interface UploadedTrack {
+  id: string;
+  name: string;
+  url: string;
+  storagePath: string;
 }
 
 export interface StadiumSong {
@@ -49,6 +60,7 @@ export interface Player {
   number: number;
   announcementAudioUrl: string;
   songs: Song[];
+  uploadedTracks: UploadedTrack[];
   teamId: string;
   stats?: PlayerStats;
 }
@@ -62,6 +74,7 @@ export interface Game {
   time: string;
   location: string;
   teamId: string;
+  snackPlayerId?: string;
 }
 
 export interface Team {
@@ -88,11 +101,6 @@ export const FULL_GAME_SCHEDULE = [
   { id: "game_11", week: 11, date: "2026-08-04", time: "6:00 PM", home: "Playoffs TBD", away: "Coach Chewy", location: "Jim Thorpe - Cordary Field", notes: "Semi-Finals" },
   { id: "game_12", week: 12, date: "2026-08-11", time: "6:00 PM", home: "Finals TBD", away: "Coach Chewy", location: "Jim Thorpe - Cordary Field", notes: "Championship" },
 ];
-
-export const GAME_SCHEDULE_LIST = FULL_GAME_SCHEDULE.map(g => ({
-  id: g.id,
-  label: `${g.notes || `Week ${g.week}`} - ${new Date(g.date + 'T00:00:00').toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })}`
-}));
 
 interface UATGameContextType {
   user: FirebaseUser | null;
@@ -132,9 +140,6 @@ const UATGameContext = createContext<UATGameContextType | undefined>(undefined);
 
 const RECEIVE_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3';
 
-/**
- * A hidden component that listens for global messages to play sound notifications and browser push alerts.
- */
 function UATGlobalMessagingListener() {
   const db = useFirestore();
   const auth = useAuth();
@@ -148,7 +153,6 @@ function UATGlobalMessagingListener() {
   const mountTimeRef = useRef<number>(Date.now());
   const lastMessageIdRef = useRef<string | null>(null);
 
-  // Request browser notification permission on mount
   useEffect(() => {
     if (typeof window !== 'undefined' && 'Notification' in window) {
       if (Notification.permission === 'default') {
@@ -173,40 +177,28 @@ function UATGlobalMessagingListener() {
       const msg = docSnap.data();
       const msgId = docSnap.id;
 
-      // Only notify if it's a NEW message sent AFTER component mount, 
-      // not sent by current user, and not one we've already processed
       if (
         msg.senderId !== auth.currentUser?.uid && 
         msg.timestamp?.toMillis() > mountTimeRef.current &&
         msgId !== lastMessageIdRef.current
       ) {
         lastMessageIdRef.current = msgId;
-
-        // Determine if we should play sound and show toast
         const currentChatId = searchParams.get('cid');
         const channelRef = docSnap.ref.parent.parent;
         const channelId = channelRef?.id;
         const isCurrentlyLookingAtThisChat = pathname === '/messages-uat' && currentChatId === channelId;
 
         if (!isCurrentlyLookingAtThisChat) {
-          // SILENCE logic: If on booth page, don't play audio alert
           const isBoothPage = pathname === '/booth-uat';
-          if (!isBoothPage) {
-            playReceive();
-          }
+          if (!isBoothPage) playReceive();
 
-          // Get sender info for notification
           const senderSnap = await getDoc(doc(db, "users_UAT", msg.senderId));
           const senderData = senderSnap.exists() ? senderSnap.data() : { firstName: "Teammate" };
           const senderName = senderData.firstName || "Teammate";
-          const messageSnippet = msg.text || "Sent an attachment";
+          const messageSnippet = msg.text || "Sent a notification";
 
-          // Browser System Notification (Push)
           if (typeof window !== 'undefined' && Notification.permission === 'granted') {
-             new Notification(`Message from ${senderName}`, {
-               body: messageSnippet,
-               icon: '/audio/icon.png',
-             });
+             new Notification(`Message from ${senderName}`, { body: messageSnippet });
           }
           
           toast({
@@ -256,7 +248,6 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let unsubProfile: (() => void) | undefined;
-
     const unsubAuth = onAuthStateChanged(auth, async (authUser) => {
       setUser(authUser);
       if (authUser) {
@@ -266,11 +257,7 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
             setUserProfile(data);
             setUserRole(data.role);
             setUserTeamId(data.teamId);
-            if (['super_admin', 'league_admin', 'booth_admin'].includes(data.role)) {
-              setIsAdmin(true);
-            } else {
-              setIsAdmin(false);
-            }
+            setIsAdmin(['super_admin', 'league_admin', 'booth_admin'].includes(data.role));
           }
         });
       } else {
@@ -281,16 +268,13 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
         setIsAdmin(false);
       }
     });
-
-    return () => {
-      unsubAuth();
-      if (unsubProfile) unsubProfile();
-    };
+    return () => { unsubAuth(); if (unsubProfile) unsubProfile(); };
   }, [auth, db]);
 
   useEffect(() => {
+    if (!games.length) return;
     const now = new Date();
-    const sorted = [...FULL_GAME_SCHEDULE].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const sorted = [...games].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     const active = sorted.find(g => {
        const [time, modifier] = g.time.split(' ');
        let [hours, minutes] = time.split(':').map(Number);
@@ -300,7 +284,7 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
        return d.getTime() + (2 * 60 * 60 * 1000) > now.getTime();
     }) || sorted[sorted.length - 1];
     if (active && !selectedGameId) setSelectedGameId(active.id);
-  }, [selectedGameId]);
+  }, [games, selectedGameId]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -319,13 +303,11 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const qRoster = query(collection(db, "players_UAT"), where("teamId", "==", userTeamId));
-    const unsubRoster = onSnapshot(qRoster, (snap) => {
+    const unsubRoster = onSnapshot(query(collection(db, "players_UAT"), where("teamId", "==", userTeamId)), (snap) => {
       setRoster(snap.docs.map(d => ({ id: d.id, ...d.data() })) as Player[]);
     });
 
-    const qGames = query(collection(db, "games_UAT"), where("teamId", "==", userTeamId));
-    const unsubGames = onSnapshot(qGames, (snap) => {
+    const unsubGames = onSnapshot(query(collection(db, "games_UAT"), where("teamId", "==", userTeamId)), (snap) => {
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() })) as Game[];
       data.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
       setGames(data);
@@ -335,15 +317,13 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
       if (doc.exists()) setTeamData({ id: doc.id, ...doc.data() } as Team);
     });
 
-    const qOrgan = query(collection(db, "organ_songs_UAT"), where("teamId", "==", userTeamId));
-    const unsubOrgan = onSnapshot(qOrgan, (snap) => {
+    const unsubOrgan = onSnapshot(query(collection(db, "organ_songs_UAT"), where("teamId", "==", userTeamId)), (snap) => {
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() })) as StadiumSong[];
       data.sort((a, b) => (a.order || 0) - (b.order || 0));
       setOrganSongs(data);
     });
 
-    const qPump = query(collection(db, "pump_up_songs_UAT"), where("teamId", "==", userTeamId));
-    const unsubPump = onSnapshot(qPump, (snap) => {
+    const unsubPump = onSnapshot(query(collection(db, "pump_up_songs_UAT"), where("teamId", "==", userTeamId)), (snap) => {
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() })) as StadiumSong[];
       data.sort((a, b) => (a.order || 0) - (b.order || 0));
       setPumpUpSongs(data);
@@ -374,11 +354,8 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
   }, [db, userTeamId, user]);
 
   useEffect(() => {
-    if (selectedGameId && allGameStats[selectedGameId]) {
-      setGameStats(allGameStats[selectedGameId]);
-    } else {
-      setGameStats({});
-    }
+    if (selectedGameId && allGameStats[selectedGameId]) setGameStats(allGameStats[selectedGameId]);
+    else setGameStats({});
   }, [selectedGameId, allGameStats]);
 
   const savePlayer = async (data: any, id?: string) => {
@@ -451,60 +428,26 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
   };
 
   const adminLogin = (password: string) => {
-    if (password === "UAT2026") {
-      setIsAdmin(true);
-      return true;
-    }
+    if (password === "UAT2026") { setIsAdmin(true); return true; }
     return false;
   };
 
-  const adminLogout = () => {
-    if (userRole === 'user') setIsAdmin(false);
-  };
+  const adminLogout = () => { if (userRole === 'user') setIsAdmin(false); };
 
-  const triggerSync = async () => {
-    toast({ title: "Sync triggered (Mock)" });
-  };
+  const triggerSync = async () => { toast({ title: "Sync triggered" }); };
 
   const emailStats = () => {
     const report = roster.map(p => `${p.name} (#${p.number}): AB:${p.stats?.ab} H:${p.stats?.h} R:${p.stats?.r} RBI:${p.stats?.rbi}`).join('\n');
-    const mailto = `mailto:?subject=UAT Game Stats - ${selectedGameId}&body=${encodeURIComponent(report)}`;
+    const mailto = `mailto:?subject=UAT Game Stats&body=${encodeURIComponent(report)}`;
     window.location.href = mailto;
   };
 
   return (
     <UATGameContext.Provider value={{
-      user,
-      userRole,
-      userTeamId,
-      userProfile,
-      teamData,
-      roster: roster.map(p => ({ ...p, stats: gameStats.playerStats?.[p.id] || { ab: 0, h: 0, r: 0, rbi: 0 } })),
-      games,
-      organSongs,
-      pumpUpSongs,
-      selectedGameId,
-      setSelectedGameId,
-      homeScore: gameStats.homeScore || 0,
-      awayScore: gameStats.awayScore || 0,
-      updateTeamScore,
-      updatePlayerStat,
-      isLoaded,
-      isOnline,
-      savePlayer,
-      deletePlayer,
-      saveGame,
-      deleteGame,
-      saveTeamBranding,
-      updateUserProfile,
-      deleteUserAccount,
-      saveStadiumSong,
-      deleteStadiumSong,
-      adminLogin,
-      adminLogout,
-      isAdmin,
-      triggerSync,
-      emailStats
+      user, userRole, userTeamId, userProfile, teamData, roster: roster.map(p => ({ ...p, stats: gameStats.playerStats?.[p.id] || { ab: 0, h: 0, r: 0, rbi: 0 } })),
+      games, organSongs, pumpUpSongs, selectedGameId, setSelectedGameId, homeScore: gameStats.homeScore || 0, awayScore: gameStats.awayScore || 0,
+      updateTeamScore, updatePlayerStat, isLoaded, isOnline, savePlayer, deletePlayer, saveGame, deleteGame, saveTeamBranding,
+      updateUserProfile, deleteUserAccount, saveStadiumSong, deleteStadiumSong, adminLogin, adminLogout, isAdmin, triggerSync, emailStats
     }}>
       <UATGlobalMessagingListener />
       {children}
