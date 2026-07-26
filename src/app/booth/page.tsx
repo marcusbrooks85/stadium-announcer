@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
@@ -111,12 +112,11 @@ export default function StadiumBoothDashboard() {
       const firstScriptTag = document.getElementsByTagName('script')[0];
       firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
       (window as any).onYouTubeIframeAPIReady = initYT;
-    } else {
+    } else if ((window as any).YT.Player) {
       initYT();
     }
   }, [volume]);
 
-  // Push local volume state to YT Player
   useEffect(() => {
     if (ytPlayerRef.current && playerReady) {
       try {
@@ -140,24 +140,25 @@ export default function StadiumBoothDashboard() {
 
   const handleFadeOut = () => {
     if (fadeIntervalRef.current) return;
-    const duration = 5000; // Slower fade as requested
+    const duration = 5000;
     const interval = 50;
     const steps = duration / interval;
-    const volumeStep = volume / steps;
-    
+    const volStep = volume / steps;
+    let currentVol = volume;
+
     fadeIntervalRef.current = setInterval(() => {
-      setVolume((prev) => {
-        const next = Math.max(0, prev - volumeStep);
-        if (next <= 0.01) { 
-          stopEverything(); 
-          return 0; 
-        }
-        // Explicitly update the YouTube player volume for real-time fading
-        if (ytPlayerRef.current && playerReady) {
-          try { ytPlayerRef.current.setVolume(next * 100); } catch (e) {}
-        }
-        return next;
-      });
+      currentVol = Math.max(0, currentVol - volStep);
+      setVolume(currentVol);
+      
+      if (ytPlayerRef.current && playerReady) {
+        try {
+          ytPlayerRef.current.setVolume(currentVol * 100);
+        } catch (e) {}
+      }
+
+      if (currentVol <= 0.01) {
+        stopEverything();
+      }
     }, interval);
   };
 
@@ -171,9 +172,7 @@ export default function StadiumBoothDashboard() {
         ytPlayerRef.current.setVolume(80);
         ytPlayerRef.current.loadVideoById({ videoId, startSeconds: startAt });
         ytPlayerRef.current.playVideo();
-      } catch (e) {
-        console.error("YT Playback Error", e);
-      }
+      } catch (e) {}
     }
   };
 
@@ -202,9 +201,7 @@ export default function StadiumBoothDashboard() {
             startSeconds: selectedSong.startAt 
           });
           ytPlayerRef.current.playVideo();
-        } catch (e) {
-           console.error("Walkup Track Error", e);
-        }
+        } catch (e) {}
       }
     } else {
       setPlaybackPhase('idle');
@@ -269,8 +266,8 @@ export default function StadiumBoothDashboard() {
 
           <div className="w-full flex items-center gap-2 md:gap-4 bg-primary/5 p-1.5 md:p-2 rounded-lg border border-primary/10">
             <Slider value={[volume * 100]} onValueChange={(vals) => setVolume(vals[0] / 100)} max={100} className="flex-1" />
-            <Button variant="outline" size="sm" onClick={handleFadeOut} className="h-8 md:h-9 border-primary/20 text-primary px-4 font-black text-[9px] uppercase">FADE</Button>
-            <Button variant="outline" size="sm" onClick={stopEverything} className="h-8 md:h-9 border-destructive/20 text-destructive px-4 font-black text-[9px] uppercase">STOP</Button>
+            <Button variant="outline" size="sm" onClick={handleFadeOut} className="h-8 md:h-9 border-primary/20 text-primary px-4 font-black text-[9px] uppercase tracking-widest">FADE</Button>
+            <Button variant="outline" size="sm" onClick={stopEverything} className="h-8 md:h-9 border-destructive/20 text-destructive px-4 font-black text-[9px] uppercase tracking-widest">STOP</Button>
           </div>
         </header>
 
@@ -287,13 +284,13 @@ export default function StadiumBoothDashboard() {
                     onClick={() => { setActivePlayerId(player.id); setSelectedSongIndex(0); }}
                     className={cn(
                       "w-full text-left p-4 rounded-xl border transition-all duration-200",
-                      activePlayerId === player.id ? "bg-primary border-primary" : "bg-background/40 border-white/5 hover:bg-white/5"
+                      activePlayerId === player.id ? "bg-primary border-primary shadow-lg" : "bg-background/40 border-white/5 hover:bg-white/5"
                     )}
                   >
                     <div className="flex justify-between items-center">
                       <div>
                         <h3 className="font-bold text-base leading-tight">{player.name}</h3>
-                        <span className="text-[10px] font-black bg-black/20 px-1.5 py-0.5 rounded">#{player.number}</span>
+                        <span className="text-[10px] font-black bg-black/20 px-1.5 py-0.5 rounded uppercase tracking-tighter">#{player.number}</span>
                       </div>
                       {activePlayerId === player.id && <ChevronRight className="h-5 w-5" />}
                     </div>
@@ -311,7 +308,7 @@ export default function StadiumBoothDashboard() {
                   <CardHeader className="pb-3 md:pb-4 border-b border-white/5 bg-white/5">
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-[10px] md:text-xs font-black uppercase tracking-widest text-muted-foreground">Walk-On Sequence</CardTitle>
-                      {activePlayer && <Badge variant="secondary" className="font-black text-[8px] md:text-[9px]">{activePlayer.name.toUpperCase()}</Badge>}
+                      {activePlayer && <Badge variant="secondary" className="font-black text-[8px] md:text-[9px] uppercase">{activePlayer.name}</Badge>}
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-4 md:space-y-6 pt-4 md:pt-6">
@@ -367,7 +364,7 @@ export default function StadiumBoothDashboard() {
                     <Button 
                       disabled={!activePlayer || playbackPhase === 'announcing'} 
                       onClick={triggerWalkonSequence} 
-                      className="w-full h-14 md:h-16 text-sm md:text-base font-black bg-primary"
+                      className="w-full h-14 md:h-16 text-sm md:text-base font-black bg-primary tracking-widest shadow-xl shadow-primary/20"
                     >
                       {playbackPhase === 'announcing' ? <Activity className="animate-pulse mr-2" /> : <Zap className="mr-2 fill-white" />}
                       {playbackPhase === 'announcing' ? "STADIUM ANNOUNCING..." : "TRIGGER WALK-ON"}
@@ -383,23 +380,27 @@ export default function StadiumBoothDashboard() {
               </section>
 
               <section className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-8">
-                <Card className="bg-card/80 border-white/10">
+                <Card className="bg-card/80 border-white/10 shadow-xl">
                   <CardHeader className="py-3 border-b border-white/5">
                     <CardTitle className="text-[9px] font-black uppercase tracking-[0.3em]">🎹 Organ Master</CardTitle>
                   </CardHeader>
                   <CardContent className="grid grid-cols-2 gap-2 pt-4">
                     {organSongs.map((hit) => (
-                      <Button key={hit.id} variant="outline" onClick={() => playYoutubeTrack(hit.link, hit.title, hit.startTime)} className="w-full h-12 border-secondary/20 font-black uppercase text-[8px] justify-start px-3">🎹 {hit.title}</Button>
+                      <Button key={hit.id} variant="outline" onClick={() => playYoutubeTrack(hit.link, hit.title, hit.startTime)} className="w-full h-12 border-secondary/20 font-black uppercase text-[8px] justify-start px-3 text-left overflow-hidden">
+                        <span className="truncate">🎹 {hit.title}</span>
+                      </Button>
                     ))}
                   </CardContent>
                 </Card>
-                <Card className="bg-card/80 border-white/10">
+                <Card className="bg-card/80 border-white/10 shadow-xl">
                   <CardHeader className="py-3 border-b border-white/5">
                     <CardTitle className="text-[9px] font-black uppercase tracking-[0.3em]">📣 Crowd Pump-Up</CardTitle>
                   </CardHeader>
                   <CardContent className="grid grid-cols-2 gap-2 pt-4">
                     {pumpUpSongs.map((song) => (
-                      <Button key={song.id} variant="outline" onClick={() => playYoutubeTrack(song.link, song.title, song.startTime)} className="w-full h-12 border-secondary/20 font-black uppercase text-[8px] justify-start px-3">📣 {song.title}</Button>
+                      <Button key={song.id} variant="outline" onClick={() => playYoutubeTrack(song.link, song.title, song.startTime)} className="w-full h-12 border-secondary/20 font-black uppercase text-[8px] justify-start px-3 text-left overflow-hidden">
+                        <span className="truncate">📣 {song.title}</span>
+                      </Button>
                     ))}
                   </CardContent>
                 </Card>

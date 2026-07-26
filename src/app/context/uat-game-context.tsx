@@ -102,6 +102,11 @@ export const FULL_GAME_SCHEDULE = [
   { id: "game_12", week: 12, date: "2026-08-11", time: "6:00 PM", home: "Finals TBD", away: "Coach Chewy", location: "Jim Thorpe - Cordary Field", notes: "Championship" },
 ];
 
+export const GAME_SCHEDULE_LIST = FULL_GAME_SCHEDULE.map(g => ({
+  id: g.id,
+  label: `${(g as any).notes || `Week ${g.week}`} - ${new Date(g.date + 'T00:00:00').toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })}`
+}));
+
 interface UATGameContextType {
   user: FirebaseUser | null;
   userRole: "super_admin" | "league_admin" | "booth_admin" | "user" | null;

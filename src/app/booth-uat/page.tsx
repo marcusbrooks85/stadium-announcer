@@ -82,9 +82,20 @@ function UATBoothContent() {
       if ((window as any).YT && (window as any).YT.Player && !ytPlayerRef.current) {
         ytPlayerRef.current = new (window as any).YT.Player('uat-stadium-yt-player', {
           height: '200', width: '200',
-          playerVars: { autoplay: 1, controls: 0, enablejsapi: 1, playsinline: 1, origin: window.location.origin },
+          playerVars: { 
+            autoplay: 1, 
+            controls: 0, 
+            enablejsapi: 1, 
+            playsinline: 1, 
+            origin: window.location.origin,
+            rel: 0,
+            modestbranding: 1
+          },
           events: {
-            onReady: (event: any) => { setPlayerReady(true); event.target.setVolume(volume * 100); },
+            onReady: (event: any) => { 
+              setPlayerReady(true); 
+              event.target.setVolume(volume * 100); 
+            },
           }
         });
       }
@@ -96,10 +107,18 @@ function UATBoothContent() {
       const firstScriptTag = document.getElementsByTagName('script')[0];
       firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
       (window as any).onYouTubeIframeAPIReady = initYT;
-    } else {
+    } else if ((window as any).YT.Player) {
       initYT();
     }
   }, [volume]);
+
+  useEffect(() => {
+    if (ytPlayerRef.current && playerReady) {
+      try {
+        ytPlayerRef.current.setVolume(volume * 100);
+      } catch (e) {}
+    }
+  }, [volume, playerReady]);
 
   const logTrigger = async (category: string, audioId: string, playerId?: string) => {
     if (!userTeamId || !auth.currentUser) return;
@@ -129,13 +148,25 @@ function UATBoothContent() {
 
   const handleFadeOut = () => {
     if (fadeIntervalRef.current) return;
-    const duration = 3000; const interval = 50; const steps = duration / interval; const volumeStep = volume / steps;
+    const duration = 5000;
+    const interval = 50;
+    const steps = duration / interval;
+    const volStep = volume / steps;
+    let currentVol = volume;
+
     fadeIntervalRef.current = setInterval(() => {
-      setVolume((prev) => {
-        const next = prev - volumeStep;
-        if (next <= 0.01) { stopEverything(); return 0; }
-        return next;
-      });
+      currentVol = Math.max(0, currentVol - volStep);
+      setVolume(currentVol);
+      
+      if (ytPlayerRef.current && playerReady) {
+        try {
+          ytPlayerRef.current.setVolume(currentVol * 100);
+        } catch (e) {}
+      }
+
+      if (currentVol <= 0.01) {
+        stopEverything();
+      }
     }, interval);
   };
 
@@ -157,7 +188,7 @@ function UATBoothContent() {
   const triggerWalkonSequence = () => {
     if (!activePlayer) return;
     stopEverything(); setVolume(0.8); setPlaybackPhase('announcing');
-    setActiveTrackName(selectedSongIndex === -1 ? "UAT Announcement ONLY" : `Announcing: ${activePlayer.name}`);
+    setActiveTrackName(selectedSongIndex === -1 ? "Announcement ONLY" : `Announcing: ${activePlayer.name}`);
     setCurrentAnnouncementUrl(activePlayer.announcementAudioUrl);
     logTrigger("Walk-up", activePlayer.announcementAudioUrl || "voice", activePlayer.id);
   };
@@ -226,8 +257,8 @@ function UATBoothContent() {
 
           <div className="w-full flex items-center gap-2 md:gap-4 bg-primary/5 p-1.5 md:p-2 rounded-lg border border-primary/10">
             <Slider value={[volume * 100]} onValueChange={(vals) => setVolume(vals[0] / 100)} max={100} className="flex-1" />
-            <Button variant="outline" size="sm" onClick={handleFadeOut} className="h-8 md:h-9 border-primary/20 text-primary px-4 font-black text-[9px] uppercase">FADE</Button>
-            <Button variant="outline" size="sm" onClick={stopEverything} className="h-8 md:h-9 border-destructive/20 text-destructive px-4 font-black text-[9px] uppercase">STOP</Button>
+            <Button variant="outline" size="sm" onClick={handleFadeOut} className="h-8 md:h-9 border-primary/20 text-primary px-4 font-black text-[9px] uppercase tracking-widest">FADE</Button>
+            <Button variant="outline" size="sm" onClick={stopEverything} className="h-8 md:h-9 border-destructive/20 text-destructive px-4 font-black text-[9px] uppercase tracking-widest">STOP</Button>
           </div>
         </header>
 
@@ -236,7 +267,7 @@ function UATBoothContent() {
             <ScrollArea className="flex-1">
               <div className="p-4 space-y-3">
                 {roster.map((player) => (
-                  <button key={player.id} onClick={() => { setActivePlayerId(player.id); setSelectedSongIndex(0); }} className={cn("w-full text-left p-4 rounded-xl border transition-all", activePlayerId === player.id ? "bg-primary border-primary" : "bg-background/40 border-white/5")}>
+                  <button key={player.id} onClick={() => { setActivePlayerId(player.id); setSelectedSongIndex(0); }} className={cn("w-full text-left p-4 rounded-xl border transition-all", activePlayerId === player.id ? "bg-primary border-primary shadow-lg" : "bg-background/40 border-white/5")}>
                     <h3 className="font-bold text-base">#{player.number} - {player.name}</h3>
                   </button>
                 ))}
@@ -248,8 +279,13 @@ function UATBoothContent() {
             <div className="max-w-5xl mx-auto w-full space-y-8 pb-40">
               
               <Card className="bg-card/80 border-2 border-white/5 shadow-2xl">
-                <CardHeader><CardTitle className="text-xs font-black uppercase tracking-widest text-muted-foreground">UAT Walk-On Sequence</CardTitle></CardHeader>
-                <CardContent className="space-y-6">
+                <CardHeader className="pb-3 md:pb-4 border-b border-white/5 bg-white/5">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-xs font-black uppercase tracking-widest text-muted-foreground">Walk-On Sequence (UAT)</CardTitle>
+                    {activePlayer && <Badge variant="outline" className="font-black text-[9px] uppercase">{activePlayer.name}</Badge>}
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-6 pt-6">
                   <Select value={activePlayerId || ""} onValueChange={(val) => { setActivePlayerId(val); setSelectedSongIndex(0); }}>
                     <SelectTrigger className="h-12 text-lg font-black bg-background/50"><SelectValue placeholder="Select Batter..." /></SelectTrigger>
                     <SelectContent>{roster.map((p) => <SelectItem key={p.id} value={p.id} className="font-bold">#{p.number} - {p.name}</SelectItem>)}</SelectContent>
@@ -284,9 +320,9 @@ function UATBoothContent() {
                     </div>
                   )}
                   
-                  <Button disabled={!activePlayer || playbackPhase === 'announcing'} onClick={triggerWalkonSequence} className="w-full h-16 text-base font-black bg-primary">
+                  <Button disabled={!activePlayer || playbackPhase === 'announcing'} onClick={triggerWalkonSequence} className="w-full h-16 text-base font-black bg-primary tracking-widest shadow-xl shadow-primary/20">
                     {playbackPhase === 'announcing' ? <Activity className="animate-pulse mr-2" /> : <Zap className="mr-2 fill-white" />}
-                    {playbackPhase === 'announcing' ? "STADIUM ANNOUNCING..." : "TRIGGER UAT WALK-ON"}
+                    {playbackPhase === 'announcing' ? "STADIUM ANNOUNCING..." : "TRIGGER WALK-ON"}
                   </Button>
                 </CardContent>
               </Card>
@@ -298,19 +334,23 @@ function UATBoothContent() {
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <Card className="bg-card/80 border-white/10">
-                  <CardHeader><CardTitle className="text-[9px] font-black uppercase tracking-[0.3em]">🎹 UAT Organ Master</CardTitle></CardHeader>
-                  <CardContent className="grid grid-cols-2 gap-2">
+                <Card className="bg-card/80 border-white/10 shadow-xl">
+                  <CardHeader><CardTitle className="text-[9px] font-black uppercase tracking-[0.3em]">🎹 Organ Master</CardTitle></CardHeader>
+                  <CardContent className="grid grid-cols-2 gap-2 pt-4">
                     {organSongs.map((hit) => (
-                      <Button key={hit.id} variant="outline" onClick={() => playYoutubeTrack(hit.link, hit.title, hit.startTime, "Game-Event")} className="w-full h-12 text-[8px] font-black uppercase text-left justify-start">🎹 {hit.title}</Button>
+                      <Button key={hit.id} variant="outline" onClick={() => playYoutubeTrack(hit.link, hit.title, hit.startTime, "Game-Event")} className="w-full h-12 text-[8px] font-black uppercase text-left justify-start overflow-hidden">
+                        <span className="truncate">🎹 {hit.title}</span>
+                      </Button>
                     ))}
                   </CardContent>
                 </Card>
-                <Card className="bg-card/80 border-white/10">
-                  <CardHeader><CardTitle className="text-[9px] font-black uppercase tracking-[0.3em]">📣 UAT Pump-Up</CardTitle></CardHeader>
-                  <CardContent className="grid grid-cols-2 gap-2">
+                <Card className="bg-card/80 border-white/10 shadow-xl">
+                  <CardHeader><CardTitle className="text-[9px] font-black uppercase tracking-[0.3em]">📣 Pump-Up Hype</CardTitle></CardHeader>
+                  <CardContent className="grid grid-cols-2 gap-2 pt-4">
                     {pumpUpSongs.map((song) => (
-                      <Button key={song.id} variant="outline" onClick={() => playYoutubeTrack(song.link, song.title, song.startTime, "Hype")} className="w-full h-12 text-[8px] font-black uppercase text-left justify-start">📣 {song.title}</Button>
+                      <Button key={song.id} variant="outline" onClick={() => playYoutubeTrack(song.link, song.title, song.startTime, "Hype")} className="w-full h-12 text-[8px] font-black uppercase text-left justify-start overflow-hidden">
+                        <span className="truncate">📣 {song.title}</span>
+                      </Button>
                     ))}
                   </CardContent>
                 </Card>
