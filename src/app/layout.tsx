@@ -33,7 +33,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   // Deployment Verification Logic
-  const BUILD_STAMP = "V-2025-02-18-002";
+  const BUILD_STAMP = "V-2025-02-18-003";
 
   return (
     <html lang="en" className="dark border-none">
@@ -41,7 +41,6 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
-        {/* Force no-cache for the document during build updates debugging */}
         <meta httpEquiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
         <meta httpEquiv="Pragma" content="no-cache" />
         <meta httpEquiv="Expires" content="0" />
@@ -68,12 +67,14 @@ export default function RootLayout({
                 if (storedBuild && storedBuild !== currentBuild) {
                   console.warn("New build detected. Purging cache and refreshing...");
                   localStorage.setItem("on-deck-build-v", currentBuild);
-                  // Optional: location.reload(true) is deprecated, but we can try to force document refresh
+                  
+                  // Unregister any active service workers to ensure the new version is fetched
                   if ('serviceWorker' in navigator) {
                     navigator.serviceWorker.getRegistrations().then(registrations => {
                       for(let registration of registrations) {
                         registration.unregister();
                       }
+                      // Hard reload once the workers are gone
                       window.location.reload();
                     });
                   } else {

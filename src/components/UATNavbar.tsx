@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 
-const BUILD_VERSION = "V-2025-02-18-002";
+const BUILD_VERSION = "V-2025-02-18-003";
 
 /**
  * A shared navigation bar for the UAT environment.

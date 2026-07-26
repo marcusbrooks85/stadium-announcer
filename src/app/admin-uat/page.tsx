@@ -55,7 +55,7 @@ import { collection, query, where, onSnapshot, doc, setDoc, addDoc, deleteDoc, o
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { cn } from "@/lib/utils";
 
-const BUILD_VERSION = "V-2025-02-18-001";
+const BUILD_VERSION = "V-2025-02-18-003";
 
 function UATAdminPortalContent() {
   const db = useFirestore();
