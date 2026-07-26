@@ -557,16 +557,16 @@ export function UATAdminPortalContent() {
                <Card className="lg:col-span-2 bg-card/50 border-white/10">
                  <CardHeader><CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-3"><Music className="h-4 w-4 text-[var(--tenant-primary)]" /> {activeAudioCategory === 'organ' ? "Organ Master" : "Crowd Pump-Up"} Inventory</CardTitle></CardHeader>
                  <CardContent>
-                   <div className="space-y-3">
+                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                      {(activeAudioCategory === 'organ' ? organSongs : pumpUpSongs).map((song) => (
-                       <div key={song.id} className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/10 group">
-                         <div className="flex flex-col">
-                           <span className="text-xs font-black uppercase tracking-wider">{song.title}</span>
-                           <span className="text-[9px] text-muted-foreground font-bold uppercase">Start: {song.startTime}s • ID: {song.link}</span>
+                       <div key={song.id} className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/10 group">
+                         <div className="flex flex-col min-w-0">
+                           <span className="text-[10px] font-black uppercase tracking-wider truncate">{song.title}</span>
+                           <span className="text-[8px] text-muted-foreground font-bold uppercase truncate">Start: {song.startTime}s • ID: {song.link}</span>
                          </div>
-                         <div className="flex items-center gap-2">
-                            <Button variant="ghost" size="icon" onClick={() => startEditingStadiumSong(song)} className="h-8 w-8 text-primary opacity-40 group-hover:opacity-100 transition-opacity"><Pencil className="h-4 w-4" /></Button>
-                            <Button variant="ghost" size="icon" onClick={() => deleteStadiumSong(activeAudioCategory, song.id)} className="h-8 w-8 text-destructive opacity-40 group-hover:opacity-100 transition-opacity"><Trash2 className="h-4 w-4" /></Button>
+                         <div className="flex items-center gap-1 shrink-0 ml-2">
+                            <Button variant="ghost" size="icon" onClick={() => startEditingStadiumSong(song)} className="h-7 w-7 text-primary opacity-40 group-hover:opacity-100 transition-opacity"><Pencil className="h-3.5 w-3.5" /></Button>
+                            <Button variant="ghost" size="icon" onClick={() => deleteStadiumSong(activeAudioCategory, song.id)} className="h-7 w-7 text-destructive opacity-40 group-hover:opacity-100 transition-opacity"><Trash2 className="h-3.5 w-3.5" /></Button>
                          </div>
                        </div>
                      ))}
