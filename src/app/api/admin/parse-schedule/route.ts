@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 /**
  * API route to parse an uploaded schedule file using Cloudflare Workers AI.
- * Supports both text-based extraction (Llama 3.1) and image-based extraction (Llama 3.2 Vision).
+ * Specifically optimized for Image inputs using Llama 3.2 Vision.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -43,35 +43,25 @@ export async function POST(req: NextRequest) {
 
     // 3. Determine Model and Prepare Payload
     const isImage = contentType.includes('image') || contentType.includes('pdf');
-    let model = "@cf/meta/llama-3.1-8b-instruct";
+    let model = "";
     let payload: any = {};
 
     if (isImage) {
-      console.log("Detected Image/Visual format. Routing to Llama 3.2 Vision...");
+      console.log("Detected Image/PDF format. Routing to Llama 3.2 Vision...");
       model = "@cf/meta/llama-3.2-11b-vision-instruct";
-      const base64Image = Buffer.from(arrayBuffer).toString('base64');
+      
+      // Convert buffer to array of 8-bit unsigned integers as explicitly requested
+      const imageArray = Array.from(new Uint8Array(arrayBuffer));
       
       payload = {
-        messages: [
-          {
-            role: "user",
-            content: [
-              { 
-                type: "text", 
-                text: `Extract the full baseball game schedule for the team named "${teamName}" from this image. 
-                Identify the exact Date (YYYY-MM-DD), Opponent, Home/Away status relative to "${teamName}", Time, and Location. 
-                Return ONLY a JSON array of these objects. Do not include any other text.` 
-              },
-              { 
-                type: "image", 
-                image: base64Image 
-              }
-            ]
-          }
-        ]
+        prompt: `Extract all sports game schedule entries from this image for the team named "${teamName}". 
+        Identify the exact Date (YYYY-MM-DD), Opponent, Home/Away status relative to "${teamName}", Time, and Location. 
+        Return ONLY a valid JSON array of objects. Do not include any other text.`,
+        image: imageArray
       };
     } else {
       console.log("Detected Text-based format. Routing to Llama 3.1 Instruct...");
+      model = "@cf/meta/llama-3.1-8b-instruct";
       const fileContent = new TextDecoder().decode(arrayBuffer);
       console.log("Human-Readable Content Snippet:", fileContent.substring(0, 200).replace(/\n/g, ' '));
 
@@ -85,8 +75,7 @@ export async function POST(req: NextRequest) {
             role: "user", 
             content: `Extract the full game schedule for the team named "${teamName}" from the following text. Determine home/away status relative to "${teamName}".\n\nSCHEDULE TEXT:\n${fileContent}` 
           }
-        ],
-        response_format: { type: "json_object" }
+        ]
       };
     }
 
@@ -104,11 +93,13 @@ export async function POST(req: NextRequest) {
       }
     );
 
+    console.log(`Cloudflare AI Response Status: ${aiResponse.status}`);
+
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();
-      console.error(`Workers AI Request Failed [${aiResponse.status}]:`, errorText);
+      console.error("Cloudflare Vision Error:", errorText);
       return NextResponse.json({ 
-        error: `Cloudflare AI Gateway error [${aiResponse.status}]: ${errorText}` 
+        error: `Parsing failed: Cloudflare AI Gateway error [${aiResponse.status}]: ${errorText}` 
       }, { status: 500 });
     }
 
@@ -132,7 +123,6 @@ export async function POST(req: NextRequest) {
       
       if (parsedData.games) return NextResponse.json(parsedData);
       if (Array.isArray(parsedData)) return NextResponse.json({ games: parsedData });
-      if (parsedData.response && Array.isArray(parsedData.response)) return NextResponse.json({ games: parsedData.response });
       
       return NextResponse.json({ games: [] });
     } catch (parseError) {
