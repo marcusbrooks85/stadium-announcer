@@ -115,6 +115,18 @@ export default function GameSchedulePage() {
     return active.id;
   }, []);
 
+  // Roll to current/upcoming game on load
+  useEffect(() => {
+    if (activeGameId) {
+      setTimeout(() => {
+        const element = document.getElementById(activeGameId);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 800);
+    }
+  }, [activeGameId]);
+
   const handleManualSync = async () => {
     setIsSyncing(true);
     await triggerSync();

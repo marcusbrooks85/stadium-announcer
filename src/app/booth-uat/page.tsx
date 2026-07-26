@@ -16,7 +16,8 @@ import {
   ArrowDownWideNarrow, 
   Ban, 
   Home, 
-  ShieldCheck 
+  ShieldCheck,
+  MessageSquare
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -77,11 +78,13 @@ function UATBoothContent() {
   }, [activePlayer, selectedSongIndex]);
 
   useEffect(() => {
-    const onYouTubeIframeAPIReady = () => {
+    const initYT = () => {
+      if (!(window as any).YT || !(window as any).YT.Player) return;
       if (ytPlayerRef.current) return;
+
       ytPlayerRef.current = new (window as any).YT.Player('uat-stadium-yt-player', {
         height: '200', width: '200',
-        playerVars: { autoplay: 1, controls: 0, enablejsapi: 1, playsinline: 1 },
+        playerVars: { autoplay: 1, controls: 0, enablejsapi: 1, playsinline: 1, origin: window.location.origin },
         events: {
           onReady: (event: any) => { setPlayerReady(true); event.target.setVolume(volume * 100); },
         }
@@ -93,9 +96,9 @@ function UATBoothContent() {
       tag.src = "https://www.youtube.com/iframe_api";
       const firstScriptTag = document.getElementsByTagName('script')[0];
       firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
-      (window as any).onYouTubeIframeAPIReady = onYouTubeIframeAPIReady;
-    } else if ((window as any).YT.Player) {
-      onYouTubeIframeAPIReady();
+      (window as any).onYouTubeIframeAPIReady = initYT;
+    } else {
+      initYT();
     }
   }, [volume]);
 
@@ -142,9 +145,13 @@ function UATBoothContent() {
     logTrigger(category, videoId);
     if (ytPlayerRef.current && playerReady) {
       try {
-        ytPlayerRef.current.unMute(); ytPlayerRef.current.setVolume(80);
+        ytPlayerRef.current.unMute(); 
+        ytPlayerRef.current.setVolume(80);
         ytPlayerRef.current.loadVideoById({ videoId, startSeconds: startAt });
-      } catch (e) {}
+        ytPlayerRef.current.playVideo();
+      } catch (e) {
+        console.error("UAT YT Error", e);
+      }
     }
   };
 
@@ -161,8 +168,13 @@ function UATBoothContent() {
       setPlaybackPhase('walkup'); setActiveTrackName(selectedSong.name);
       if (ytPlayerRef.current && playerReady) {
         try {
+          ytPlayerRef.current.unMute();
+          ytPlayerRef.current.setVolume(80);
           ytPlayerRef.current.loadVideoById({ videoId: selectedSong.videoId, startSeconds: selectedSong.startAt });
-        } catch (e) {}
+          ytPlayerRef.current.playVideo();
+        } catch (e) {
+          console.error("UAT Walkup Error", e);
+        }
       }
     } else {
       setPlaybackPhase('idle'); setActiveTrackName(null);
@@ -248,7 +260,7 @@ function UATBoothContent() {
                     <div className="space-y-4 p-3 md:p-4 bg-background/40 rounded-xl border border-white/5">
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                         <Button variant={selectedSongIndex === -1 ? "default" : "outline"} onClick={() => setSelectedSongIndex(-1)} className="h-10 md:h-12 text-[9px] font-black uppercase px-2">NO TRACK</Button>
-                        {activePlayer.songs.map((_, idx) => (
+                        {activePlayer.songs.map((song, idx) => (
                           <Button key={idx} variant={selectedSongIndex === idx ? "default" : "outline"} onClick={() => setSelectedSongIndex(idx)} className="h-10 md:h-12 text-[9px] font-black uppercase px-2">
                              Track {idx + 1}
                           </Button>
@@ -298,7 +310,7 @@ function UATBoothContent() {
             </div>
           </main>
         </div>
-        <div id="uat-stadium-yt-player" className="fixed -bottom-40 -right-40 opacity-0 pointer-events-none"></div>
+        <div id="uat-stadium-yt-player" className="fixed -bottom-40 -right-40 opacity-0 pointer-events-none w-40 h-40 overflow-hidden"></div>
       </div>
     </TooltipProvider>
   );

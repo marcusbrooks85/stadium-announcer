@@ -24,10 +24,7 @@ interface StadiumScoreboardProps {
 /**
  * StadiumScoreboard Component
  * 
- * A comprehensive game-management system including:
- * 1. Unified Header (Inning, BSO, and Team Totals)
- * 2. Line Score Table (Innings 1-9)
- * 3. Ergonomic Admin Controls with auto-transition logic
+ * Features a balanced stadium-style score display with fixed-size cards.
  */
 export function StadiumScoreboard({ adminMode = true }: StadiumScoreboardProps) {
   const { homeScore: contextHomeScore, awayScore: contextAwayScore, updateTeamScore, selectedGameId } = useGame();
@@ -79,7 +76,7 @@ export function StadiumScoreboard({ adminMode = true }: StadiumScoreboardProps) 
   const addBall = () => {
     if (balls === 3) {
       setBalls(0);
-      setStrikes(0); // Walk
+      setStrikes(0);
     } else {
       setBalls(prev => prev + 1);
     }
@@ -89,7 +86,7 @@ export function StadiumScoreboard({ adminMode = true }: StadiumScoreboardProps) 
     if (strikes === 2) {
       setStrikes(0);
       setBalls(0);
-      addOut(); // Strikeout
+      addOut();
     } else {
       setStrikes(prev => prev + 1);
     }
@@ -97,7 +94,7 @@ export function StadiumScoreboard({ adminMode = true }: StadiumScoreboardProps) 
 
   const addOut = () => {
     if (outs === 2) {
-      nextHalfInning(); // 3 Outs -> Side Change
+      nextHalfInning();
     } else {
       setOuts(prev => prev + 1);
     }
@@ -171,54 +168,54 @@ export function StadiumScoreboard({ adminMode = true }: StadiumScoreboardProps) 
       <Card className="bg-black border-2 border-white/5 shadow-2xl overflow-hidden">
         <div className="bg-gradient-to-r from-blue-900/40 to-transparent p-2.5 sm:p-4 border-b border-white/5 flex flex-wrap items-center justify-start gap-4 sm:gap-8">
           
-          <div className="h-12 sm:h-16 px-3 sm:px-5 bg-primary/20 border border-primary/40 rounded-lg flex items-center gap-3 sm:gap-4 shrink-0">
+          <div className="h-12 sm:h-20 px-3 sm:px-6 bg-primary/10 border border-primary/20 rounded-lg flex items-center gap-3 sm:gap-6 shrink-0">
              <div className="flex flex-col items-center">
-                <span className="text-[7px] sm:text-[8px] font-black uppercase text-primary leading-none mb-1">INN</span>
-                <span className="text-2xl sm:text-3xl font-black digit-font text-white leading-none">{inning}</span>
+                <span className="text-[7px] sm:text-[10px] font-black uppercase text-primary leading-none mb-1">INN</span>
+                <span className="text-2xl sm:text-4xl font-black digit-font text-white leading-none">{inning}</span>
              </div>
-             <div className="h-8 sm:h-10 w-[1px] bg-white/10" />
+             <div className="h-8 sm:h-12 w-[1px] bg-white/10" />
              <div className="flex items-center">
                 {half === 'top' ? (
-                  <ChevronUp className="h-6 w-6 sm:h-8 sm:w-8 text-secondary animate-pulse" />
+                  <ChevronUp className="h-6 w-6 sm:h-10 sm:w-10 text-secondary animate-pulse" />
                 ) : (
-                  <ChevronDown className="h-6 w-6 sm:h-8 sm:w-8 text-primary animate-pulse" />
+                  <ChevronDown className="h-6 w-6 sm:h-10 sm:w-10 text-primary animate-pulse" />
                 )}
              </div>
           </div>
           
-          <div className="grid grid-cols-3 gap-3 sm:gap-6 border-r border-white/5 pr-4 sm:pr-8">
+          <div className="grid grid-cols-3 gap-3 sm:gap-8 border-r border-white/5 pr-4 sm:pr-10">
             <LightIndicator label="B" count={balls} max={3} activeColor="bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]" />
             <LightIndicator label="S" count={strikes} max={2} activeColor="bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.4)]" />
             <LightIndicator label="O" count={outs} max={2} activeColor="bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]" />
           </div>
 
-          <div className="flex items-start gap-2 sm:gap-4 ml-auto h-full">
-             <div className="flex flex-col items-center">
-                <div className="w-[60px] sm:w-[90px] h-[60px] sm:h-[90px] bg-secondary/10 border border-secondary/20 p-2 rounded-xl flex flex-col items-center justify-center transition-all">
-                   <span className="text-[7px] sm:text-[9px] font-black uppercase text-secondary leading-none mb-1">AWAY</span>
-                   <span className="text-2xl sm:text-5xl font-black digit-font text-white leading-none">{contextAwayScore || 0}</span>
+          <div className="flex items-start gap-3 sm:gap-6 ml-auto">
+             <div className="flex flex-col items-center gap-2">
+                <div className="w-[70px] sm:w-[110px] h-[70px] sm:h-[110px] bg-secondary/10 border border-secondary/20 p-2 rounded-xl flex flex-col items-center justify-center transition-all shadow-inner">
+                   <span className="text-[8px] sm:text-[10px] font-black uppercase text-secondary leading-none mb-1">AWAY</span>
+                   <span className="text-3xl sm:text-6xl font-black digit-font text-white leading-none">{contextAwayScore || 0}</span>
                 </div>
-                <div className="h-4 flex items-center justify-center mt-1.5">
+                <div className="h-5 flex items-center justify-center">
                   {isStrawhatsAway && (
-                    <span className="text-[8px] font-black text-secondary tracking-widest uppercase whitespace-nowrap animate-in fade-in zoom-in duration-300">STRAWHATS</span>
+                    <Badge className="bg-primary text-white font-black text-[7px] sm:text-[9px] uppercase tracking-[0.2em] rounded-md px-2 py-0.5 border-none">STRAWHATS</Badge>
                   )}
                 </div>
              </div>
-             <div className="flex flex-col items-center">
-                <div className="w-[60px] sm:w-[90px] h-[60px] sm:h-[90px] bg-primary/10 border border-primary/20 p-2 rounded-xl flex flex-col items-center justify-center transition-all">
-                   <span className="text-[7px] sm:text-[9px] font-black uppercase text-primary leading-none mb-1">HOME</span>
-                   <span className="text-2xl sm:text-5xl font-black digit-font text-white leading-none">{contextHomeScore || 0}</span>
+             <div className="flex flex-col items-center gap-2">
+                <div className="w-[70px] sm:w-[110px] h-[70px] sm:h-[110px] bg-primary/10 border border-primary/20 p-2 rounded-xl flex flex-col items-center justify-center transition-all shadow-inner">
+                   <span className="text-[8px] sm:text-[10px] font-black uppercase text-primary leading-none mb-1">HOME</span>
+                   <span className="text-3xl sm:text-6xl font-black digit-font text-white leading-none">{contextHomeScore || 0}</span>
                 </div>
-                <div className="h-4 flex items-center justify-center mt-1.5">
+                <div className="h-5 flex items-center justify-center">
                   {isStrawhatsHome && (
-                    <span className="text-[8px] font-black text-primary tracking-widest uppercase whitespace-nowrap animate-in fade-in zoom-in duration-300">STRAWHATS</span>
+                    <Badge className="bg-primary text-white font-black text-[7px] sm:text-[9px] uppercase tracking-[0.2em] rounded-md px-2 py-0.5 border-none">STRAWHATS</Badge>
                   )}
                 </div>
              </div>
           </div>
         </div>
 
-        <CardContent className="p-0 overflow-x-auto scrollbar-hide mt-3">
+        <CardContent className="p-0 overflow-x-auto scrollbar-hide mt-4">
           <table className="w-full border-collapse">
             <thead>
               <tr className="bg-white/5 border-b border-white/5 text-[9px] font-black uppercase tracking-widest text-muted-foreground">

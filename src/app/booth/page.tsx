@@ -81,8 +81,14 @@ export default function StadiumBoothDashboard() {
   }, [activePlayer, selectedSongIndex]);
 
   useEffect(() => {
-    const onYouTubeIframeAPIReady = () => {
+    const initYT = () => {
+      if (!(window as any).YT || !(window as any).YT.Player) {
+        // If script not loaded yet, wait
+        return;
+      }
+
       if (ytPlayerRef.current) return;
+
       ytPlayerRef.current = new (window as any).YT.Player('stadium-yt-player', {
         height: '200',
         width: '200',
@@ -90,10 +96,9 @@ export default function StadiumBoothDashboard() {
           autoplay: 1,
           controls: 0,
           enablejsapi: 1,
-          origin: typeof window !== 'undefined' ? window.location.origin : '',
+          origin: window.location.origin,
           rel: 0,
           modestbranding: 1,
-          iv_load_policy: 3,
           playsinline: 1
         },
         events: {
@@ -111,9 +116,9 @@ export default function StadiumBoothDashboard() {
       tag.src = "https://www.youtube.com/iframe_api";
       const firstScriptTag = document.getElementsByTagName('script')[0];
       firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
-      (window as any).onYouTubeIframeAPIReady = onYouTubeIframeAPIReady;
-    } else if ((window as any).YT.Player) {
-      onYouTubeIframeAPIReady();
+      (window as any).onYouTubeIframeAPIReady = initYT;
+    } else {
+      initYT();
     }
   }, [volume]);
 
@@ -155,7 +160,9 @@ export default function StadiumBoothDashboard() {
         ytPlayerRef.current.setVolume(80);
         ytPlayerRef.current.loadVideoById({ videoId, startSeconds: startAt });
         ytPlayerRef.current.playVideo();
-      } catch (e) {}
+      } catch (e) {
+        console.error("YT Playback Error", e);
+      }
     }
   };
 
@@ -167,7 +174,7 @@ export default function StadiumBoothDashboard() {
     setActiveTrackName(`Announcing: ${activePlayer.name}`);
     if (announcementAudioRef.current) {
       announcementAudioRef.current.src = activePlayer.announcementAudioUrl;
-      announcementAudioRef.current.play();
+      announcementAudioRef.current.play().catch(e => console.error("Audio Play Error", e));
     }
   };
 
@@ -184,7 +191,9 @@ export default function StadiumBoothDashboard() {
             startSeconds: selectedSong.startAt 
           });
           ytPlayerRef.current.playVideo();
-        } catch (e) {}
+        } catch (e) {
+           console.error("Walkup Track Error", e);
+        }
       }
     } else {
       setPlaybackPhase('idle');
@@ -317,7 +326,7 @@ export default function StadiumBoothDashboard() {
                           >
                             NO TRACK
                           </Button>
-                          {activePlayer.songs.map((_, idx) => (
+                          {activePlayer.songs.map((song, idx) => (
                             <Button
                               key={idx} variant={selectedSongIndex === idx ? "default" : "outline"} size="sm"
                               onClick={() => setSelectedSongIndex(idx)}
