@@ -79,16 +79,15 @@ function UATBoothContent() {
 
   useEffect(() => {
     const initYT = () => {
-      if (!(window as any).YT || !(window as any).YT.Player) return;
-      if (ytPlayerRef.current) return;
-
-      ytPlayerRef.current = new (window as any).YT.Player('uat-stadium-yt-player', {
-        height: '200', width: '200',
-        playerVars: { autoplay: 1, controls: 0, enablejsapi: 1, playsinline: 1, origin: window.location.origin },
-        events: {
-          onReady: (event: any) => { setPlayerReady(true); event.target.setVolume(volume * 100); },
-        }
-      });
+      if ((window as any).YT && (window as any).YT.Player && !ytPlayerRef.current) {
+        ytPlayerRef.current = new (window as any).YT.Player('uat-stadium-yt-player', {
+          height: '200', width: '200',
+          playerVars: { autoplay: 1, controls: 0, enablejsapi: 1, playsinline: 1, origin: window.location.origin },
+          events: {
+            onReady: (event: any) => { setPlayerReady(true); event.target.setVolume(volume * 100); },
+          }
+        });
+      }
     };
 
     if (!(window as any).YT) {
@@ -260,8 +259,17 @@ function UATBoothContent() {
                     <div className="space-y-4 p-3 md:p-4 bg-background/40 rounded-xl border border-white/5">
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                         <Button variant={selectedSongIndex === -1 ? "default" : "outline"} onClick={() => setSelectedSongIndex(-1)} className="h-10 md:h-12 text-[9px] font-black uppercase px-2">NO TRACK</Button>
-                        {activePlayer.songs.map((song, idx) => (
-                          <Button key={idx} variant={selectedSongIndex === idx ? "default" : "outline"} onClick={() => setSelectedSongIndex(idx)} className="h-10 md:h-12 text-[9px] font-black uppercase px-2">
+                        {[0, 1, 2].map((idx) => (
+                          <Button 
+                            key={idx} 
+                            variant={selectedSongIndex === idx ? "default" : "outline"} 
+                            onClick={() => setSelectedSongIndex(idx)} 
+                            disabled={!activePlayer.songs[idx]}
+                            className={cn(
+                              "h-10 md:h-12 text-[9px] font-black uppercase px-2",
+                              !activePlayer.songs[idx] && "opacity-30"
+                            )}
+                          >
                              Track {idx + 1}
                           </Button>
                         ))}

@@ -82,33 +82,28 @@ export default function StadiumBoothDashboard() {
 
   useEffect(() => {
     const initYT = () => {
-      if (!(window as any).YT || !(window as any).YT.Player) {
-        // If script not loaded yet, wait
-        return;
-      }
-
-      if (ytPlayerRef.current) return;
-
-      ytPlayerRef.current = new (window as any).YT.Player('stadium-yt-player', {
-        height: '200',
-        width: '200',
-        playerVars: {
-          autoplay: 1,
-          controls: 0,
-          enablejsapi: 1,
-          origin: window.location.origin,
-          rel: 0,
-          modestbranding: 1,
-          playsinline: 1
-        },
-        events: {
-          onReady: (event: any) => {
-            setPlayerReady(true);
-            event.target.unMute();
-            event.target.setVolume(volume * 100);
+      if ((window as any).YT && (window as any).YT.Player && !ytPlayerRef.current) {
+        ytPlayerRef.current = new (window as any).YT.Player('stadium-yt-player', {
+          height: '200',
+          width: '200',
+          playerVars: {
+            autoplay: 1,
+            controls: 0,
+            enablejsapi: 1,
+            origin: window.location.origin,
+            rel: 0,
+            modestbranding: 1,
+            playsinline: 1
+          },
+          events: {
+            onReady: (event: any) => {
+              setPlayerReady(true);
+              event.target.unMute();
+              event.target.setVolume(volume * 100);
+            }
           }
-        }
-      });
+        });
+      }
     };
 
     if (!(window as any).YT) {
@@ -326,11 +321,18 @@ export default function StadiumBoothDashboard() {
                           >
                             NO TRACK
                           </Button>
-                          {activePlayer.songs.map((song, idx) => (
+                          {[0, 1, 2].map((idx) => (
                             <Button
-                              key={idx} variant={selectedSongIndex === idx ? "default" : "outline"} size="sm"
+                              key={idx} 
+                              variant={selectedSongIndex === idx ? "default" : "outline"} 
+                              size="sm"
                               onClick={() => setSelectedSongIndex(idx)}
-                              className={cn("h-9 md:h-12 text-[8px] md:text-[10px] uppercase font-black px-2", selectedSongIndex === idx && "bg-secondary text-secondary-foreground")}
+                              disabled={!activePlayer.songs[idx]}
+                              className={cn(
+                                "h-9 md:h-12 text-[8px] md:text-[10px] uppercase font-black px-2", 
+                                selectedSongIndex === idx && "bg-secondary text-secondary-foreground",
+                                !activePlayer.songs[idx] && "opacity-30"
+                              )}
                             >
                               Track {idx + 1}
                             </Button>
