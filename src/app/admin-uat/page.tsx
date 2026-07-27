@@ -321,7 +321,6 @@ export function UATAdminPortalContent() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // File Type Validation
     if (!file.type.startsWith('audio/')) {
        toast({ variant: "destructive", title: "Invalid file format", description: "Please select an audio file." });
        e.target.value = "";
@@ -347,7 +346,7 @@ export function UATAdminPortalContent() {
         ...playerForm, 
         uploadedTracks: [...playerForm.uploadedTracks, newTrack] 
       });
-      toast({ title: "Track Loaded", description: "Save profile to finalize." });
+      toast({ title: "Track Uploaded", description: "Save profile to finalize." });
     } catch (err: any) {
       toast({ variant: "destructive", title: "Upload Failed", description: err.message });
     } finally { 
@@ -370,10 +369,20 @@ export function UATAdminPortalContent() {
 
   const handleDeleteYoutubeTrack = (idx: number) => {
     setPlayerForm({ ...playerForm, songs: playerForm.songs.filter((_, i) => i !== idx) });
+    toast({ title: "Draft Updated", description: "Track removed from selection." });
   };
 
   const handleDeleteUploadTrack = (idx: number) => {
     setPlayerForm({ ...playerForm, uploadedTracks: playerForm.uploadedTracks.filter((_, i) => i !== idx) });
+    toast({ title: "Draft Updated", description: "Audio file removed from selection." });
+  };
+
+  const handlePreviewAudio = (url: string, startAt: number) => {
+     if (audioPreviewRef.current) {
+        audioPreviewRef.current.src = url;
+        audioPreviewRef.current.currentTime = startAt || 0;
+        audioPreviewRef.current.play().catch(e => console.error("Preview Error", e));
+     }
   };
 
   const handleAddGameManual = async () => {
@@ -430,7 +439,7 @@ export function UATAdminPortalContent() {
           away: game.homeOrAway === 'away' ? teamData?.name : game.opponent,
           time: game.time,
           location: game.location,
-          week: i + 1, // Sequential Game Numbering
+          week: i + 1, 
           teamId: userTeamId
         });
       }
@@ -470,12 +479,6 @@ export function UATAdminPortalContent() {
       setSavedEditForm(null);
       toast({ title: "Game Record Updated" });
     } finally { setIsSaving(false); }
-  };
-
-  const handleBulkSnackUpdate = async () => {
-    if (!snackUpdateText.trim()) return;
-    toast({ title: "Updating Snack Duty...", description: "Verifying strings..." });
-    setTimeout(() => toast({ title: "Snack Duty Synced", description: "Assignments updated." }), 1500);
   };
 
   const handleSaveStadiumSong = () => {
@@ -689,7 +692,7 @@ export function UATAdminPortalContent() {
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Home Team</Label><Input value={gameForm.home} onChange={e => setGameForm({...gameForm, home: e.target.value})} placeholder="Home Team Name" className="bg-black/20" /></div>
-                      <div className="space-y-2"><Label className="text-[10px) font-black uppercase">Away Team</Label><Input value={gameForm.away} onChange={e => setGameForm({...gameForm, away: e.target.value})} placeholder="Away Team Name" className="bg-black/20" /></div>
+                      <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Away Team</Label><Input value={gameForm.away} onChange={e => setGameForm({...gameForm, away: e.target.value})} placeholder="Away Team Name" className="bg-black/20" /></div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Start Time</Label><Input value={gameForm.time} onChange={e => setGameForm({...gameForm, time: e.target.value})} placeholder="e.g. 6:00 PM" className="bg-black/20" /></div>
@@ -834,9 +837,14 @@ export function UATAdminPortalContent() {
                     <Label className="text-[10px] font-black uppercase text-primary tracking-widest flex items-center gap-2"><Mic2 className="h-3 w-3" /> Primary Announcement Audio</Label>
                     <div className="flex flex-col gap-2 mt-2">
                       {playerForm.announcementAudioUrl && (
-                        <div className="flex items-center gap-2 p-2 bg-black/40 rounded border border-white/5">
-                           <Play className="h-3 w-3 text-primary" />
-                           <span className="text-[8px] font-bold uppercase truncate max-w-[150px]">{playerForm.announcementAudioUrl.split('/').pop()}</span>
+                        <div className="flex items-center gap-2 p-2 bg-black/40 rounded border border-white/5 justify-between">
+                           <div className="flex items-center gap-2 overflow-hidden">
+                              <Play className="h-3 w-3 text-primary cursor-pointer" onClick={() => handlePreviewAudio(playerForm.announcementAudioUrl, 0)} />
+                              <span className="text-[8px] font-bold uppercase truncate max-w-[150px]">{playerForm.announcementAudioUrl.split('/').pop()}</span>
+                           </div>
+                           <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => setPlayerForm({...playerForm, announcementAudioUrl: ""})}>
+                              <Trash2 className="h-3 w-3" />
+                           </Button>
                         </div>
                       )}
                       <Input type="file" accept="audio/*" onChange={e => setAudioFile(e.target.files?.[0] || null)} className="bg-black/20" />
@@ -853,10 +861,10 @@ export function UATAdminPortalContent() {
                     <div className="space-y-3">
                       {playerForm.songs.map((song, idx) => (
                         <div key={idx} className="bg-black/20 p-3 rounded-xl border border-white/5 space-y-3 relative group">
-                          <Button variant="ghost" size="icon" onClick={() => handleDeleteYoutubeTrack(idx)} className="absolute top-2 right-2 h-6 w-6 text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
-                             <Trash2 className="h-3 w-3" />
+                          <Button variant="ghost" size="icon" onClick={() => handleDeleteYoutubeTrack(idx)} className="absolute top-2 right-2 h-7 w-7 text-destructive transition-colors bg-black/40 hover:bg-destructive/10 rounded-full">
+                             <Trash2 className="h-4 w-4" />
                           </Button>
-                          <div className="space-y-2">
+                          <div className="space-y-2 pr-8">
                             <Label className="text-[8px] font-black uppercase opacity-50">Track Name</Label>
                             <Input value={song.name} onChange={e => handleUpdateSongField(idx, 'name', e.target.value)} placeholder="Walk-Up 1" className="h-8 bg-black/20 text-xs font-bold" />
                           </div>
@@ -888,18 +896,21 @@ export function UATAdminPortalContent() {
                     <div className="space-y-3">
                       {playerForm.uploadedTracks.map((track, idx) => (
                         <div key={track.id} className="bg-black/20 p-3 rounded-xl border border-white/5 space-y-3 relative group">
-                          <Button variant="ghost" size="icon" onClick={() => handleDeleteUploadTrack(idx)} className="absolute top-2 right-2 h-6 w-6 text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
-                             <Trash2 className="h-3 w-3" />
+                          <Button variant="ghost" size="icon" onClick={() => handleDeleteUploadTrack(idx)} className="absolute top-2 right-2 h-7 w-7 text-destructive transition-colors bg-black/40 hover:bg-destructive/10 rounded-full">
+                             <Trash2 className="h-4 w-4" />
                           </Button>
-                          <div className="space-y-2">
+                          <div className="space-y-2 pr-8">
                              <Label className="text-[8px] font-black uppercase opacity-50">Track Name</Label>
                              <Input value={track.name} onChange={e => handleUpdateUploadField(idx, 'name', e.target.value)} className="h-8 bg-black/20 text-xs font-bold" />
                           </div>
                           <div className="flex items-center gap-3">
-                             <div className="flex-1 p-2 bg-black/40 rounded border border-white/5 flex items-center gap-2">
-                               <FileAudio className="h-3 w-3 text-primary" />
+                             <div className="flex-1 p-2 bg-black/40 rounded border border-white/5 flex items-center gap-2 overflow-hidden">
+                               <FileAudio className="h-3 w-3 text-primary shrink-0" />
                                <span className="text-[8px] font-bold uppercase truncate">{track.url.split('/').pop()}</span>
                              </div>
+                             <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => handlePreviewAudio(track.url, track.startAt)}>
+                                <Play className="h-3 w-3" />
+                             </Button>
                              <div className="w-24 space-y-1">
                                <Label className="text-[8px] font-black uppercase opacity-50">Start (sec)</Label>
                                <Input type="number" value={track.startAt} onChange={e => handleUpdateUploadField(idx, 'startAt', parseInt(e.target.value) || 0)} className="h-8 bg-black/20 text-xs" />
@@ -934,7 +945,7 @@ export function UATAdminPortalContent() {
                     } catch (err: any) { toast({ variant: "destructive", title: "Upload Failed" }); } finally { setIsUploading(false); }
                   }} className="space-y-4">
                     <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Effect Name</Label><Input value={fxForm.name} onChange={e => setFxForm({ ...fxForm, name: e.target.value })} className="h-11 bg-black/40 font-bold" /></div>
-                    <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Audio File</Label><Input type="file" accept="audio/*" onChange={e => setAudioFile(e.target.files?.[0] || null)} className="bg-black/20" /></div>
+                    <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Audio File</Label><Input type="file" accept="audio/*" onChange={e => setFxFile(e.target.files?.[0] || null)} className="bg-black/20" /></div>
                     <Button disabled={!fxFile || isUploading} type="submit" className="w-full h-12 bg-[var(--tenant-primary)] font-black uppercase text-[10px]">Upload Sound FX</Button>
                   </form>
                 </CardContent>
