@@ -89,45 +89,49 @@ export function StadiumScoreboard({ adminMode = true }: StadiumScoreboardProps) 
   const LightIndicator = ({ label, count, max, activeColor }: any) => (
     <div className="flex flex-col items-center gap-1">
       <span className="text-[7px] font-black text-muted-foreground uppercase">{label}</span>
-      <div className="flex gap-1">{Array.from({ length: max }).map((_, i) => (<div key={i} className={cn("h-2.5 w-2.5 rounded-full border border-white/10 transition-all", i < count ? activeColor : "bg-black/40")} />))}</div>
+      <div className="flex gap-1">{Array.from({ length: max }).map((_, i) => (<div key={i} className={cn("h-2 w-2 md:h-2.5 md:w-2.5 rounded-full border border-white/10 transition-all", i < count ? activeColor : "bg-black/40")} />))}</div>
     </div>
   );
 
   return (
     <div className="w-full space-y-6">
       <Card className="bg-black border-2 border-white/5 shadow-2xl overflow-hidden">
-        <div className="bg-gradient-to-r from-blue-900/40 to-transparent p-4 flex items-center justify-between gap-8">
-          <div className="h-16 px-6 bg-primary/10 border border-primary/20 rounded-lg flex items-center gap-6">
-             <div className="flex flex-col items-center"><span className="text-[8px] font-black uppercase text-primary">INN</span><span className="text-3xl font-black digit-font text-white">{inning}</span></div>
-             {half === 'top' ? <ChevronUp className="h-8 w-8 text-secondary animate-pulse" /> : <ChevronDown className="h-8 w-8 text-primary animate-pulse" />}
+        <div className="bg-gradient-to-r from-blue-900/40 to-transparent p-4 flex flex-col md:flex-row items-center justify-between gap-6 md:gap-8">
+          <div className="w-full md:w-auto flex items-center justify-between md:justify-start gap-4 md:gap-6">
+            <div className="h-14 md:h-16 px-4 md:px-6 bg-primary/10 border border-primary/20 rounded-lg flex items-center gap-4 md:gap-6">
+               <div className="flex flex-col items-center"><span className="text-[8px] font-black uppercase text-primary">INN</span><span className="text-2xl md:text-3xl font-black digit-font text-white">{inning}</span></div>
+               {half === 'top' ? <ChevronUp className="h-6 w-6 md:h-8 md:w-8 text-secondary animate-pulse" /> : <ChevronDown className="h-6 w-6 md:h-8 md:w-8 text-primary animate-pulse" />}
+            </div>
+            
+            <div className="flex items-center gap-4 md:gap-8 md:border-r border-white/5 md:pr-10">
+              <LightIndicator label="B" count={balls} max={3} activeColor="bg-green-500 shadow-green-500" />
+              <LightIndicator label="S" count={strikes} max={2} activeColor="bg-yellow-500 shadow-yellow-500" />
+              <LightIndicator label="O" count={outs} max={2} activeColor="bg-red-500 shadow-red-500" />
+            </div>
           </div>
-          <div className="grid grid-cols-3 gap-8 border-r border-white/5 pr-10">
-            <LightIndicator label="B" count={balls} max={3} activeColor="bg-green-500 shadow-green-500" />
-            <LightIndicator label="S" count={strikes} max={2} activeColor="bg-yellow-500 shadow-yellow-500" />
-            <LightIndicator label="O" count={outs} max={2} activeColor="bg-red-500 shadow-red-500" />
-          </div>
-          <div className="flex items-start gap-6 ml-auto">
+
+          <div className="w-full md:w-auto flex items-center justify-around md:justify-end gap-4 md:gap-6 ml-auto">
              <div className="flex flex-col items-center gap-2">
-                <div className="w-[110px] h-[110px] bg-secondary/10 border border-secondary/20 rounded-xl flex flex-col items-center justify-center">
-                  <span className="text-[10px] font-black uppercase text-secondary">AWAY</span>
-                  <span className="text-5xl font-black digit-font text-white">{contextAwayScore}</span>
+                <div className="w-[80px] h-[80px] md:w-[110px] md:h-[110px] bg-secondary/10 border border-secondary/20 rounded-xl flex flex-col items-center justify-center">
+                  <span className="text-[8px] md:text-[10px] font-black uppercase text-secondary">AWAY</span>
+                  <span className="text-3xl md:text-5xl font-black digit-font text-white">{contextAwayScore}</span>
                 </div>
                 <div className="h-5 flex items-center justify-center">
                   {isOurTeamAway && (
-                    <Badge className="bg-primary text-white font-black text-[7px] sm:text-[9px] uppercase tracking-[0.2em] rounded-md px-2 py-0.5 border-none shadow-lg">
+                    <Badge className="bg-primary text-white font-black text-[7px] md:text-[9px] uppercase tracking-[0.2em] rounded-md px-2 py-0.5 border-none shadow-lg whitespace-nowrap">
                       {currentTeamName}
                     </Badge>
                   )}
                 </div>
              </div>
              <div className="flex flex-col items-center gap-2">
-                <div className="w-[110px] h-[110px] bg-primary/10 border border-primary/20 rounded-xl flex flex-col items-center justify-center">
-                  <span className="text-[10px] font-black uppercase text-primary">HOME</span>
-                  <span className="text-5xl font-black digit-font text-white">{contextHomeScore}</span>
+                <div className="w-[80px] h-[80px] md:w-[110px] md:h-[110px] bg-primary/10 border border-primary/20 rounded-xl flex flex-col items-center justify-center">
+                  <span className="text-[8px] md:text-[10px] font-black uppercase text-primary">HOME</span>
+                  <span className="text-3xl md:text-5xl font-black digit-font text-white">{contextHomeScore}</span>
                 </div>
                 <div className="h-5 flex items-center justify-center">
                   {isOurTeamHome && (
-                    <Badge className="bg-primary text-white font-black text-[7px] sm:text-[9px] uppercase tracking-[0.2em] rounded-md px-2 py-0.5 border-none shadow-lg">
+                    <Badge className="bg-primary text-white font-black text-[7px] md:text-[9px] uppercase tracking-[0.2em] rounded-md px-2 py-0.5 border-none shadow-lg whitespace-nowrap">
                       {currentTeamName}
                     </Badge>
                   )}
@@ -135,8 +139,8 @@ export function StadiumScoreboard({ adminMode = true }: StadiumScoreboardProps) 
              </div>
           </div>
         </div>
-        <CardContent className="p-0 overflow-x-auto">
-          <table className="w-full border-collapse">
+        <CardContent className="p-0 overflow-x-auto scrollbar-hide">
+          <table className="w-full border-collapse min-w-[500px]">
             <thead><tr className="bg-white/5 text-[9px] font-black uppercase tracking-widest text-muted-foreground"><th className="p-3 text-left w-24">Team</th>{[1,2,3,4,5,6,7,8,9].map(i=><th key={i} className="p-3 border-l border-white/5">{i}</th>)}<th className="p-3 border-l-2 border-white/10">R</th><th className="p-3 border-l border-white/5">H</th><th className="p-3 border-l border-white/5">E</th></tr></thead>
             <tbody className="digit-font">
               <tr className="border-b border-white/5"><td className="p-3 text-xs font-black uppercase text-muted-foreground">Away</td>{awayLineScore.map((s,i)=><td key={i} className="p-3 text-center border-l border-white/5 text-sm">{s||'-'}</td>)}<td className="p-3 text-center border-l-2 border-white/10 font-black text-primary">{contextAwayScore}</td><td className="p-3 text-center border-l border-white/5 text-sm">{awayHits}</td><td className="p-3 text-center border-l border-white/5 text-sm">{awayErrors}</td></tr>
@@ -149,16 +153,16 @@ export function StadiumScoreboard({ adminMode = true }: StadiumScoreboardProps) 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <Card className="bg-card/50 border-white/5 p-4 space-y-4">
             <div className="grid grid-cols-3 gap-3">
-              <Button onClick={()=>setBalls(prev=>prev===3?0:prev+1)} className="h-20 flex flex-col bg-green-900/40 font-black"><span className="text-[8px] uppercase tracking-tighter">+ BALL</span><span className="text-2xl">{balls}</span></Button>
-              <Button onClick={()=>setStrikes(prev=>prev===2?0:prev+1)} className="h-20 flex flex-col bg-yellow-900/40 font-black"><span className="text-[8px] uppercase tracking-tighter">+ STRIKE</span><span className="text-2xl">{strikes}</span></Button>
-              <Button onClick={()=>setOuts(prev=>prev===2?0:prev+1)} className="h-20 flex flex-col bg-red-900/40 font-black"><span className="text-[8px] uppercase tracking-tighter">+ OUT</span><span className="text-2xl">{outs}</span></Button>
+              <Button onClick={()=>setBalls(prev=>prev===3?0:prev+1)} className="h-16 md:h-20 flex flex-col bg-green-900/40 font-black"><span className="text-[8px] uppercase tracking-tighter">+ BALL</span><span className="text-xl md:text-2xl">{balls}</span></Button>
+              <Button onClick={()=>setStrikes(prev=>prev===2?0:prev+1)} className="h-16 md:h-20 flex flex-col bg-yellow-900/40 font-black"><span className="text-[8px] uppercase tracking-tighter">+ STRIKE</span><span className="text-xl md:text-2xl">{strikes}</span></Button>
+              <Button onClick={()=>setOuts(prev=>prev===2?0:prev+1)} className="h-16 md:h-20 flex flex-col bg-red-900/40 font-black"><span className="text-[8px] uppercase tracking-tighter">+ OUT</span><span className="text-xl md:text-2xl">{outs}</span></Button>
             </div>
             <div className="flex gap-2"><Button variant="outline" onClick={()=>{setBalls(0);setStrikes(0);}} className="flex-1 h-12 font-black uppercase text-[10px] tracking-widest border-white/10">Reset Count</Button><Button variant="outline" onClick={nextHalfInning} className="flex-1 h-12 font-black uppercase text-[10px] tracking-widest border-white/10">Change Half</Button></div>
           </Card>
           <Card className="bg-card/50 border-white/5 p-4 grid grid-cols-3 gap-4">
              <div className="bg-black/20 p-3 rounded-xl flex flex-col items-center justify-between border border-white/5">
                 <span className="text-[8px] font-black uppercase text-muted-foreground">Runs</span>
-                <span className="text-2xl font-black digit-font">{half==='top'?awayLineScore[inning-1]:homeLineScore[inning-1]}</span>
+                <span className="text-xl md:text-2xl font-black digit-font">{half==='top'?awayLineScore[inning-1]:homeLineScore[inning-1]}</span>
                 <div className="flex gap-1">
                    <Button onClick={()=>updateRuns(-1)} variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/10"><Minus className="h-3 w-3" /></Button>
                    <Button onClick={()=>updateRuns(1)} variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/10"><Plus className="h-3 w-3" /></Button>
@@ -166,7 +170,7 @@ export function StadiumScoreboard({ adminMode = true }: StadiumScoreboardProps) 
              </div>
              <div className="bg-black/20 p-3 rounded-xl flex flex-col items-center justify-between border border-white/5">
                 <span className="text-[8px] font-black uppercase text-muted-foreground">Hits</span>
-                <span className="text-2xl font-black digit-font">{half==='top'?awayHits:homeHits}</span>
+                <span className="text-xl md:text-2xl font-black digit-font">{half==='top'?awayHits:homeHits}</span>
                 <div className="flex gap-1">
                    <Button onClick={() => half==='top' ? setAwayHits(h=>Math.max(0,h-1)) : setHomeHits(h=>Math.max(0,h-1))} variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/10"><Minus className="h-3 w-3" /></Button>
                    <Button onClick={() => half==='top' ? setAwayHits(h=>h+1) : setHomeHits(h=>h+1)} variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/10"><Plus className="h-3 w-3" /></Button>
@@ -174,7 +178,7 @@ export function StadiumScoreboard({ adminMode = true }: StadiumScoreboardProps) 
              </div>
              <div className="bg-black/20 p-3 rounded-xl flex flex-col items-center justify-between border border-white/5">
                 <span className="text-[8px] font-black uppercase text-muted-foreground">Errors</span>
-                <span className="text-2xl font-black digit-font">{half==='top'?awayErrors:homeErrors}</span>
+                <span className="text-xl md:text-2xl font-black digit-font">{half==='top'?awayErrors:homeErrors}</span>
                 <div className="flex gap-1">
                    <Button onClick={() => half==='top' ? setAwayErrors(e=>Math.max(0,e-1)) : setHomeErrors(e=>Math.max(0,e-1))} variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/10"><Minus className="h-3 w-3" /></Button>
                    <Button onClick={() => half==='top' ? setAwayErrors(e=>e+1) : setHomeErrors(e=>e+1)} variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/10"><Plus className="h-3 w-3" /></Button>
