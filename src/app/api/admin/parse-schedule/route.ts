@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     console.log(`Source URL: ${fileUrl}`);
 
     if (!fileUrl || !teamName) {
-      console.warn("⚠️ Validation Failed: Missing fileUrl or teamName");
+      console.error("🔥 GEMINI API ROUTE ERROR: Missing fileUrl or teamName");
       return NextResponse.json({ 
         error: 'Missing required parameters: fileUrl and teamName' 
       }, { status: 400 });
@@ -31,11 +31,14 @@ export async function POST(req: NextRequest) {
     const arrayBuffer = await fileResponse.arrayBuffer();
     const fileBuffer = Buffer.from(arrayBuffer);
     
-    // Convert to Base64 for Gemini Data URI format
-    const base64Data = fileBuffer.toString('base64');
+    /**
+     * Explicit Base64 Conversion for Gemini payload.
+     * Hardening the binary transfer to ensure the AI model receives a clean Data URI.
+     */
+    const base64Data = Buffer.from(fileBuffer).toString("base64");
     const dataUri = `data:${contentType};base64,${base64Data}`;
 
-    console.log(`✅ File Retrieved: Type=${contentType}, Size=${fileBuffer.length} bytes`);
+    // Force Terminal Logging as requested to identify silent failures
     console.log(`Starting Gemini parse for file type: ${contentType}, size: ${fileBuffer.length}`);
 
     // 2. Trigger Genkit Flow with Gemini 1.5 Flash
@@ -50,16 +53,16 @@ export async function POST(req: NextRequest) {
 
       return NextResponse.json(result);
     } catch (aiError: any) {
+      // Capture and log specific AI execution failures
       console.error("🔥 GEMINI API AI FLOW ERROR:", aiError);
-      return NextResponse.json({ 
-        error: `AI Parsing System Failure: ${aiError.message || 'The AI could not process this document format.'}`
-      }, { status: 500 });
+      throw aiError; // Rethrow to be handled by the main catch block
     }
 
   } catch (error: any) {
-    console.error('🔥 GEMINI API ROUTE SYSTEM ERROR:', error);
+    // Force Terminal Logging for system or network failures
+    console.error("🔥 GEMINI API ROUTE ERROR:", error);
     return NextResponse.json({ 
-      error: `System Failure: ${error.message || "An unexpected error occurred during the parse request."}`
+      error: error.message || "Internal Server Error" 
     }, { status: 500 });
   }
 }
