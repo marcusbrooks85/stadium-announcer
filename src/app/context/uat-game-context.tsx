@@ -60,6 +60,8 @@ export interface Player {
   announcementAudioUrl: string;
   songs: Song[];
   uploadedTracks: UploadedTrack[];
+  youtubeTracks: string[];
+  audioUploads: string[];
   teamId: string;
   stats?: PlayerStats;
 }
@@ -328,7 +330,12 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
     }
 
     const unsubRoster = onSnapshot(query(collection(db, "players_UAT"), where("teamId", "==", userTeamId)), (snap) => {
-      setRoster(snap.docs.map(d => ({ id: d.id, ...d.data() })) as Player[]);
+      setRoster(snap.docs.map(d => ({ 
+        id: d.id, 
+        ...d.data(),
+        youtubeTracks: d.data().youtubeTracks || ["", "", ""],
+        audioUploads: d.data().audioUploads || ["", "", ""]
+      })) as Player[]);
     });
 
     const unsubGames = onSnapshot(query(collection(db, "games_UAT"), where("teamId", "==", userTeamId)), (snap) => {

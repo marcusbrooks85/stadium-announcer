@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
@@ -37,7 +36,9 @@ import {
   CheckCircle2,
   ChevronDown,
   ArrowRight,
-  Check
+  Check,
+  FileMusic,
+  ExternalLink
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -131,6 +132,8 @@ export function UATAdminPortalContent() {
     name: "",
     number: "",
     announcementAudioUrl: "",
+    youtubeTracks: ["", "", ""],
+    audioUploads: ["", "", ""],
     songs: [] as Song[],
     uploadedTracks: [] as UploadedTrack[]
   });
@@ -192,7 +195,15 @@ export function UATAdminPortalContent() {
 
   useEffect(() => {
     if (selectedPlayerId === "none") {
-      setPlayerForm({ name: "", number: "", announcementAudioUrl: "", songs: [], uploadedTracks: [] });
+      setPlayerForm({ 
+        name: "", 
+        number: "", 
+        announcementAudioUrl: "", 
+        youtubeTracks: ["", "", ""],
+        audioUploads: ["", "", ""],
+        songs: [], 
+        uploadedTracks: [] 
+      });
     } else {
       const p = roster.find(r => r.id === selectedPlayerId);
       if (p) {
@@ -200,6 +211,8 @@ export function UATAdminPortalContent() {
           name: p.name || "",
           number: p.number?.toString() || "",
           announcementAudioUrl: p.announcementAudioUrl || "",
+          youtubeTracks: p.youtubeTracks || ["", "", ""],
+          audioUploads: p.audioUploads || ["", "", ""],
           songs: p.songs || [],
           uploadedTracks: p.uploadedTracks || []
         });
@@ -272,15 +285,19 @@ export function UATAdminPortalContent() {
     try {
       let finalAudioUrl = playerForm.announcementAudioUrl;
       const playerId = selectedPlayerId === "none" ? doc(collection(db, "players_UAT")).id : selectedPlayerId;
-      if (audioFile) finalAudioUrl = await uploadToR2(audioFile, "announcement_audio_UAT");
+      if (audioFile) finalAudioUrl = await uploadToR2(audioFile, "walkup-announcements");
+      
       await savePlayer({
         name: playerForm.name,
         number: parseInt(playerForm.number) || 0,
         announcementAudioUrl: finalAudioUrl,
+        youtubeTracks: playerForm.youtubeTracks,
+        audioUploads: playerForm.audioUploads,
         songs: playerForm.songs,
         uploadedTracks: playerForm.uploadedTracks,
         teamId: userTeamId
       }, playerId);
+      
       setSelectedPlayerId("none");
       setAudioFile(null);
       toast({ title: "Player Profile Saved" });
@@ -295,6 +312,24 @@ export function UATAdminPortalContent() {
       return;
     }
     setPlayerForm({ ...playerForm, songs: [...playerForm.songs, { name: "", videoId: "", startAt: 0 }] });
+  };
+
+  const handleUploadTrackFileSlot = async (e: React.ChangeEvent<HTMLInputElement>, slotIdx: number) => {
+    const file = e.target.files?.[0];
+    if (!file || selectedPlayerId === "none") {
+      toast({ variant: "destructive", title: "Action Required", description: "Save player first before uploading files." });
+      return;
+    }
+    setIsUploading(true);
+    try {
+      const url = await uploadToR2(file, "walkup-track-files");
+      const nextAudioUploads = [...playerForm.audioUploads];
+      nextAudioUploads[slotIdx] = url;
+      setPlayerForm({ ...playerForm, audioUploads: nextAudioUploads });
+      toast({ title: `Track ${slotIdx + 1} Uploaded` });
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Upload Failed", description: err.message });
+    } finally { setIsUploading(false); }
   };
 
   const handleUploadTrackFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -780,16 +815,83 @@ export function UATAdminPortalContent() {
               </Card>
               <Card className="bg-card/50 border-white/10">
                 <CardHeader><CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-3"><Settings className="h-4 w-4 text-[var(--tenant-primary)]" /> {selectedPlayerId === "none" ? "Add New Player" : `Edit: ${playerForm.name}`}</CardTitle></CardHeader>
-                <CardContent className="space-y-6">
+                <CardContent className="space-y-8">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Full Name *</Label><Input value={playerForm.name} onChange={e => setPlayerForm({...playerForm, name: e.target.value})} className="h-11 bg-black/40 font-bold" /></div>
                     <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Jersey Number *</Label><Input type="number" value={playerForm.number} onChange={e => setPlayerForm({...playerForm, number: e.target.value})} className="h-11 bg-black/40 font-bold" /></div>
                   </div>
+                  
                   <div className="space-y-2 p-4 bg-primary/5 rounded-xl border border-primary/10">
-                    <Label className="text-[10px] font-black uppercase text-primary tracking-widest flex items-center gap-2"><Mic2 className="h-3 w-3" /> Announcement Audio</Label>
-                    <Input type="file" accept="audio/*" onChange={e => setAudioFile(e.target.files?.[0] || null)} className="bg-black/20" />
+                    <Label className="text-[10px] font-black uppercase text-primary tracking-widest flex items-center gap-2"><Mic2 className="h-3 w-3" /> Primary Announcement Audio</Label>
+                    <div className="flex flex-col gap-2 mt-2">
+                      {playerForm.announcementAudioUrl && (
+                        <div className="flex items-center gap-2 p-2 bg-black/40 rounded border border-white/5">
+                           <Play className="h-3 w-3 text-primary" />
+                           <span className="text-[8px] font-bold uppercase truncate max-w-[150px]">{playerForm.announcementAudioUrl.split('/').pop()}</span>
+                        </div>
+                      )}
+                      <Input type="file" accept="audio/*" onChange={e => setAudioFile(e.target.files?.[0] || null)} className="bg-black/20" />
+                    </div>
                   </div>
-                  <Button disabled={isSaving || isUploading} onClick={handleSavePlayerProfile} className="w-full h-14 bg-primary text-white font-black uppercase text-[10px]">SAVE PLAYER PROFILE</Button>
+
+                  <div className="space-y-4">
+                    <Label className="text-[10px] font-black uppercase text-secondary tracking-widest flex items-center gap-2"><Music className="h-3 w-3" /> YouTube Walk-Up Tracks (Max 3)</Label>
+                    <div className="space-y-3">
+                      {[0, 1, 2].map((idx) => (
+                        <div key={idx} className="flex gap-3 items-end bg-black/20 p-3 rounded-xl border border-white/5">
+                          <div className="flex-1 space-y-1.5">
+                            <Label className="text-[8px] font-black uppercase opacity-50">YouTube URL {idx + 1}</Label>
+                            <Input 
+                              placeholder="https://www.youtube.com/watch?v=..." 
+                              value={playerForm.youtubeTracks[idx] || ""} 
+                              onChange={(e) => {
+                                const next = [...playerForm.youtubeTracks];
+                                next[idx] = e.target.value;
+                                setPlayerForm({...playerForm, youtubeTracks: next});
+                              }}
+                              className="h-10 bg-black/20 text-xs"
+                            />
+                          </div>
+                          {playerForm.youtubeTracks[idx] && <Button size="icon" variant="ghost" className="h-10 w-10 text-primary" asChild><a href={playerForm.youtubeTracks[idx]} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-4 w-4" /></a></Button>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <Label className="text-[10px] font-black uppercase text-[var(--tenant-primary)] tracking-widest flex items-center gap-2"><FileMusic className="h-3 w-3" /> Custom Audio Uploads (Max 3)</Label>
+                    <div className="space-y-3">
+                      {[0, 1, 2].map((idx) => (
+                        <div key={idx} className="bg-black/20 p-4 rounded-xl border border-white/5 space-y-3">
+                          <div className="flex items-center justify-between">
+                             <Label className="text-[8px] font-black uppercase opacity-50">Audio Track {idx + 1}</Label>
+                             {playerForm.audioUploads[idx] && <Badge variant="outline" className="text-[7px] font-black uppercase border-green-500/50 text-green-500">File Loaded</Badge>}
+                          </div>
+                          {playerForm.audioUploads[idx] && (
+                            <div className="flex items-center gap-2 p-2 bg-black/40 rounded border border-white/5 mb-2">
+                               <FileAudio className="h-3 w-3 text-primary" />
+                               <span className="text-[8px] font-bold uppercase truncate flex-1">{playerForm.audioUploads[idx].split('/').pop()}</span>
+                               <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => {
+                                 const next = [...playerForm.audioUploads];
+                                 next[idx] = "";
+                                 setPlayerForm({...playerForm, audioUploads: next});
+                               }}><X className="h-3 w-3" /></Button>
+                            </div>
+                          )}
+                          <Input 
+                            type="file" 
+                            accept="audio/*" 
+                            onChange={(e) => handleUploadTrackFileSlot(e, idx)} 
+                            className="bg-black/20 h-9" 
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <Button disabled={isSaving || isUploading} onClick={handleSavePlayerProfile} className="w-full h-14 bg-primary text-white font-black uppercase text-[10px] tracking-[0.2em] shadow-xl shadow-primary/20">
+                    {isSaving ? <Loader2 className="animate-spin" /> : <Save className="h-4 w-4 mr-2" />} SAVE PLAYER PROFILE
+                  </Button>
                 </CardContent>
               </Card>
             </div>
