@@ -3,48 +3,72 @@ import { runScheduleParser } from '@/ai/flows/parse-schedule-flow';
 
 /**
  * API route to parse an uploaded schedule file using Google Gemini 1.5 Flash.
- * Fetches the file from R2 and processes it as a media part for Genkit.
+ * Optimized to handle both JSON (R2 URL) and Multipart (Direct File) to bypass 401 errors.
  */
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { fileUrl, teamName } = body;
+    const contentType = req.headers.get('content-type') || '';
+    let fileBuffer: Buffer;
+    let teamName: string;
+    let mimeType: string;
 
     console.log("--- ⚡ GEMINI SCHEDULE PARSE REQUEST START ---");
-    console.log(`Target Team: "${teamName}"`);
-    console.log(`Source URL: ${fileUrl}`);
 
-    if (!fileUrl || !teamName) {
-      console.error("🔥 GEMINI API ROUTE ERROR: Missing fileUrl or teamName");
-      return NextResponse.json({ 
-        error: 'Missing required parameters: fileUrl and teamName' 
-      }, { status: 400 });
+    if (contentType.includes('multipart/form-data')) {
+      const formData = await req.formData();
+      const file = formData.get('file') as File;
+      teamName = (formData.get('teamName') as string) || '';
+      
+      console.log(`Direct Binary Mode. Target Team: "${teamName}"`);
+
+      if (!file || !teamName) {
+        console.error("🔥 PARSE ERROR: Missing file or teamName in form data");
+        return NextResponse.json({ 
+          error: 'Missing required parameters: file and teamName' 
+        }, { status: 400 });
+      }
+
+      mimeType = file.type || 'application/octet-stream';
+      const arrayBuffer = await file.arrayBuffer();
+      fileBuffer = Buffer.from(arrayBuffer);
+    } else {
+      // Legacy JSON Mode (Fetch from R2 - prone to 401s on dev domains)
+      const body = await req.json();
+      const { fileUrl, teamName: bodyTeamName } = body;
+      teamName = bodyTeamName;
+
+      console.log(`URL Fetch Mode. Target Team: "${teamName}"`);
+      console.log(`Source URL: ${fileUrl}`);
+
+      if (!fileUrl || !teamName) {
+        return NextResponse.json({ 
+          error: 'Missing required parameters: fileUrl and teamName' 
+        }, { status: 400 });
+      }
+
+      // Fetch file content from R2
+      const fileResponse = await fetch(fileUrl);
+      if (!fileResponse.ok) {
+        const errorMsg = `Failed to fetch file from R2: ${fileResponse.statusText} (${fileResponse.status})`;
+        console.error("🔥 R2 FETCH ERROR:", errorMsg);
+        return NextResponse.json({ 
+          error: errorMsg,
+          details: "The server could not retrieve the file from storage. Try uploading the file again."
+        }, { status: 502 });
+      }
+
+      mimeType = fileResponse.headers.get('content-type') || 'application/octet-stream';
+      const arrayBuffer = await fileResponse.arrayBuffer();
+      fileBuffer = Buffer.from(arrayBuffer);
     }
-
-    // 1. Fetch the file content from R2
-    const fileResponse = await fetch(fileUrl);
-    if (!fileResponse.ok) {
-      const errorMsg = `Failed to fetch file from R2: ${fileResponse.statusText} (${fileResponse.status})`;
-      console.error("🔥 R2 FETCH ERROR:", errorMsg);
-      return NextResponse.json({ 
-        error: errorMsg,
-        details: "The server could not retrieve the file from storage for analysis."
-      }, { status: 502 });
-    }
-
-    const contentType = fileResponse.headers.get('content-type') || 'application/octet-stream';
-    const arrayBuffer = await fileResponse.arrayBuffer();
-    const fileBuffer = Buffer.from(arrayBuffer);
     
     /**
      * Efficient Base64 Conversion for Gemini payload.
-     * Hardening the binary transfer to ensure the AI model receives a clean Data URI.
      */
     const base64Data = fileBuffer.toString("base64");
-    const dataUri = `data:${contentType};base64,${base64Data}`;
+    const dataUri = `data:${mimeType};base64,${base64Data}`;
 
-    // Force Terminal Logging as requested to identify silent failures
-    console.log(`Starting Gemini parse for file type: ${contentType}, size: ${fileBuffer.length}`);
+    console.log(`Starting Gemini parse for file type: ${mimeType}, size: ${fileBuffer.length} bytes`);
 
     // 2. Trigger Genkit Flow with Gemini 1.5 Flash
     try {
@@ -58,7 +82,6 @@ export async function POST(req: NextRequest) {
 
       return NextResponse.json(result);
     } catch (aiError: any) {
-      // Capture and log specific AI execution failures
       console.error("🔥 GEMINI AI FLOW ERROR:", aiError);
       return NextResponse.json({ 
         error: aiError.message || "AI model failed to process the document.",
@@ -67,7 +90,6 @@ export async function POST(req: NextRequest) {
     }
 
   } catch (error: any) {
-    // Force Terminal Logging for system or network failures
     console.error("🔥 GEMINI API ROUTE CRITICAL ERROR:", error);
     return NextResponse.json({ 
       error: error.message || "Internal Server Error",

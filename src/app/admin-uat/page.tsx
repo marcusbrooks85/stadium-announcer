@@ -351,16 +351,19 @@ export function UATAdminPortalContent() {
     
     setIsScheduleUploading(true);
     try {
-      // 1. Upload to R2
+      // 1. Upload to R2 (Persistent Storage)
       const url = await uploadToR2(file, "schedule-uploads");
       toast({ title: "File Uploaded", description: "AI Extracting Schedule Data..." });
       
-      // 2. Trigger AI Parsing
+      // 2. Trigger AI Parsing (Bypass R2 fetch 401s by sending binary directly)
       setIsParsing(true);
+      const parseFormData = new FormData();
+      parseFormData.append('file', file);
+      parseFormData.append('teamName', teamData.name);
+
       const res = await fetch("/api/admin/parse-schedule", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fileUrl: url, teamName: teamData.name })
+        body: parseFormData
       });
 
       if (!res.ok) {
