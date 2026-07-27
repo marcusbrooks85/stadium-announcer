@@ -1,6 +1,6 @@
 'use server';
 /**
- * @fileOverview A Genkit flow for parsing baseball schedules from documents/images using Gemini 1.5 Flash.
+ * @fileOverview A Genkit flow for parsing baseball schedules from documents/images using Gemini 2.5 Flash.
  * 
  * - runScheduleParser - A function that handles the AI parsing process.
  * - ParseScheduleInput - The input type for the parser.
@@ -35,7 +35,7 @@ export type ParseScheduleOutput = z.infer<typeof ParseScheduleOutputSchema>;
 
 const parsePrompt = ai.definePrompt({
   name: 'parseSchedulePrompt',
-  model: googleAI.model('gemini-1.5-flash'),
+  model: googleAI.model('gemini-2.5-flash'),
   input: { schema: ParseScheduleInputSchema },
   output: { schema: ParseScheduleOutputSchema },
   prompt: `You are an expert baseball league administrator. 
