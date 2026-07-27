@@ -38,7 +38,6 @@ export async function POST(req: NextRequest) {
       teamName = bodyTeamName;
 
       console.log(`URL Fetch Mode. Target Team: "${teamName}"`);
-      console.log(`Source URL: ${fileUrl}`);
 
       if (!fileUrl || !teamName) {
         return NextResponse.json({ 
@@ -49,8 +48,8 @@ export async function POST(req: NextRequest) {
       // Fetch file content from R2
       const fileResponse = await fetch(fileUrl);
       if (!fileResponse.ok) {
-        const errorMsg = `Failed to fetch file from R2: ${fileResponse.statusText} (${fileResponse.status})`;
-        console.error("🔥 R2 FETCH ERROR:", errorMsg);
+        const errorMsg = `Failed to fetch file from storage: ${fileResponse.statusText} (${fileResponse.status})`;
+        console.error("🔥 STORAGE FETCH ERROR:", errorMsg);
         return NextResponse.json({ 
           error: errorMsg,
           details: "The server could not retrieve the file from storage. Try uploading the file again."
@@ -70,7 +69,7 @@ export async function POST(req: NextRequest) {
 
     console.log(`Starting Gemini parse for file type: ${mimeType}, size: ${fileBuffer.length} bytes`);
 
-    // 2. Trigger Genkit Flow with Gemini 1.5 Flash
+    // Trigger Genkit Flow with Gemini 1.5 Flash
     try {
       const result = await runScheduleParser({
         fileDataUri: dataUri,
