@@ -134,7 +134,7 @@ export function UATAdminPortalContent() {
   });
   const [audioFile, setAudioFile] = useState<File | null>(null);
 
-  // Schedule Builder State
+  // Schedule Manager State
   const [gameForm, setGameForm] = useState({ date: "", week: "", home: "", away: "", time: "", location: "" });
   const [snackUpdateText, setSnackUpdateText] = useState("");
 
@@ -465,7 +465,7 @@ export function UATAdminPortalContent() {
             <TabsTrigger value="identity" className="text-[10px] font-black uppercase tracking-widest px-6 h-10">Identity</TabsTrigger>
             {isManagement && <TabsTrigger value="users" className="text-[10px] font-black uppercase tracking-widest px-6 h-10">Team Users</TabsTrigger>}
             {isManagement && <TabsTrigger value="logistics" className="text-[10px] font-black uppercase tracking-widest px-6 h-10">Team Roster</TabsTrigger>}
-            {isManagement && <TabsTrigger value="builder" className="text-[10px] font-black uppercase tracking-widest px-6 h-10">Schedule Builder</TabsTrigger>}
+            {isManagement && <TabsTrigger value="builder" className="text-[10px] font-black uppercase tracking-widest px-6 h-10">Schedule Manager</TabsTrigger>}
             {isManagement && <TabsTrigger value="soundfx" className="text-[10px] font-black uppercase tracking-widest px-6 h-10">Sound FX</TabsTrigger>}
           </TabsList>
 
@@ -476,7 +476,7 @@ export function UATAdminPortalContent() {
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2"><Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">First Name</Label><Input value={profileForm.firstName} onChange={e => setProfileForm({...profileForm, firstName: e.target.value})} className="h-11 bg-black/40 font-bold" /></div>
-                    <div className="space-y-2"><Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Last Name</Label><Input value={profileForm.lastName} onChange={e => setProfileForm({...profileForm, lastName: e.target.value})} className="h-11 bg-black/40 font-bold" /></div>
+                    <div className="space-y-2"><Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Last Name</Label><Input value={profileForm.lastName} onChange={e => setProfileForm({...lastName, lastName: e.target.value})} className="h-11 bg-black/40 font-bold" /></div>
                   </div>
                   <div className="space-y-2"><Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Phone Number</Label><Input value={profileForm.phoneNumber} onChange={e => setProfileForm({...profileForm, phoneNumber: e.target.value})} className="h-11 bg-black/40 font-bold" /></div>
                   <div className="space-y-2">
@@ -515,7 +515,7 @@ export function UATAdminPortalContent() {
           <TabsContent value="builder" className="space-y-8">
              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <Card className="bg-card/50 border-white/10">
-                  <CardHeader><CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-3"><Calendar className="h-4 w-4 text-[var(--tenant-primary)]" /> Manual Sequential Scheduler</CardTitle></CardHeader>
+                  <CardHeader><CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-3"><Calendar className="h-4 w-4 text-[var(--tenant-primary)]" /> Manual Schedule Manager</CardTitle></CardHeader>
                   <CardContent className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Game Number</Label><Input value={gameForm.week} onChange={e => setGameForm({...gameForm, week: e.target.value})} placeholder="e.g. 1" className="bg-black/20" /></div>
@@ -535,7 +535,7 @@ export function UATAdminPortalContent() {
 
                 <div className="space-y-8">
                   <Card className="bg-card/50 border-white/10">
-                    <CardHeader><CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-3"><FileCode className="h-4 w-4 text-[var(--tenant-primary)]" /> AI Automated Schedule Parsing</CardTitle></CardHeader>
+                    <CardHeader><CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-3"><FileCode className="h-4 w-4 text-[var(--tenant-primary)]" /> AI Automated Extraction</CardTitle></CardHeader>
                     <CardContent className="space-y-6">
                       <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl flex items-start gap-3"><AlertTriangle className="h-4 w-4 text-yellow-500 shrink-0" /><p className="text-[9px] font-bold text-yellow-500 uppercase leading-relaxed">AI Extraction is experimental. Review results below to correct any errors before importing to your timeline.</p></div>
                       <div className="space-y-2">
@@ -604,7 +604,7 @@ export function UATAdminPortalContent() {
                </Card>
              )}
 
-             {/* EXISTING SCHEDULE EDITOR */}
+             {/* EXISTING SCHEDULE MANAGER SECTION */}
              <Card className="bg-card/50 border-white/10">
                <CardHeader><CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-3"><Trophy className="h-4 w-4 text-secondary" /> Active Team Schedule</CardTitle></CardHeader>
                <CardContent className="p-0">
