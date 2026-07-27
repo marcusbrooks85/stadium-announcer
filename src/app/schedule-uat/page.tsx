@@ -39,7 +39,7 @@ interface GameStatus {
 function UATScheduleContent() {
   const db = useFirestore();
   const { toast } = useToast();
-  const { isAdmin, roster, triggerSync, userRole, games } = useUATGame();
+  const { isAdmin, roster, triggerSync, userRole, games, teamData } = useUATGame();
   const [gameStatuses, setGameStatuses] = useState<Record<string, GameStatus>>({});
   const [isSyncing, setIsSyncing] = useState(false);
 
