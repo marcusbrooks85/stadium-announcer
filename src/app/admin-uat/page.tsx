@@ -363,7 +363,11 @@ export function UATAdminPortalContent() {
         body: JSON.stringify({ fileUrl: url, teamName: teamData.name })
       });
 
-      if (!res.ok) throw new Error("AI parsing endpoint returned an error.");
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        const errorMessage = errorData.error || errorData.details || "Server rejected the parsing request.";
+        throw new Error(errorMessage);
+      }
       
       const { games } = await res.json();
       setParsedGames(games || []);
@@ -373,10 +377,11 @@ export function UATAdminPortalContent() {
         description: `Identified ${games?.length || 0} games. Review them below.` 
       });
     } catch (err: any) {
+      console.error("Parsing failure details:", err);
       toast({ 
         variant: "destructive", 
         title: "AI Analysis Failed", 
-        description: "The file was uploaded but could not be parsed automatically. Please enter games manually." 
+        description: `Error: ${err.message}. Please enter games manually if the document is unreadable.` 
       });
     } finally { 
       setIsScheduleUploading(false);
@@ -432,7 +437,7 @@ export function UATAdminPortalContent() {
 
   if (!isLoaded) return <div className="min-h-screen flex flex-col items-center justify-center stadium-gradient gap-4"><Loader2 className="h-8 w-8 animate-spin text-primary" /><span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Initializing Workspace...</span></div>;
 
-  const isManagement = ["super_admin", "league_admin", "booth_admin"].includes(userRole || "");
+  const isManagement = ["super_admin", "league_admin"].includes(userRole || "");
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground stadium-gradient overflow-hidden">

@@ -24,7 +24,12 @@ export async function POST(req: NextRequest) {
     // 1. Fetch the file content from R2
     const fileResponse = await fetch(fileUrl);
     if (!fileResponse.ok) {
-      throw new Error(`Failed to fetch file from R2: ${fileResponse.statusText} (${fileResponse.status})`);
+      const errorMsg = `Failed to fetch file from R2: ${fileResponse.statusText} (${fileResponse.status})`;
+      console.error("🔥 R2 FETCH ERROR:", errorMsg);
+      return NextResponse.json({ 
+        error: errorMsg,
+        details: "The server could not retrieve the file from storage for analysis."
+      }, { status: 502 });
     }
 
     const contentType = fileResponse.headers.get('content-type') || 'application/octet-stream';
@@ -32,10 +37,10 @@ export async function POST(req: NextRequest) {
     const fileBuffer = Buffer.from(arrayBuffer);
     
     /**
-     * Explicit Base64 Conversion for Gemini payload.
+     * Efficient Base64 Conversion for Gemini payload.
      * Hardening the binary transfer to ensure the AI model receives a clean Data URI.
      */
-    const base64Data = Buffer.from(fileBuffer).toString("base64");
+    const base64Data = fileBuffer.toString("base64");
     const dataUri = `data:${contentType};base64,${base64Data}`;
 
     // Force Terminal Logging as requested to identify silent failures
@@ -54,15 +59,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(result);
     } catch (aiError: any) {
       // Capture and log specific AI execution failures
-      console.error("🔥 GEMINI API AI FLOW ERROR:", aiError);
-      throw aiError; // Rethrow to be handled by the main catch block
+      console.error("🔥 GEMINI AI FLOW ERROR:", aiError);
+      return NextResponse.json({ 
+        error: aiError.message || "AI model failed to process the document.",
+        details: String(aiError)
+      }, { status: 500 });
     }
 
   } catch (error: any) {
     // Force Terminal Logging for system or network failures
-    console.error("🔥 GEMINI API ROUTE ERROR:", error);
+    console.error("🔥 GEMINI API ROUTE CRITICAL ERROR:", error);
     return NextResponse.json({ 
-      error: error.message || "Internal Server Error" 
+      error: error.message || "Internal Server Error",
+      details: String(error)
     }, { status: 500 });
   }
 }
