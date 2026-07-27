@@ -16,7 +16,9 @@ import {
   Ban, 
   Home, 
   ShieldCheck,
-  MessageSquare
+  MessageSquare,
+  Youtube,
+  FileMusic
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,7 +35,7 @@ import { Slider } from "@/components/ui/slider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { useUATGame, StadiumSong, UATGameProvider } from "@/app/context/uat-game-context";
+import { useUATGame, StadiumSong, UATGameProvider, Song, UploadedTrack } from "@/app/context/uat-game-context";
 import { UATNavbar } from "@/components/UATNavbar";
 import { useFirestore, useAuth } from "@/firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
@@ -54,7 +56,7 @@ function UATBoothContent() {
   } = useUATGame();
   
   const [activePlayerId, setActivePlayerId] = useState<string | null>(null);
-  const [selectedSongIndex, setSelectedSongIndex] = useState(0);
+  const [selectedTrack, setSelectedTrack] = useState<{ type: 'youtube' | 'uploaded' | 'none', index: number }>({ type: 'none', index: -1 });
   const [playbackPhase, setPlaybackPhase] = useState<'idle' | 'announcing' | 'walkup'>('idle');
   const [activeTrackName, setActiveTrackName] = useState<string | null>(null);
   const [volume, setVolume] = useState(0.8);
@@ -62,6 +64,7 @@ function UATBoothContent() {
   const [currentAnnouncementUrl, setCurrentAnnouncementUrl] = useState<string | null>(null);
   
   const announcementAudioRef = useRef<HTMLAudioElement | null>(null);
+  const walkupFileRef = useRef<HTMLAudioElement | null>(null);
   const ytPlayerRef = useRef<any>(null);
   const fadeIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
@@ -70,11 +73,6 @@ function UATBoothContent() {
     roster.find((p) => p.id === activePlayerId),
     [roster, activePlayerId]
   );
-
-  const selectedSong = useMemo(() => {
-    if (!activePlayer || selectedSongIndex === -1) return null;
-    return activePlayer.songs[selectedSongIndex] || activePlayer.songs[0];
-  }, [activePlayer, selectedSongIndex]);
 
   useEffect(() => {
     const initYT = () => {
@@ -118,6 +116,12 @@ function UATBoothContent() {
         ytPlayerRef.current.setVolume(volume * 100);
       } catch (e) {}
     }
+    if (walkupFileRef.current) {
+      walkupFileRef.current.volume = volume;
+    }
+    if (announcementAudioRef.current) {
+      announcementAudioRef.current.volume = volume;
+    }
   }, [volume, playerReady]);
 
   const logTrigger = async (category: string, audioId: string, playerId?: string) => {
@@ -140,6 +144,7 @@ function UATBoothContent() {
   const stopEverything = useCallback(() => {
     if (fadeIntervalRef.current) { clearInterval(fadeIntervalRef.current); fadeIntervalRef.current = null; }
     if (announcementAudioRef.current) { announcementAudioRef.current.pause(); announcementAudioRef.current.currentTime = 0; }
+    if (walkupFileRef.current) { walkupFileRef.current.pause(); walkupFileRef.current.currentTime = 0; }
     setCurrentAnnouncementUrl(null);
     if (ytPlayerRef.current && playerReady) { try { ytPlayerRef.current.stopVideo(); } catch (e) {} }
     setActiveTrackName(null);
@@ -188,22 +193,37 @@ function UATBoothContent() {
   const triggerWalkonSequence = () => {
     if (!activePlayer) return;
     stopEverything(); setVolume(0.8); setPlaybackPhase('announcing');
-    setActiveTrackName(selectedSongIndex === -1 ? "Announcement ONLY" : `Announcing: ${activePlayer.name}`);
+    setActiveTrackName(selectedTrack.type === 'none' ? "Announcement ONLY" : `Announcing: ${activePlayer.name}`);
     setCurrentAnnouncementUrl(activePlayer.announcementAudioUrl);
     logTrigger("Walk-up", activePlayer.announcementAudioUrl || "voice", activePlayer.id);
   };
 
   const handleAnnouncementEnded = () => {
-    if (playbackPhase === 'announcing' && activePlayer && selectedSongIndex !== -1 && selectedSong) {
-      setPlaybackPhase('walkup'); setActiveTrackName(selectedSong.name);
-      if (ytPlayerRef.current && playerReady) {
-        try {
-          ytPlayerRef.current.unMute();
-          ytPlayerRef.current.setVolume(80);
-          ytPlayerRef.current.loadVideoById({ videoId: selectedSong.videoId, startSeconds: selectedSong.startAt });
-          ytPlayerRef.current.playVideo();
-        } catch (e) {
-          console.error("UAT Walkup Error", e);
+    if (playbackPhase === 'announcing' && activePlayer && selectedTrack.type !== 'none') {
+      setPlaybackPhase('walkup');
+      
+      if (selectedTrack.type === 'youtube') {
+        const song = activePlayer.songs[selectedTrack.index];
+        if (song) {
+          setActiveTrackName(song.name);
+          if (ytPlayerRef.current && playerReady) {
+            try {
+              ytPlayerRef.current.unMute();
+              ytPlayerRef.current.setVolume(80);
+              ytPlayerRef.current.loadVideoById({ videoId: song.videoId, startSeconds: song.startAt });
+              ytPlayerRef.current.playVideo();
+            } catch (e) { console.error("UAT Walkup Error", e); }
+          }
+        }
+      } else if (selectedTrack.type === 'uploaded') {
+        const track = activePlayer.uploadedTracks[selectedTrack.index];
+        if (track) {
+          setActiveTrackName(track.name);
+          if (walkupFileRef.current) {
+            walkupFileRef.current.src = track.url;
+            walkupFileRef.current.currentTime = track.startAt || 0;
+            walkupFileRef.current.play().catch(e => console.error("File Play Error", e));
+          }
         }
       }
     } else {
@@ -217,6 +237,7 @@ function UATBoothContent() {
         {currentAnnouncementUrl && (
           <audio ref={announcementAudioRef} src={currentAnnouncementUrl} autoPlay onEnded={handleAnnouncementEnded} className="hidden" />
         )}
+        <audio ref={walkupFileRef} className="hidden" onEnded={() => setPlaybackPhase('idle')} />
 
         <header className="sticky top-0 z-50 flex flex-col p-4 border-b border-border shadow-2xl bg-card/95 backdrop-blur-md gap-4">
           <div className="flex items-center justify-between w-full relative gap-2">
@@ -267,7 +288,7 @@ function UATBoothContent() {
             <ScrollArea className="flex-1">
               <div className="p-4 space-y-3">
                 {roster.map((player) => (
-                  <button key={player.id} onClick={() => { setActivePlayerId(player.id); setSelectedSongIndex(0); }} className={cn("w-full text-left p-4 rounded-xl border transition-all", activePlayerId === player.id ? "bg-primary border-primary shadow-lg" : "bg-background/40 border-white/5")}>
+                  <button key={player.id} onClick={() => { setActivePlayerId(player.id); setSelectedTrack({ type: 'none', index: -1 }); }} className={cn("w-full text-left p-4 rounded-xl border transition-all", activePlayerId === player.id ? "bg-primary border-primary shadow-lg" : "bg-background/40 border-white/5")}>
                     <h3 className="font-bold text-base">#{player.number} - {player.name}</h3>
                   </button>
                 ))}
@@ -286,35 +307,63 @@ function UATBoothContent() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-6 pt-6">
-                  <Select value={activePlayerId || ""} onValueChange={(val) => { setActivePlayerId(val); setSelectedSongIndex(0); }}>
+                  <Select value={activePlayerId || ""} onValueChange={(val) => { setActivePlayerId(val); setSelectedTrack({ type: 'none', index: -1 }); }}>
                     <SelectTrigger className="h-12 text-lg font-black bg-background/50"><SelectValue placeholder="Select Batter..." /></SelectTrigger>
                     <SelectContent>{roster.map((p) => <SelectItem key={p.id} value={p.id} className="font-bold">#{p.number} - {p.name}</SelectItem>)}</SelectContent>
                   </Select>
 
                   {activePlayer && (
-                    <div className="space-y-4 p-3 md:p-4 bg-background/40 rounded-xl border border-white/5">
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                        <Button variant={selectedSongIndex === -1 ? "default" : "outline"} onClick={() => setSelectedSongIndex(-1)} className="h-10 md:h-12 text-[9px] font-black uppercase px-2">NO TRACK</Button>
-                        {[0, 1, 2].map((idx) => (
-                          <Button 
-                            key={idx} 
-                            variant={selectedSongIndex === idx ? "default" : "outline"} 
-                            onClick={() => setSelectedSongIndex(idx)} 
-                            disabled={!activePlayer.songs[idx]}
-                            className={cn(
-                              "h-10 md:h-12 text-[9px] font-black uppercase px-2",
-                              !activePlayer.songs[idx] && "opacity-30"
-                            )}
-                          >
-                             Track {idx + 1}
-                          </Button>
-                        ))}
+                    <div className="space-y-6">
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-2"><Youtube className="h-3 w-3" /> YouTube Tracks</Label>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                          <Button variant={selectedTrack.type === 'none' ? "default" : "outline"} onClick={() => setSelectedTrack({ type: 'none', index: -1 })} className="h-10 md:h-12 text-[9px] font-black uppercase px-2">NO TRACK</Button>
+                          {activePlayer.songs.map((song, idx) => (
+                            <Button 
+                              key={idx} 
+                              variant={selectedTrack.type === 'youtube' && selectedTrack.index === idx ? "default" : "outline"} 
+                              onClick={() => setSelectedTrack({ type: 'youtube', index: idx })} 
+                              className={cn(
+                                "h-10 md:h-12 text-[9px] font-black uppercase px-2 truncate",
+                                selectedTrack.type === 'youtube' && selectedTrack.index === idx && "bg-secondary text-secondary-foreground"
+                              )}
+                            >
+                               <span className="truncate w-full">{song.name}</span>
+                            </Button>
+                          ))}
+                        </div>
                       </div>
-                      {selectedSong && (
+
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-2"><FileMusic className="h-3 w-3" /> Track Uploads</Label>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                          {activePlayer.uploadedTracks.length === 0 ? (
+                            <p className="col-span-full text-[8px] font-bold uppercase opacity-30 italic">No custom files uploaded</p>
+                          ) : (
+                            activePlayer.uploadedTracks.map((track, idx) => (
+                              <Button 
+                                key={track.id} 
+                                variant={selectedTrack.type === 'uploaded' && selectedTrack.index === idx ? "default" : "outline"} 
+                                onClick={() => setSelectedTrack({ type: 'uploaded', index: idx })} 
+                                className={cn(
+                                  "h-10 md:h-12 text-[9px] font-black uppercase px-2 truncate",
+                                  selectedTrack.type === 'uploaded' && selectedTrack.index === idx && "bg-secondary text-secondary-foreground"
+                                )}
+                              >
+                                 <span className="truncate w-full">{track.name}</span>
+                              </Button>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                      
+                      {selectedTrack.type !== 'none' && (
                         <div className="text-center animate-in fade-in slide-in-from-top-1 duration-300">
-                          <p className="text-[10px] font-black text-primary uppercase tracking-[0.15em]">
-                            Selected: <span className="text-white">{selectedSong.name}</span>
-                          </p>
+                           <p className="text-[10px] font-black text-primary uppercase tracking-[0.15em]">
+                             Queued: <span className="text-white">
+                               {selectedTrack.type === 'youtube' ? activePlayer.songs[selectedTrack.index]?.name : activePlayer.uploadedTracks[selectedTrack.index]?.name}
+                             </span>
+                           </p>
                         </div>
                       )}
                     </div>

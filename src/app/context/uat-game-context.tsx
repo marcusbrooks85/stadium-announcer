@@ -36,6 +36,7 @@ export interface UploadedTrack {
   name: string;
   url: string;
   storagePath: string;
+  startAt: number;
 }
 
 export interface StadiumSong {
@@ -333,8 +334,8 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
       setRoster(snap.docs.map(d => ({ 
         id: d.id, 
         ...d.data(),
-        youtubeTracks: d.data().youtubeTracks || ["", "", ""],
-        audioUploads: d.data().audioUploads || ["", "", ""]
+        youtubeTracks: d.data().youtubeTracks || [],
+        audioUploads: d.data().audioUploads || []
       })) as Player[]);
     });
 

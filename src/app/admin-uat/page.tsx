@@ -38,7 +38,8 @@ import {
   ArrowRight,
   Check,
   FileMusic,
-  ExternalLink
+  ExternalLink,
+  Youtube
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -132,8 +133,6 @@ export function UATAdminPortalContent() {
     name: "",
     number: "",
     announcementAudioUrl: "",
-    youtubeTracks: ["", "", ""],
-    audioUploads: ["", "", ""],
     songs: [] as Song[],
     uploadedTracks: [] as UploadedTrack[]
   });
@@ -199,8 +198,6 @@ export function UATAdminPortalContent() {
         name: "", 
         number: "", 
         announcementAudioUrl: "", 
-        youtubeTracks: ["", "", ""],
-        audioUploads: ["", "", ""],
         songs: [], 
         uploadedTracks: [] 
       });
@@ -211,8 +208,6 @@ export function UATAdminPortalContent() {
           name: p.name || "",
           number: p.number?.toString() || "",
           announcementAudioUrl: p.announcementAudioUrl || "",
-          youtubeTracks: p.youtubeTracks || ["", "", ""],
-          audioUploads: p.audioUploads || ["", "", ""],
           songs: p.songs || [],
           uploadedTracks: p.uploadedTracks || []
         });
@@ -233,6 +228,13 @@ export function UATAdminPortalContent() {
       console.error("uploadToR2 error:", err);
       throw err;
     }
+  };
+
+  const parseYoutubeId = (url: string) => {
+    if (!url) return "";
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[2].length === 11) ? match[2] : url;
   };
 
   const handleUpdateBranding = async () => {
@@ -291,9 +293,7 @@ export function UATAdminPortalContent() {
         name: playerForm.name,
         number: parseInt(playerForm.number) || 0,
         announcementAudioUrl: finalAudioUrl,
-        youtubeTracks: playerForm.youtubeTracks,
-        audioUploads: playerForm.audioUploads,
-        songs: playerForm.songs,
+        songs: playerForm.songs.map(s => ({ ...s, videoId: parseYoutubeId(s.videoId) })),
         uploadedTracks: playerForm.uploadedTracks,
         teamId: userTeamId
       }, playerId);
@@ -308,63 +308,72 @@ export function UATAdminPortalContent() {
 
   const handleAddYoutubeTrack = () => {
     if (playerForm.songs.length >= 3) {
-      toast({ variant: "destructive", title: "Limit Reached", description: "Update existing tracks to change songs (Max 3)." });
+      toast({ variant: "destructive", title: "Limit Reached", description: "Max 3 YouTube tracks allowed." });
       return;
     }
-    setPlayerForm({ ...playerForm, songs: [...playerForm.songs, { name: "", videoId: "", startAt: 0 }] });
+    setPlayerForm({ 
+      ...playerForm, 
+      songs: [...playerForm.songs, { name: "Walk-Up " + (playerForm.songs.length + 1), videoId: "", startAt: 0 }] 
+    });
   };
 
-  const handleUploadTrackFileSlot = async (e: React.ChangeEvent<HTMLInputElement>, slotIdx: number) => {
+  const handleAddTrackUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || selectedPlayerId === "none") {
-      toast({ variant: "destructive", title: "Action Required", description: "Save player first before uploading files." });
-      return;
-    }
-    setIsUploading(true);
-    try {
-      const url = await uploadToR2(file, "walkup-track-files");
-      const nextAudioUploads = [...playerForm.audioUploads];
-      nextAudioUploads[slotIdx] = url;
-      setPlayerForm({ ...playerForm, audioUploads: nextAudioUploads });
-      toast({ title: `Track ${slotIdx + 1} Uploaded` });
-    } catch (err: any) {
-      toast({ variant: "destructive", title: "Upload Failed", description: err.message });
-    } finally { setIsUploading(false); }
-  };
+    if (!file) return;
 
-  const handleUploadTrackFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || selectedPlayerId === "none") {
-      toast({ variant: "destructive", title: "Action Required", description: "Save player first before uploading files." });
-      return;
+    // File Type Validation
+    if (!file.type.startsWith('audio/')) {
+       toast({ variant: "destructive", title: "Invalid file format", description: "Please select an audio file." });
+       e.target.value = "";
+       return;
     }
+
     if (playerForm.uploadedTracks.length >= 3) {
-      toast({ variant: "destructive", title: "Limit Reached", description: "Delete existing files to upload new ones (Max 3)." });
+      toast({ variant: "destructive", title: "Limit Reached", description: "Max 3 track uploads allowed." });
       return;
     }
+
     setIsUploading(true);
     try {
       const url = await uploadToR2(file, "walkup-track-files");
-      const newTrack = { id: Math.random().toString(36).substr(2, 9), name: file.name, url, storagePath: url };
-      const updated = [...playerForm.uploadedTracks, newTrack];
-      await updateDoc(doc(db, "players_UAT", selectedPlayerId), { uploadedTracks: updated });
-      setPlayerForm({ ...playerForm, uploadedTracks: updated });
-      toast({ title: "Track Uploaded" });
+      const newTrack: UploadedTrack = { 
+        id: Math.random().toString(36).substr(2, 9), 
+        name: file.name.split('.')[0], 
+        url, 
+        storagePath: url,
+        startAt: 0
+      };
+      setPlayerForm({ 
+        ...playerForm, 
+        uploadedTracks: [...playerForm.uploadedTracks, newTrack] 
+      });
+      toast({ title: "Track Loaded", description: "Save profile to finalize." });
     } catch (err: any) {
       toast({ variant: "destructive", title: "Upload Failed", description: err.message });
-    } finally { setIsUploading(false); }
+    } finally { 
+      setIsUploading(false); 
+      e.target.value = "";
+    }
   };
 
-  const handleDeleteUploadedTrack = async (track: UploadedTrack) => {
-    if (!confirm(`Delete ${track.name}?`)) return;
-    try {
-      const updated = playerForm.uploadedTracks.filter(t => t.id !== track.id);
-      await updateDoc(doc(db, "players_UAT", selectedPlayerId), { uploadedTracks: updated });
-      setPlayerForm({ ...playerForm, uploadedTracks: updated });
-      toast({ title: "Track Removed from Profile" });
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Delete Failed" });
-    }
+  const handleUpdateSongField = (idx: number, field: keyof Song, value: any) => {
+    const next = [...playerForm.songs];
+    next[idx] = { ...next[idx], [field]: value };
+    setPlayerForm({ ...playerForm, songs: next });
+  };
+
+  const handleUpdateUploadField = (idx: number, field: keyof UploadedTrack, value: any) => {
+    const next = [...playerForm.uploadedTracks];
+    next[idx] = { ...next[idx], [field]: value };
+    setPlayerForm({ ...playerForm, uploadedTracks: next });
+  };
+
+  const handleDeleteYoutubeTrack = (idx: number) => {
+    setPlayerForm({ ...playerForm, songs: playerForm.songs.filter((_, i) => i !== idx) });
+  };
+
+  const handleDeleteUploadTrack = (idx: number) => {
+    setPlayerForm({ ...playerForm, uploadedTracks: playerForm.uploadedTracks.filter((_, i) => i !== idx) });
   };
 
   const handleAddGameManual = async () => {
@@ -680,7 +689,7 @@ export function UATAdminPortalContent() {
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Home Team</Label><Input value={gameForm.home} onChange={e => setGameForm({...gameForm, home: e.target.value})} placeholder="Home Team Name" className="bg-black/20" /></div>
-                      <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Away Team</Label><Input value={gameForm.away} onChange={e => setGameForm({...gameForm, away: e.target.value})} placeholder="Away Team Name" className="bg-black/20" /></div>
+                      <div className="space-y-2"><Label className="text-[10px) font-black uppercase">Away Team</Label><Input value={gameForm.away} onChange={e => setGameForm({...gameForm, away: e.target.value})} placeholder="Away Team Name" className="bg-black/20" /></div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Start Time</Label><Input value={gameForm.time} onChange={e => setGameForm({...gameForm, time: e.target.value})} placeholder="e.g. 6:00 PM" className="bg-black/20" /></div>
@@ -835,55 +844,67 @@ export function UATAdminPortalContent() {
                   </div>
 
                   <div className="space-y-4">
-                    <Label className="text-[10px] font-black uppercase text-secondary tracking-widest flex items-center gap-2"><Music className="h-3 w-3" /> YouTube Walk-Up Tracks (Max 3)</Label>
+                    <div className="flex items-center justify-between">
+                      <Label className="text-[10px] font-black uppercase text-secondary tracking-widest flex items-center gap-2"><Youtube className="h-3 w-3" /> YouTube Walk-Up Tracks</Label>
+                      <Button variant="outline" size="sm" onClick={handleAddYoutubeTrack} disabled={playerForm.songs.length >= 3} className="h-7 text-[8px] font-black uppercase border-secondary/20">
+                         <Plus className="h-2.5 w-2.5 mr-1" /> Add Track
+                      </Button>
+                    </div>
                     <div className="space-y-3">
-                      {[0, 1, 2].map((idx) => (
-                        <div key={idx} className="flex gap-3 items-end bg-black/20 p-3 rounded-xl border border-white/5">
-                          <div className="flex-1 space-y-1.5">
-                            <Label className="text-[8px] font-black uppercase opacity-50">YouTube URL {idx + 1}</Label>
-                            <Input 
-                              placeholder="https://www.youtube.com/watch?v=..." 
-                              value={playerForm.youtubeTracks[idx] || ""} 
-                              onChange={(e) => {
-                                const next = [...playerForm.youtubeTracks];
-                                next[idx] = e.target.value;
-                                setPlayerForm({...playerForm, youtubeTracks: next});
-                              }}
-                              className="h-10 bg-black/20 text-xs"
-                            />
+                      {playerForm.songs.map((song, idx) => (
+                        <div key={idx} className="bg-black/20 p-3 rounded-xl border border-white/5 space-y-3 relative group">
+                          <Button variant="ghost" size="icon" onClick={() => handleDeleteYoutubeTrack(idx)} className="absolute top-2 right-2 h-6 w-6 text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
+                             <Trash2 className="h-3 w-3" />
+                          </Button>
+                          <div className="space-y-2">
+                            <Label className="text-[8px] font-black uppercase opacity-50">Track Name</Label>
+                            <Input value={song.name} onChange={e => handleUpdateSongField(idx, 'name', e.target.value)} placeholder="Walk-Up 1" className="h-8 bg-black/20 text-xs font-bold" />
                           </div>
-                          {playerForm.youtubeTracks[idx] && <Button size="icon" variant="ghost" className="h-10 w-10 text-primary" asChild><a href={playerForm.youtubeTracks[idx]} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-4 w-4" /></a></Button>}
+                          <div className="grid grid-cols-12 gap-2">
+                             <div className="col-span-8 space-y-1">
+                               <Label className="text-[8px] font-black uppercase opacity-50">YouTube URL</Label>
+                               <Input value={song.videoId} onChange={e => handleUpdateSongField(idx, 'videoId', e.target.value)} placeholder="https://youtube.com/watch?v=..." className="h-8 bg-black/20 text-xs" />
+                             </div>
+                             <div className="col-span-4 space-y-1">
+                               <Label className="text-[8px] font-black uppercase opacity-50">Start (sec)</Label>
+                               <Input type="number" value={song.startAt} onChange={e => handleUpdateSongField(idx, 'startAt', parseInt(e.target.value) || 0)} className="h-8 bg-black/20 text-xs" />
+                             </div>
+                          </div>
                         </div>
                       ))}
                     </div>
                   </div>
 
                   <div className="space-y-4">
-                    <Label className="text-[10px] font-black uppercase text-[var(--tenant-primary)] tracking-widest flex items-center gap-2"><FileMusic className="h-3 w-3" /> Custom Audio Uploads (Max 3)</Label>
+                    <div className="flex items-center justify-between">
+                      <Label className="text-[10px] font-black uppercase text-[var(--tenant-primary)] tracking-widest flex items-center gap-2"><FileMusic className="h-3 w-3" /> Custom Audio Uploads</Label>
+                      <div className="relative">
+                         <input type="file" accept="audio/*" onChange={handleAddTrackUpload} className="absolute inset-0 opacity-0 cursor-pointer" disabled={playerForm.uploadedTracks.length >= 3 || isUploading} />
+                         <Button variant="outline" size="sm" disabled={playerForm.uploadedTracks.length >= 3 || isUploading} className="h-7 text-[8px] font-black uppercase border-[var(--tenant-primary)]/20">
+                            {isUploading ? <Loader2 className="h-2.5 w-2.5 animate-spin mr-1" /> : <Upload className="h-2.5 w-2.5 mr-1" />} Add Upload
+                         </Button>
+                      </div>
+                    </div>
                     <div className="space-y-3">
-                      {[0, 1, 2].map((idx) => (
-                        <div key={idx} className="bg-black/20 p-4 rounded-xl border border-white/5 space-y-3">
-                          <div className="flex items-center justify-between">
-                             <Label className="text-[8px] font-black uppercase opacity-50">Audio Track {idx + 1}</Label>
-                             {playerForm.audioUploads[idx] && <Badge variant="outline" className="text-[7px] font-black uppercase border-green-500/50 text-green-500">File Loaded</Badge>}
+                      {playerForm.uploadedTracks.map((track, idx) => (
+                        <div key={track.id} className="bg-black/20 p-3 rounded-xl border border-white/5 space-y-3 relative group">
+                          <Button variant="ghost" size="icon" onClick={() => handleDeleteUploadTrack(idx)} className="absolute top-2 right-2 h-6 w-6 text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
+                             <Trash2 className="h-3 w-3" />
+                          </Button>
+                          <div className="space-y-2">
+                             <Label className="text-[8px] font-black uppercase opacity-50">Track Name</Label>
+                             <Input value={track.name} onChange={e => handleUpdateUploadField(idx, 'name', e.target.value)} className="h-8 bg-black/20 text-xs font-bold" />
                           </div>
-                          {playerForm.audioUploads[idx] && (
-                            <div className="flex items-center gap-2 p-2 bg-black/40 rounded border border-white/5 mb-2">
+                          <div className="flex items-center gap-3">
+                             <div className="flex-1 p-2 bg-black/40 rounded border border-white/5 flex items-center gap-2">
                                <FileAudio className="h-3 w-3 text-primary" />
-                               <span className="text-[8px] font-bold uppercase truncate flex-1">{playerForm.audioUploads[idx].split('/').pop()}</span>
-                               <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => {
-                                 const next = [...playerForm.audioUploads];
-                                 next[idx] = "";
-                                 setPlayerForm({...playerForm, audioUploads: next});
-                               }}><X className="h-3 w-3" /></Button>
-                            </div>
-                          )}
-                          <Input 
-                            type="file" 
-                            accept="audio/*" 
-                            onChange={(e) => handleUploadTrackFileSlot(e, idx)} 
-                            className="bg-black/20 h-9" 
-                          />
+                               <span className="text-[8px] font-bold uppercase truncate">{track.url.split('/').pop()}</span>
+                             </div>
+                             <div className="w-24 space-y-1">
+                               <Label className="text-[8px] font-black uppercase opacity-50">Start (sec)</Label>
+                               <Input type="number" value={track.startAt} onChange={e => handleUpdateUploadField(idx, 'startAt', parseInt(e.target.value) || 0)} className="h-8 bg-black/20 text-xs" />
+                             </div>
+                          </div>
                         </div>
                       ))}
                     </div>
