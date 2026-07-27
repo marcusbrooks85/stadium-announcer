@@ -58,7 +58,7 @@ import {
   SelectItem, 
   SelectTrigger, 
   SelectValue 
-} from "@/select";
+} from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -811,7 +811,7 @@ export function UATAdminPortalContent() {
                     } catch (err: any) { toast({ variant: "destructive", title: "Upload Failed" }); } finally { setIsUploading(false); }
                   }} className="space-y-4">
                     <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Effect Name</Label><Input value={fxForm.name} onChange={e => setFxForm({ ...fxForm, name: e.target.value })} className="h-11 bg-black/40 font-bold" /></div>
-                    <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Audio File</Label><Input type="file" accept="audio/*" onChange={e => setFxFile(e.target.files?.[0] || null)} className="bg-black/20" /></div>
+                    <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Audio File</Label><Input type="file" accept="audio/*" onChange={e => setAudioFile(e.target.files?.[0] || null)} className="bg-black/20" /></div>
                     <Button disabled={!fxFile || isUploading} type="submit" className="w-full h-12 bg-[var(--tenant-primary)] font-black uppercase text-[10px]">Upload Sound FX</Button>
                   </form>
                 </CardContent>
