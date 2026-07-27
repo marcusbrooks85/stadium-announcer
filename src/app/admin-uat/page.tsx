@@ -58,7 +58,8 @@ import {
   SelectItem, 
   SelectTrigger, 
   SelectValue 
-} from "@/components/ui/select";
+} from "@/select";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useUATGame, UATGameProvider, Song, UploadedTrack, StadiumSong, Game } from "@/app/context/uat-game-context";
@@ -84,6 +85,7 @@ export function UATAdminPortalContent() {
     pumpUpSongs,
     saveTeamBranding,
     updateUserProfile,
+    deleteUserAccount,
     savePlayer,
     deletePlayer,
     saveGame,
@@ -476,7 +478,7 @@ export function UATAdminPortalContent() {
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2"><Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">First Name</Label><Input value={profileForm.firstName} onChange={e => setProfileForm({...profileForm, firstName: e.target.value})} className="h-11 bg-black/40 font-bold" /></div>
-                    <div className="space-y-2"><Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Last Name</Label><Input value={profileForm.lastName} onChange={e => setProfileForm({...lastName, lastName: e.target.value})} className="h-11 bg-black/40 font-bold" /></div>
+                    <div className="space-y-2"><Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Last Name</Label><Input value={profileForm.lastName} onChange={e => setProfileForm({...profileForm, lastName: e.target.value})} className="h-11 bg-black/40 font-bold" /></div>
                   </div>
                   <div className="space-y-2"><Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Phone Number</Label><Input value={profileForm.phoneNumber} onChange={e => setProfileForm({...profileForm, phoneNumber: e.target.value})} className="h-11 bg-black/40 font-bold" /></div>
                   <div className="space-y-2">
@@ -510,6 +512,126 @@ export function UATAdminPortalContent() {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          <TabsContent value="users" className="space-y-8">
+            <Card className="bg-card/50 border-white/10">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-3">
+                    <Users className="h-4 w-4 text-[var(--tenant-primary)]" /> User Management
+                  </CardTitle>
+                  <CardDescription className="text-[10px] font-bold uppercase mt-1">Manage team access levels and player associations.</CardDescription>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-white/5 hover:bg-transparent">
+                      <TableHead className="text-[10px] font-black uppercase tracking-widest">User Profile</TableHead>
+                      <TableHead className="text-[10px] font-black uppercase tracking-widest">Linked Player</TableHead>
+                      <TableHead className="text-[10px] font-black uppercase tracking-widest">Role</TableHead>
+                      <TableHead className="text-[10px] font-black uppercase tracking-widest text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {teamUsers.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={4} className="h-32 text-center">
+                          <div className="flex flex-col items-center justify-center gap-2 opacity-40">
+                            <Users className="h-8 w-8" />
+                            <span className="text-[10px] font-black uppercase tracking-widest">No team users found</span>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      teamUsers.map((u) => (
+                        <TableRow key={u.id} className="border-white/5 group">
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <Avatar className="h-8 w-8 border border-white/10">
+                                <AvatarFallback className="bg-primary/20 text-[10px] font-black">{u.firstName?.[0] || '?'}</AvatarFallback>
+                              </Avatar>
+                              <div className="flex flex-col">
+                                <span className="text-xs font-bold">{u.firstName} {u.lastName}</span>
+                                <span className="text-[8px] font-black uppercase text-muted-foreground tracking-tighter">{u.email}</span>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Select 
+                              value={u.playerId || "none"} 
+                              onValueChange={async (val) => {
+                                try {
+                                  await updateUserProfile(u.id, { playerId: val === "none" ? null : val });
+                                  toast({ title: "Player Linked" });
+                                } catch (e) {
+                                  toast({ variant: "destructive", title: "Update Failed" });
+                                }
+                              }}
+                            >
+                              <SelectTrigger className="h-9 bg-black/20 border-white/5 text-[9px] font-black uppercase w-[180px]">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none" className="text-[10px] font-bold uppercase">None / Official</SelectItem>
+                                {roster.map(p => (
+                                  <SelectItem key={p.id} value={p.id} className="text-[10px] font-bold uppercase">#{p.number} - {p.name}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell>
+                            <Select 
+                              value={u.role || "user"} 
+                              onValueChange={async (val) => {
+                                try {
+                                  await updateUserProfile(u.id, { role: val });
+                                  toast({ title: "Role Updated" });
+                                } catch (e) {
+                                  toast({ variant: "destructive", title: "Update Failed" });
+                                }
+                              }}
+                              disabled={u.id === auth.currentUser?.uid}
+                            >
+                              <SelectTrigger className="h-9 bg-black/20 border-white/5 text-[9px] font-black uppercase w-[140px]">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="super_admin" className="text-[10px] font-bold uppercase">Super Admin</SelectItem>
+                                <SelectItem value="league_admin" className="text-[10px] font-bold uppercase">League Admin</SelectItem>
+                                <SelectItem value="booth_admin" className="text-[10px] font-bold uppercase">Booth Admin</SelectItem>
+                                <SelectItem value="user" className="text-[10px] font-bold uppercase">User</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8 text-destructive opacity-40 group-hover:opacity-100 transition-opacity"
+                              disabled={u.id === auth.currentUser?.uid}
+                              onClick={async () => {
+                                if (confirm(`Are you sure you want to remove access for ${u.firstName}?`)) {
+                                  try {
+                                    await deleteUserAccount(u.id);
+                                    toast({ title: "User Removed" });
+                                  } catch (e) {
+                                    toast({ variant: "destructive", title: "Failed to remove user" });
+                                  }
+                                }
+                              }}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="builder" className="space-y-8">
@@ -615,7 +737,7 @@ export function UATAdminPortalContent() {
                         <TableRow key={g.id} className="border-white/5 group hover:bg-white/5">
                           {editingSavedId === g.id ? (
                             <>
-                              <TableCell><Input type="number" value={savedEditForm.week} onChange={e => setSavedEditForm({...savedEditForm, week: parseInt(e.target.value)})} className="h-8" /></TableCell>
+                              <TableCell><Input type="number" value={savedEditForm.week} onChange={e => setSavedEditForm({...savedEditForm, week: parseInt(e.target.value) || 0})} className="h-8" /></TableCell>
                               <TableCell><Input type="date" value={savedEditForm.date} onChange={e => setSavedEditForm({...savedEditForm, date: e.target.value})} className="h-8" /></TableCell>
                               <TableCell className="flex gap-1"><Input value={savedEditForm.away} onChange={e => setSavedEditForm({...savedEditForm, away: e.target.value})} className="h-8" /><span className="opacity-40">vs</span><Input value={savedEditForm.home} onChange={e => setSavedEditForm({...savedEditForm, home: e.target.value})} className="h-8" /></TableCell>
                               <TableCell><Input value={savedEditForm.time} onChange={e => setSavedEditForm({...savedEditForm, time: e.target.value})} className="h-8" /></TableCell>
@@ -641,7 +763,6 @@ export function UATAdminPortalContent() {
              </Card>
           </TabsContent>
 
-          {/* ... Existing Tabs Content (Users, Roster, SoundFX) remained intact ... */}
           <TabsContent value="logistics" className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               <Card className="bg-card/50 border-white/10">
