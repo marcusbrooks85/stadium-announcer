@@ -160,7 +160,7 @@ interface UATGameContextType {
   emailStats: () => void;
 }
 
-const UATGameContext = createContext<UATGameContextType | undefined>(undefined);
+export const UATGameContext = createContext<UATGameContextType | undefined>(undefined);
 
 const RECEIVE_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3';
 

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useEffect, useMemo } from "react";
+import React, { useState, useCallback, useEffect, useMemo, useContext } from "react";
 import { 
   ChevronUp, 
   ChevronDown, 
@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useGame, FULL_GAME_SCHEDULE } from "@/app/context/game-context";
-import { useUATGame } from "@/app/context/uat-game-context";
+import { useUATGame, UATGameContext } from "@/app/context/uat-game-context";
 import { cn } from "@/lib/utils";
 import { usePathname } from "next/navigation";
 
@@ -29,9 +29,10 @@ export function StadiumScoreboard({ adminMode = true }: StadiumScoreboardProps) 
   
   // Conditionally use context based on environment
   const prodContext = useGame();
-  const uatContext = useUATGame();
+  // Use useContext directly to avoid throwing when the UAT provider is missing (on production pages)
+  const uatContext = useContext(UATGameContext);
   
-  const context = isUAT ? uatContext : prodContext;
+  const context = (isUAT && uatContext) ? uatContext : prodContext;
   const { homeScore: contextHomeScore, awayScore: contextAwayScore, updateTeamScore, selectedGameId, teamData } = context;
 
   const currentTeamName = isUAT ? (teamData?.name || "UAT TEAM") : "STRAWHATS";
