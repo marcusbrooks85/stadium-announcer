@@ -46,6 +46,8 @@ interface GameStatus {
   autoSynced?: boolean;
 }
 
+const R2_BASE_URL = "https://pub-8418042468305f63d038234be1080036.r2.dev";
+
 export default function GameSchedulePage() {
   const db = useFirestore();
   const { toast } = useToast();
@@ -108,14 +110,17 @@ export default function GameSchedulePage() {
     const sorted = [...FULL_GAME_SCHEDULE].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     
     const active = sorted.find(g => {
-      const gameStart = new Date(`${g.date}T${convertTimeTo24h(g.time)}`);
+      if ((g as any).isPostseason) {
+        const d = new Date(`${g.date}T09:00:00`);
+        return d.getTime() + (4 * 60 * 60 * 1000) > now.getTime();
+      }
+      const gameStart = new Date(`${g.date}T${convertTimeTo24h((g as any).time)}`);
       return gameStart.getTime() + (2 * 60 * 60 * 1000) > now.getTime();
     }) || sorted[sorted.length - 1];
 
     return active.id;
   }, []);
 
-  // Roll to current/upcoming game on load
   useEffect(() => {
     if (activeGameId) {
       setTimeout(() => {
@@ -221,7 +226,7 @@ export default function GameSchedulePage() {
           </div>
 
           <div className="grid gap-4">
-            {FULL_GAME_SCHEDULE.map((game) => {
+            {FULL_GAME_SCHEDULE.map((game: any) => {
               const statusData = gameStatuses[game.id] || {};
               const isWon = statusData.won === true;
               const isLoss = statusData.won === false;
@@ -235,7 +240,7 @@ export default function GameSchedulePage() {
                   key={game.id} 
                   className={cn(
                     "transition-all duration-300 relative overflow-hidden scroll-mt-[180px] md:scroll-mt-[260px]",
-                    isHome ? "bg-blue-950/40 border-blue-800/60" : "bg-slate-800/50 border-slate-700/60",
+                    isHome || game.isPostseason ? "bg-blue-950/40 border-blue-800/60" : "bg-slate-800/50 border-slate-700/60",
                     isCancelled && "opacity-60",
                     activeGameId === game.id && "ring-2 ring-primary ring-offset-2 ring-offset-background"
                   )}
@@ -248,52 +253,78 @@ export default function GameSchedulePage() {
 
                   <CardContent className="p-4 md:p-6">
                     <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
-                      <div className="md:col-span-3 flex flex-col border-b md:border-b-0 md:border-r border-white/5 pb-4 md:pb-0 relative">
-                        <div className="absolute -top-1 -left-1 opacity-20">
-                          {isHome ? (
-                            <Shirt className="h-12 w-12 text-blue-500 fill-blue-500/20" />
-                          ) : (
-                            <Shirt className="h-12 w-12 text-slate-400 fill-slate-400/20" />
-                          )}
-                        </div>
-                        <Badge variant="outline" className="w-fit text-[10px] font-black uppercase relative z-10">{game.notes || `Week ${game.week}`}</Badge>
-                        <p className="mt-2 text-sm font-black uppercase text-white relative z-10">
+                      <div className="md:col-span-3 flex flex-col border-b md:border-b-0 md:border-r border-white/5 pb-4 md:pb-0">
+                        <Badge variant="outline" className="w-fit text-[10px] font-black uppercase">{game.notes || `Week ${game.week}`}</Badge>
+                        <p className="mt-2 text-sm font-black uppercase text-white">
                           {new Date(game.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric' })}
                         </p>
-                        <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground mt-1 relative z-10"><Clock className="h-3 w-3" /> {game.time}</div>
-                        <div className="flex items-center gap-2 text-[9px] font-bold text-muted-foreground uppercase mt-2 bg-black/20 p-2 rounded-lg border border-white/5 relative z-10">
+                        {!game.isPostseason && <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground mt-1"><Clock className="h-3 w-3" /> {game.time}</div>}
+                        <div className="flex items-center gap-2 text-[9px] font-bold text-muted-foreground uppercase mt-2 bg-black/20 p-2 rounded-lg border border-white/5">
                           <MapPin className="h-3 w-3" /> {game.location}
                         </div>
                       </div>
 
-                      <div className="md:col-span-9 flex flex-col space-y-4">
-                        <div className="flex items-center justify-between gap-4 p-4 bg-black/30 rounded-xl border border-white/5">
-                          <div className="flex-1 text-center">
-                            <p className="text-[8px] font-black uppercase text-muted-foreground">Away</p>
-                            <p className={cn("text-xs font-bold", game.away === "Coach Chewy" ? "text-primary" : "text-white")}>{game.away}</p>
-                          </div>
-                          <div className="flex flex-col items-center gap-1">
-                             <span className="text-[8px] font-black text-muted-foreground px-2 py-1 bg-white/5 rounded-full">VS</span>
-                             {isHome ? (
-                               <div className="flex flex-col items-center">
-                                 <Shirt className="h-5 w-5 text-blue-500 fill-blue-500/20" />
-                                 <span className="text-[6px] font-black uppercase text-blue-500">Home</span>
+                      <div className="md:col-span-2 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-white/5 py-4 md:py-0">
+                         <span className="text-[8px] font-black uppercase text-muted-foreground mb-2 tracking-widest">Jersey</span>
+                         {game.isPostseason ? (
+                           <div className="flex flex-col items-center">
+                             <Trophy className="h-10 w-10 text-primary/40" />
+                             <span className="text-[9px] font-black uppercase text-primary mt-2">Finals</span>
+                           </div>
+                         ) : (
+                           <>
+                             <div className="relative w-14 h-14">
+                               <Image 
+                                 src={`${R2_BASE_URL}/jersey-colors/${isHome ? 'Blue' : 'Grey'}_Jersey.png`} 
+                                 alt="Jersey" 
+                                 fill 
+                                 className="object-contain" 
+                               />
+                             </div>
+                             <span className={cn("text-[10px] font-black uppercase mt-1", isHome ? "text-primary" : "text-slate-400")}>
+                               {isHome ? "Home" : "Away"}
+                             </span>
+                           </>
+                         )}
+                      </div>
+
+                      <div className="md:col-span-7 flex flex-col space-y-4">
+                        {game.isPostseason ? (
+                          <div className="space-y-3">
+                             {game.subGames.map((sg: any) => (
+                               <div key={sg.id} className="flex items-center justify-between gap-4 p-3 bg-black/30 rounded-xl border border-white/5">
+                                 <div className="flex flex-col items-start min-w-[80px]">
+                                   <span className="text-[8px] font-black text-primary uppercase">{sg.gameNum}</span>
+                                   <span className="text-[10px] font-bold text-white">{sg.time}</span>
+                                 </div>
+                                 <div className="flex-1 flex items-center justify-center gap-3">
+                                   <span className="text-xs font-bold text-white">{sg.away}</span>
+                                   <span className="text-[8px] font-black text-muted-foreground">VS</span>
+                                   <span className="text-xs font-bold text-white">{sg.home}</span>
+                                 </div>
                                </div>
-                             ) : (
-                               <div className="flex flex-col items-center">
-                                 <Shirt className="h-5 w-5 text-slate-400 fill-slate-400/20" />
-                                 <span className="text-[6px] font-black uppercase text-slate-400">Away</span>
-                               </div>
-                             )}
+                             ))}
                           </div>
-                          <div className="flex-1 text-center">
-                            <p className="text-[8px] font-black uppercase text-muted-foreground">Home</p>
-                            <p className={cn("text-xs font-bold", game.home === "Coach Chewy" ? "text-primary" : "text-white")}>{game.home}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 text-[10px] font-black uppercase text-secondary bg-secondary/10 px-3 py-1.5 rounded-lg border border-secondary/20 w-fit">
-                          SNACK - {snackPlayer ? snackPlayer.name : "TBD"}
-                        </div>
+                        ) : (
+                          <>
+                            <div className="flex items-center justify-between gap-4 p-4 bg-black/30 rounded-xl border border-white/5">
+                              <div className="flex-1 text-center">
+                                <p className="text-[8px] font-black uppercase text-muted-foreground">Away</p>
+                                <p className={cn("text-xs font-bold", game.away === "Coach Chewy" ? "text-primary" : "text-white")}>{game.away}</p>
+                              </div>
+                              <div className="flex flex-col items-center gap-1">
+                                 <span className="text-[8px] font-black text-muted-foreground px-2 py-1 bg-white/5 rounded-full">VS</span>
+                              </div>
+                              <div className="flex-1 text-center">
+                                <p className="text-[8px] font-black uppercase text-muted-foreground">Home</p>
+                                <p className={cn("text-xs font-bold", game.home === "Coach Chewy" ? "text-primary" : "text-white")}>{game.home}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 text-[10px] font-black uppercase text-secondary bg-secondary/10 px-3 py-1.5 rounded-lg border border-secondary/20 w-fit">
+                              SNACK - {snackPlayer ? snackPlayer.name : "TBD"}
+                            </div>
+                          </>
+                        )}
                       </div>
                     </div>
                   </CardContent>

@@ -84,13 +84,33 @@ export const FULL_GAME_SCHEDULE = [
   { id: "game_8", week: 8, date: "2026-07-21", time: "6:00 PM", home: "Coach Chewy", away: "Coach Matt & Rene", location: "Jim Thorpe - Prairie Field" },
   { id: "game_9", week: 9, date: "2026-07-25", time: "9:00 AM", home: "Coach Manny", away: "Coach Chewy", location: "Jim Thorpe - Cordary Field" },
   { id: "game_10", week: 10, date: "2026-07-28", time: "6:00 PM", home: "Coach Matt & Rene", away: "Coach Chewy", location: "Jim Thorpe - Prairie Field" },
-  { id: "game_11", week: 11, date: "2026-08-01", time: "9:00 AM", home: "Playoffs TBD", away: "Coach Chewy", location: "Jim Thorpe - Cordary Field", notes: "Semi-Finals" },
-  { id: "game_12", week: 12, date: "2026-08-08", time: "9:00 AM", home: "Finals TBD", away: "Coach Chewy", location: "Jim Thorpe - Cordary Field", notes: "Championship" },
+  { 
+    id: "playoffs_1", 
+    isPostseason: true,
+    notes: "PLAYOFFS / SEMI-FINALS",
+    date: "2026-08-01", 
+    location: "Jim Thorpe - Cordary Field",
+    subGames: [
+      { id: "g21", time: "9:00 AM", away: "Seed #4", home: "Seed #1", gameNum: "Game 21" },
+      { id: "g22", time: "11:00 AM", away: "Seed #3", home: "Seed #2", gameNum: "Game 22" }
+    ]
+  },
+  { 
+    id: "playoffs_2", 
+    isPostseason: true,
+    notes: "CONSOLATION & CHAMPIONSHIP",
+    date: "2026-08-08", 
+    location: "Jim Thorpe - Cordary Field",
+    subGames: [
+      { id: "g23", time: "9:00 AM", away: "TBD", home: "TBD", gameNum: "Game 23 (Consolation)" },
+      { id: "g24", time: "11:00 AM", away: "TBD", home: "TBD", gameNum: "Game 24 (Championship)" }
+    ]
+  },
 ];
 
 export const GAME_SCHEDULE_LIST = FULL_GAME_SCHEDULE.map(g => ({
   id: g.id,
-  label: `${g.notes || `Week ${g.week}`} - ${new Date(g.date + 'T00:00:00').toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })}`
+  label: `${(g as any).notes || `Week ${g.week}`} - ${new Date(g.date + 'T00:00:00').toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })}`
 }));
 
 interface GameContextType {
@@ -149,7 +169,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const now = new Date();
     
     for (const game of FULL_GAME_SCHEDULE) {
-      const gameStart = new Date(`${game.date}T${convertTimeTo24h(game.time)}`);
+      if ((game as any).isPostseason) continue; // Skip sync for multi-game postseason cards
+      
+      const gameStart = new Date(`${game.date}T${convertTimeTo24h((game as any).time)}`);
       const syncThreshold = new Date(gameStart.getTime() + 2 * 60 * 60 * 1000);
 
       if (now >= syncThreshold) {
@@ -161,7 +183,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           const awayScore = stats.awayScore || 0;
           
           if (homeScore > 0 || awayScore > 0) {
-            const chewyIsHome = game.home === "Coach Chewy";
+            const chewyIsHome = (game as any).home === "Coach Chewy";
             const won = homeScore === awayScore ? null : (chewyIsHome ? (homeScore > awayScore) : (awayScore > homeScore));
 
             const batch = writeBatch(db);
