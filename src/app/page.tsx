@@ -45,8 +45,6 @@ interface GameStatus {
   autoSynced?: boolean;
 }
 
-const R2_BASE_URL = "https://pub-8418042468305f63d038234be1080036.r2.dev";
-
 export default function GameSchedulePage() {
   const db = useFirestore();
   const { toast } = useToast();
@@ -273,8 +271,8 @@ export default function GameSchedulePage() {
                          ) : (
                            <div className="flex flex-col items-center">
                              <img 
-                               src={`${R2_BASE_URL}/jersey-colors/${isHome ? 'Blue' : 'Grey'}Jersey.png`} 
-                               alt="Jersey" 
+                               src={isHome ? "/Blue_Jersey.png" : "/Grey_Jersey.png"} 
+                               alt={isHome ? "Home Jersey" : "Away Jersey"} 
                                className="w-14 h-14 object-contain" 
                              />
                              <span className={cn("text-[10px] font-black uppercase mt-1", isHome ? "text-primary" : "text-slate-400")}>
