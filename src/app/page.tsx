@@ -248,72 +248,80 @@ export default function GameSchedulePage() {
                     {isCancelled && <Badge variant="destructive" className="font-black uppercase text-[8px]">Cancelled</Badge>}
                   </div>
 
-                  <CardContent className="p-4 md:p-6">
-                    <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
-                      <div className="md:col-span-3 flex flex-col border-b md:border-b-0 md:border-r border-white/5 pb-4 md:pb-0">
-                        <Badge variant="outline" className="w-fit text-[10px] font-black uppercase">{game.notes || `Week ${game.week}`}</Badge>
-                        <p className="mt-2 text-sm font-black uppercase text-white">
-                          {new Date(game.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric' })}
+                  <CardContent className="p-3 md:p-6">
+                    <div className="flex flex-row items-center gap-2 md:gap-8">
+                      {/* Date / Location Section */}
+                      <div className="flex flex-col shrink-0 border-r border-white/5 pr-2 md:pr-6 min-w-[75px] md:min-w-[180px]">
+                        <Badge variant="outline" className="w-fit text-[8px] md:text-[10px] font-black uppercase px-1.5 h-4 md:h-5">{game.notes || `Week ${game.week}`}</Badge>
+                        <p className="mt-1 text-[11px] md:text-sm font-black uppercase text-white leading-tight">
+                          <span className="md:hidden">
+                            {new Date(game.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                          </span>
+                          <span className="hidden md:inline">
+                            {new Date(game.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric' })}
+                          </span>
                         </p>
-                        {!game.isPostseason && <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground mt-1"><Clock className="h-3 w-3" /> {game.time}</div>}
-                        <div className="flex items-center gap-2 text-[9px] font-bold text-muted-foreground uppercase mt-2 bg-black/20 p-2 rounded-lg border border-white/5">
-                          <MapPin className="h-3 w-3" /> {game.location}
+                        {!game.isPostseason && <div className="flex items-center gap-1 text-[9px] md:text-xs font-bold text-muted-foreground mt-0.5"><Clock className="h-2 w-2 md:h-3 md:w-3" /> {game.time}</div>}
+                        <div className="flex items-center gap-1 text-[8px] md:text-[9px] font-bold text-muted-foreground uppercase mt-1.5 bg-black/20 p-1 md:p-2 rounded border border-white/5">
+                          <MapPin className="h-2 w-2 md:h-3 md:w-3 shrink-0" /> <span className="truncate">{game.location.split(' - ')[0]}</span>
                         </div>
                       </div>
 
-                      <div className="md:col-span-2 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-white/5 py-4 md:py-0">
-                         <span className="text-[8px] font-black uppercase text-muted-foreground mb-2 tracking-widest">JERSEY</span>
+                      {/* Jersey Section */}
+                      <div className="flex flex-col items-center justify-center shrink-0 border-r border-white/5 pr-2 md:pr-6 min-w-[50px] md:min-w-[80px]">
+                         <span className="text-[7px] md:text-[8px] font-black uppercase text-muted-foreground mb-1 tracking-widest">JERSEY</span>
                          {game.isPostseason ? (
                            <div className="flex flex-col items-center">
-                             <Trophy className="h-10 w-10 text-primary/40" />
-                             <span className="text-[9px] font-black uppercase text-primary mt-2">Finals</span>
+                             <Trophy className="h-6 w-6 md:h-10 md:w-10 text-primary/40" />
+                             <span className="text-[7px] md:text-[9px] font-black uppercase text-primary mt-1">Finals</span>
                            </div>
                          ) : (
                            <div className="flex flex-col items-center">
                              <img 
                                src={isHome ? "/Blue_Jersey.png" : "/Grey_Jersey.png"} 
                                alt={isHome ? "Home Jersey" : "Away Jersey"} 
-                               className="w-14 h-14 object-contain" 
+                               className="w-8 h-8 md:w-14 md:h-14 object-contain" 
                              />
-                             <span className={cn("text-[10px] font-black uppercase mt-1", isHome ? "text-primary" : "text-slate-400")}>
+                             <span className={cn("text-[8px] md:text-[10px] font-black uppercase mt-1", isHome ? "text-primary" : "text-slate-400")}>
                                {isHome ? "Home" : "Away"}
                              </span>
                            </div>
                          )}
                       </div>
 
-                      <div className="md:col-span-7 flex flex-col space-y-4">
+                      {/* Matchup & Snack Duty Section */}
+                      <div className="flex-1 flex flex-col min-w-0">
                         {game.isPostseason ? (
-                          <>
-                            <div className="space-y-3">
+                          <div className="space-y-2">
+                            <div className="space-y-1.5">
                                {game.subGames.map((sg: any) => (
-                                 <div key={sg.id} className="flex items-center justify-between gap-4 p-3 bg-black/30 rounded-xl border border-white/5">
-                                   <div className="flex flex-col items-start min-w-[80px]">
-                                     <span className="text-[8px] font-black text-primary uppercase">{sg.gameNum}</span>
-                                     <span className="text-[10px] font-bold text-white">{sg.time}</span>
+                                 <div key={sg.id} className="flex items-center justify-between gap-2 p-1.5 md:p-3 bg-black/30 rounded-lg border border-white/5">
+                                   <div className="flex flex-col items-start min-w-[45px] md:min-w-[80px]">
+                                     <span className="text-[7px] md:text-[8px] font-black text-primary uppercase leading-none">{sg.gameNum.split(' ')[1]}</span>
+                                     <span className="text-[8px] md:text-[10px] font-bold text-white mt-0.5">{sg.time}</span>
                                    </div>
-                                   <div className="flex-1 flex items-center justify-center gap-3">
-                                     <span className="text-xs font-bold text-white">{sg.away}</span>
-                                     <span className="text-[8px] font-black text-muted-foreground">VS</span>
-                                     <span className="text-xs font-bold text-white">{sg.home}</span>
+                                   <div className="flex-1 flex items-center justify-center gap-1.5 md:gap-3 min-w-0">
+                                     <span className="text-[10px] md:text-xs font-bold text-white truncate">{sg.away}</span>
+                                     <span className="text-[7px] md:text-[8px] font-black text-muted-foreground shrink-0 px-1 py-0.5 bg-white/5 rounded">VS</span>
+                                     <span className="text-[10px] md:text-xs font-bold text-white truncate">{sg.home}</span>
                                    </div>
                                  </div>
                                ))}
                             </div>
-                            <div className="flex flex-wrap items-center gap-3">
+                            <div className="flex flex-wrap items-center gap-1.5">
                                {game.subGames.map((sg: any) => {
                                  const sgStatus = gameStatuses[sg.id] || {};
                                  const sgSnackPlayer = roster.find(p => p.id === sgStatus.snackPlayerId);
                                  
                                  if (isAdmin) {
                                    return (
-                                     <div key={`snack-${sg.id}`} className="flex items-center gap-2 bg-secondary/5 p-1 rounded-lg border border-secondary/20">
-                                       <span className="text-[8px] font-black uppercase text-secondary ml-1">{sg.gameNum}:</span>
+                                     <div key={`snack-${sg.id}`} className="flex items-center gap-1 bg-secondary/5 p-0.5 rounded border border-secondary/20">
+                                       <span className="text-[7px] font-black uppercase text-secondary ml-1">{sg.gameNum.split(' ')[1]}:</span>
                                        <Select 
                                          value={sgStatus.snackPlayerId || "none"} 
                                          onValueChange={(val) => updateSnackDuty(sg.id, val === "none" ? null : val)}
                                        >
-                                         <SelectTrigger className="h-7 bg-black/40 border-none text-[8px] font-black uppercase w-[120px] focus:ring-0">
+                                         <SelectTrigger className="h-6 bg-black/40 border-none text-[7px] font-black uppercase w-[90px] md:w-[120px] focus:ring-0 px-1">
                                            <SelectValue placeholder="Assign..." />
                                          </SelectTrigger>
                                          <SelectContent>
@@ -328,41 +336,41 @@ export default function GameSchedulePage() {
                                  }
 
                                  return (
-                                   <div key={`snack-${sg.id}`} className="flex items-center gap-2 text-[10px] font-black uppercase text-secondary bg-secondary/10 px-3 py-1.5 rounded-lg border border-secondary/20 w-fit">
-                                     {sg.gameNum.toUpperCase()}: {sgSnackPlayer ? sgSnackPlayer.name : "TBD"}
+                                   <div key={`snack-${sg.id}`} className="flex items-center gap-1 text-[8px] md:text-[10px] font-black uppercase text-secondary bg-secondary/10 px-2 py-1 rounded border border-secondary/20 w-fit whitespace-nowrap">
+                                     {sg.gameNum.split(' ')[1]}: {sgSnackPlayer ? sgSnackPlayer.name.split(' ')[0] : "TBD"}
                                    </div>
                                  );
                                })}
                             </div>
-                          </>
+                          </div>
                         ) : (
-                          <>
-                            <div className="flex items-center justify-between gap-4 p-4 bg-black/30 rounded-xl border border-white/5">
-                              <div className="flex-1 text-center">
-                                <p className="text-[8px] font-black uppercase text-muted-foreground">Away</p>
-                                <p className={cn("text-xs font-bold", game.away === "Coach Chewy" ? "text-primary" : "text-white")}>{game.away}</p>
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between gap-2 p-2 md:p-4 bg-black/30 rounded-lg border border-white/5">
+                              <div className="flex-1 text-center min-w-0">
+                                <p className="text-[7px] md:text-[8px] font-black uppercase text-muted-foreground">Away</p>
+                                <p className={cn("text-[10px] md:text-xs font-bold truncate", game.away === "Coach Chewy" ? "text-primary" : "text-white")}>{game.away}</p>
                               </div>
-                              <div className="flex flex-col items-center gap-1">
-                                 <span className="text-[8px] font-black text-muted-foreground px-2 py-1 bg-white/5 rounded-full">VS</span>
+                              <div className="flex flex-col items-center shrink-0">
+                                 <span className="text-[7px] md:text-[8px] font-black text-muted-foreground px-1.5 py-0.5 bg-white/5 rounded-full">VS</span>
                               </div>
-                              <div className="flex-1 text-center">
-                                <p className="text-[8px] font-black uppercase text-muted-foreground">Home</p>
-                                <p className={cn("text-xs font-bold", game.home === "Coach Chewy" ? "text-primary" : "text-white")}>{game.home}</p>
+                              <div className="flex-1 text-center min-w-0">
+                                <p className="text-[7px] md:text-[8px] font-black uppercase text-muted-foreground">Home</p>
+                                <p className={cn("text-[10px] md:text-xs font-bold truncate", game.home === "Coach Chewy" ? "text-primary" : "text-white")}>{game.home}</p>
                               </div>
                             </div>
                             
                             {isAdmin ? (
-                              <div className="flex items-center gap-3 bg-secondary/5 p-1 rounded-xl border border-secondary/20 w-fit">
-                                <span className="text-[8px] font-black uppercase text-secondary ml-2">SNACK DUTY</span>
+                              <div className="flex items-center gap-2 bg-secondary/5 p-0.5 rounded-lg border border-secondary/20 w-fit">
+                                <span className="text-[7px] font-black uppercase text-secondary ml-2">SNACK</span>
                                 <Select 
                                   value={statusData.snackPlayerId || "none"} 
                                   onValueChange={(val) => updateSnackDuty(game.id, val === "none" ? null : val)}
                                 >
-                                  <SelectTrigger className="h-8 bg-black/40 border-none text-[9px] font-black uppercase w-[160px] focus:ring-0">
-                                    <SelectValue placeholder="Assign Player..." />
+                                  <SelectTrigger className="h-7 bg-black/40 border-none text-[8px] font-black uppercase w-[120px] md:w-[160px] focus:ring-0 px-2">
+                                    <SelectValue placeholder="Assign..." />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    <SelectItem value="none" className="text-[9px] font-bold uppercase">Unassigned / TBD</SelectItem>
+                                    <SelectItem value="none" className="text-[9px] font-bold uppercase">Unassigned</SelectItem>
                                     {roster.map(p => (
                                       <SelectItem key={p.id} value={p.id} className="text-[9px] font-bold uppercase">{p.name}</SelectItem>
                                     ))}
@@ -370,11 +378,11 @@ export default function GameSchedulePage() {
                                 </Select>
                               </div>
                             ) : (
-                              <div className="flex items-center gap-2 text-[10px] font-black uppercase text-secondary bg-secondary/10 px-3 py-1.5 rounded-lg border border-secondary/20 w-fit">
+                              <div className="flex items-center gap-1.5 text-[8px] md:text-[10px] font-black uppercase text-secondary bg-secondary/10 px-2 py-1 md:px-3 md:py-1.5 rounded border border-secondary/20 w-fit whitespace-nowrap">
                                 SNACK DUTY: {snackPlayer ? snackPlayer.name : "TBD"}
                               </div>
                             )}
-                          </>
+                          </div>
                         )}
                       </div>
                     </div>
