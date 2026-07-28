@@ -133,6 +133,7 @@ interface GameContextType {
   reorderStadiumSongs: (category: 'organ' | 'pumpup', songs: StadiumSong[]) => void;
   triggerSync: () => void;
   emailStats: () => void;
+  updateSnackDuty: (gameId: string, playerId: string | null) => void;
 }
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -319,6 +320,14 @@ export function GameProvider({ children }: { children: ReactNode }) {
     batch.commit();
   };
 
+  const updateSnackDuty = (gameId: string, playerId: string | null) => {
+    if (!isAdmin || !db) return;
+    setDoc(doc(db, "game_wins", gameId), { 
+      snackPlayerId: playerId,
+      updatedAt: new Date().toISOString() 
+    }, { merge: true });
+  };
+
   const emailStats = () => {
     const report = roster.map(p => `${p.name} (#${p.number}): AB:${p.stats?.ab} H:${p.stats?.h} R:${p.stats?.r} RBI:${p.stats?.rbi}`).join('\n');
     const mailto = `mailto:?subject=Game Stats - ${selectedGameId}&body=${encodeURIComponent(report)}`;
@@ -345,7 +354,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       deleteStadiumSong,
       reorderStadiumSongs,
       triggerSync,
-      emailStats
+      emailStats,
+      updateSnackDuty
     }}>
       {children}
     </GameContext.Provider>

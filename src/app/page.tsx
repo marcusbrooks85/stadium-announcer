@@ -50,7 +50,7 @@ const R2_BASE_URL = "https://pub-8418042468305f63d038234be1080036.r2.dev";
 export default function GameSchedulePage() {
   const db = useFirestore();
   const { toast } = useToast();
-  const { isAdmin, roster, triggerSync } = useGame();
+  const { isAdmin, roster, triggerSync, updateSnackDuty } = useGame();
   const [gameStatuses, setGameStatuses] = useState<Record<string, GameStatus>>({});
   const [isSyncing, setIsSyncing] = useState(false);
 
@@ -306,6 +306,29 @@ export default function GameSchedulePage() {
                                {game.subGames.map((sg: any) => {
                                  const sgStatus = gameStatuses[sg.id] || {};
                                  const sgSnackPlayer = roster.find(p => p.id === sgStatus.snackPlayerId);
+                                 
+                                 if (isAdmin) {
+                                   return (
+                                     <div key={`snack-${sg.id}`} className="flex items-center gap-2 bg-secondary/5 p-1 rounded-lg border border-secondary/20">
+                                       <span className="text-[8px] font-black uppercase text-secondary ml-1">{sg.gameNum}:</span>
+                                       <Select 
+                                         value={sgStatus.snackPlayerId || "none"} 
+                                         onValueChange={(val) => updateSnackDuty(sg.id, val === "none" ? null : val)}
+                                       >
+                                         <SelectTrigger className="h-7 bg-black/40 border-none text-[8px] font-black uppercase w-[120px] focus:ring-0">
+                                           <SelectValue placeholder="Assign..." />
+                                         </SelectTrigger>
+                                         <SelectContent>
+                                           <SelectItem value="none" className="text-[9px] font-bold uppercase">TBD</SelectItem>
+                                           {roster.map(p => (
+                                             <SelectItem key={p.id} value={p.id} className="text-[9px] font-bold uppercase">{p.name}</SelectItem>
+                                           ))}
+                                         </SelectContent>
+                                       </Select>
+                                     </div>
+                                   );
+                                 }
+
                                  return (
                                    <div key={`snack-${sg.id}`} className="flex items-center gap-2 text-[10px] font-black uppercase text-secondary bg-secondary/10 px-3 py-1.5 rounded-lg border border-secondary/20 w-fit">
                                      {sg.gameNum.toUpperCase()}: {sgSnackPlayer ? sgSnackPlayer.name : "TBD"}
@@ -329,9 +352,30 @@ export default function GameSchedulePage() {
                                 <p className={cn("text-xs font-bold", game.home === "Coach Chewy" ? "text-primary" : "text-white")}>{game.home}</p>
                               </div>
                             </div>
-                            <div className="flex items-center gap-2 text-[10px] font-black uppercase text-secondary bg-secondary/10 px-3 py-1.5 rounded-lg border border-secondary/20 w-fit">
-                              SNACK DUTY: {snackPlayer ? snackPlayer.name : "TBD"}
-                            </div>
+                            
+                            {isAdmin ? (
+                              <div className="flex items-center gap-3 bg-secondary/5 p-1 rounded-xl border border-secondary/20 w-fit">
+                                <span className="text-[8px] font-black uppercase text-secondary ml-2">SNACK DUTY</span>
+                                <Select 
+                                  value={statusData.snackPlayerId || "none"} 
+                                  onValueChange={(val) => updateSnackDuty(game.id, val === "none" ? null : val)}
+                                >
+                                  <SelectTrigger className="h-8 bg-black/40 border-none text-[9px] font-black uppercase w-[160px] focus:ring-0">
+                                    <SelectValue placeholder="Assign Player..." />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="none" className="text-[9px] font-bold uppercase">Unassigned / TBD</SelectItem>
+                                    {roster.map(p => (
+                                      <SelectItem key={p.id} value={p.id} className="text-[9px] font-bold uppercase">{p.name}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2 text-[10px] font-black uppercase text-secondary bg-secondary/10 px-3 py-1.5 rounded-lg border border-secondary/20 w-fit">
+                                SNACK DUTY: {snackPlayer ? snackPlayer.name : "TBD"}
+                              </div>
+                            )}
                           </>
                         )}
                       </div>
