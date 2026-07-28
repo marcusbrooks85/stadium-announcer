@@ -286,39 +286,54 @@ export default function GameSchedulePage() {
 
                       <div className="md:col-span-7 flex flex-col space-y-4">
                         {game.isPostseason ? (
-                          <div className="space-y-3">
-                             {game.subGames.map((sg: any) => (
-                               <div key={sg.id} className="flex items-center justify-between gap-4 p-3 bg-black/30 rounded-xl border border-white/5">
-                                 <div className="flex flex-col items-start min-w-[80px]">
-                                   <span className="text-[8px] font-black text-primary uppercase">{sg.gameNum}</span>
-                                   <span className="text-[10px] font-bold text-white">{sg.time}</span>
+                          <>
+                            <div className="space-y-3">
+                               {game.subGames.map((sg: any) => (
+                                 <div key={sg.id} className="flex items-center justify-between gap-4 p-3 bg-black/30 rounded-xl border border-white/5">
+                                   <div className="flex flex-col items-start min-w-[80px]">
+                                     <span className="text-[8px] font-black text-primary uppercase">{sg.gameNum}</span>
+                                     <span className="text-[10px] font-bold text-white">{sg.time}</span>
+                                   </div>
+                                   <div className="flex-1 flex items-center justify-center gap-3">
+                                     <span className="text-xs font-bold text-white">{sg.away}</span>
+                                     <span className="text-[8px] font-black text-muted-foreground">VS</span>
+                                     <span className="text-xs font-bold text-white">{sg.home}</span>
+                                   </div>
                                  </div>
-                                 <div className="flex-1 flex items-center justify-center gap-3">
-                                   <span className="text-xs font-bold text-white">{sg.away}</span>
-                                   <span className="text-[8px] font-black text-muted-foreground">VS</span>
-                                   <span className="text-xs font-bold text-white">{sg.home}</span>
-                                 </div>
-                               </div>
-                             ))}
-                          </div>
+                               ))}
+                            </div>
+                            <div className="flex flex-wrap items-center gap-3">
+                               {game.subGames.map((sg: any) => {
+                                 const sgStatus = gameStatuses[sg.id] || {};
+                                 const sgSnackPlayer = roster.find(p => p.id === sgStatus.snackPlayerId);
+                                 return (
+                                   <div key={`snack-${sg.id}`} className="flex items-center gap-2 text-[10px] font-black uppercase text-secondary bg-secondary/10 px-3 py-1.5 rounded-lg border border-secondary/20 w-fit">
+                                     {sg.gameNum.toUpperCase()}: {sgSnackPlayer ? sgSnackPlayer.name : "TBD"}
+                                   </div>
+                                 );
+                               })}
+                            </div>
+                          </>
                         ) : (
-                          <div className="flex items-center justify-between gap-4 p-4 bg-black/30 rounded-xl border border-white/5">
-                            <div className="flex-1 text-center">
-                              <p className="text-[8px] font-black uppercase text-muted-foreground">Away</p>
-                              <p className={cn("text-xs font-bold", game.away === "Coach Chewy" ? "text-primary" : "text-white")}>{game.away}</p>
+                          <>
+                            <div className="flex items-center justify-between gap-4 p-4 bg-black/30 rounded-xl border border-white/5">
+                              <div className="flex-1 text-center">
+                                <p className="text-[8px] font-black uppercase text-muted-foreground">Away</p>
+                                <p className={cn("text-xs font-bold", game.away === "Coach Chewy" ? "text-primary" : "text-white")}>{game.away}</p>
+                              </div>
+                              <div className="flex flex-col items-center gap-1">
+                                 <span className="text-[8px] font-black text-muted-foreground px-2 py-1 bg-white/5 rounded-full">VS</span>
+                              </div>
+                              <div className="flex-1 text-center">
+                                <p className="text-[8px] font-black uppercase text-muted-foreground">Home</p>
+                                <p className={cn("text-xs font-bold", game.home === "Coach Chewy" ? "text-primary" : "text-white")}>{game.home}</p>
+                              </div>
                             </div>
-                            <div className="flex flex-col items-center gap-1">
-                               <span className="text-[8px] font-black text-muted-foreground px-2 py-1 bg-white/5 rounded-full">VS</span>
+                            <div className="flex items-center gap-2 text-[10px] font-black uppercase text-secondary bg-secondary/10 px-3 py-1.5 rounded-lg border border-secondary/20 w-fit">
+                              SNACK DUTY: {snackPlayer ? snackPlayer.name : "TBD"}
                             </div>
-                            <div className="flex-1 text-center">
-                              <p className="text-[8px] font-black uppercase text-muted-foreground">Home</p>
-                              <p className={cn("text-xs font-bold", game.home === "Coach Chewy" ? "text-primary" : "text-white")}>{game.home}</p>
-                            </div>
-                          </div>
+                          </>
                         )}
-                        <div className="flex items-center gap-2 text-[10px] font-black uppercase text-secondary bg-secondary/10 px-3 py-1.5 rounded-lg border border-secondary/20 w-fit">
-                          SNACK DUTY: {snackPlayer ? snackPlayer.name : "TBD"}
-                        </div>
                       </div>
                     </div>
                   </CardContent>
