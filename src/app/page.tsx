@@ -264,7 +264,7 @@ export default function GameSchedulePage() {
                       </div>
 
                       <div className="md:col-span-2 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-white/5 py-4 md:py-0">
-                         <span className="text-[8px] font-black uppercase text-muted-foreground mb-2 tracking-widest">Jersey</span>
+                         <span className="text-[8px] font-black uppercase text-muted-foreground mb-2 tracking-widest">JERSEY</span>
                          {game.isPostseason ? (
                            <div className="flex flex-col items-center">
                              <Trophy className="h-10 w-10 text-primary/40" />
@@ -273,7 +273,7 @@ export default function GameSchedulePage() {
                          ) : (
                            <div className="flex flex-col items-center">
                              <img 
-                               src={`${R2_BASE_URL}/jersey-colors/${isHome ? 'Blue' : 'Grey'}_Jersey.png`} 
+                               src={`${R2_BASE_URL}/jersey-colors/${isHome ? 'Blue' : 'Grey'}Jersey.png`} 
                                alt="Jersey" 
                                className="w-14 h-14 object-contain" 
                              />
