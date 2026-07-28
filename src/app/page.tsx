@@ -2,7 +2,6 @@
 
 import React, { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { 
   Calendar as CalendarIcon, 
   Home, 
@@ -272,19 +271,16 @@ export default function GameSchedulePage() {
                              <span className="text-[9px] font-black uppercase text-primary mt-2">Finals</span>
                            </div>
                          ) : (
-                           <>
-                             <div className="relative w-14 h-14">
-                               <Image 
-                                 src={`${R2_BASE_URL}/jersey-colors/${isHome ? 'Blue' : 'Grey'}_Jersey.png`} 
-                                 alt="Jersey" 
-                                 fill 
-                                 className="object-contain" 
-                               />
-                             </div>
+                           <div className="flex flex-col items-center">
+                             <img 
+                               src={`${R2_BASE_URL}/jersey-colors/${isHome ? 'Blue' : 'Grey'}_Jersey.png`} 
+                               alt="Jersey" 
+                               className="w-14 h-14 object-contain" 
+                             />
                              <span className={cn("text-[10px] font-black uppercase mt-1", isHome ? "text-primary" : "text-slate-400")}>
                                {isHome ? "Home" : "Away"}
                              </span>
-                           </>
+                           </div>
                          )}
                       </div>
 
@@ -306,25 +302,23 @@ export default function GameSchedulePage() {
                              ))}
                           </div>
                         ) : (
-                          <>
-                            <div className="flex items-center justify-between gap-4 p-4 bg-black/30 rounded-xl border border-white/5">
-                              <div className="flex-1 text-center">
-                                <p className="text-[8px] font-black uppercase text-muted-foreground">Away</p>
-                                <p className={cn("text-xs font-bold", game.away === "Coach Chewy" ? "text-primary" : "text-white")}>{game.away}</p>
-                              </div>
-                              <div className="flex flex-col items-center gap-1">
-                                 <span className="text-[8px] font-black text-muted-foreground px-2 py-1 bg-white/5 rounded-full">VS</span>
-                              </div>
-                              <div className="flex-1 text-center">
-                                <p className="text-[8px] font-black uppercase text-muted-foreground">Home</p>
-                                <p className={cn("text-xs font-bold", game.home === "Coach Chewy" ? "text-primary" : "text-white")}>{game.home}</p>
-                              </div>
+                          <div className="flex items-center justify-between gap-4 p-4 bg-black/30 rounded-xl border border-white/5">
+                            <div className="flex-1 text-center">
+                              <p className="text-[8px] font-black uppercase text-muted-foreground">Away</p>
+                              <p className={cn("text-xs font-bold", game.away === "Coach Chewy" ? "text-primary" : "text-white")}>{game.away}</p>
                             </div>
-                            <div className="flex items-center gap-2 text-[10px] font-black uppercase text-secondary bg-secondary/10 px-3 py-1.5 rounded-lg border border-secondary/20 w-fit">
-                              SNACK - {snackPlayer ? snackPlayer.name : "TBD"}
+                            <div className="flex flex-col items-center gap-1">
+                               <span className="text-[8px] font-black text-muted-foreground px-2 py-1 bg-white/5 rounded-full">VS</span>
                             </div>
-                          </>
+                            <div className="flex-1 text-center">
+                              <p className="text-[8px] font-black uppercase text-muted-foreground">Home</p>
+                              <p className={cn("text-xs font-bold", game.home === "Coach Chewy" ? "text-primary" : "text-white")}>{game.home}</p>
+                            </div>
+                          </div>
                         )}
+                        <div className="flex items-center gap-2 text-[10px] font-black uppercase text-secondary bg-secondary/10 px-3 py-1.5 rounded-lg border border-secondary/20 w-fit">
+                          SNACK DUTY: {snackPlayer ? snackPlayer.name : "TBD"}
+                        </div>
                       </div>
                     </div>
                   </CardContent>
