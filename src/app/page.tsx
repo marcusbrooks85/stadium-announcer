@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useMemo, useState, useEffect } from "react";
@@ -17,7 +16,8 @@ import {
   XCircle,
   RotateCcw,
   Zap,
-  RefreshCw
+  RefreshCw,
+  Shirt
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -248,13 +248,20 @@ export default function GameSchedulePage() {
 
                   <CardContent className="p-4 md:p-6">
                     <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
-                      <div className="md:col-span-3 flex flex-col border-b md:border-b-0 md:border-r border-white/5 pb-4 md:pb-0">
-                        <Badge variant="outline" className="w-fit text-[10px] font-black uppercase">{game.notes || `Week ${game.week}`}</Badge>
-                        <p className="mt-2 text-sm font-black uppercase text-white">
+                      <div className="md:col-span-3 flex flex-col border-b md:border-b-0 md:border-r border-white/5 pb-4 md:pb-0 relative">
+                        <div className="absolute -top-1 -left-1 opacity-20">
+                          {isHome ? (
+                            <Shirt className="h-12 w-12 text-blue-500 fill-blue-500/20" />
+                          ) : (
+                            <Shirt className="h-12 w-12 text-slate-400 fill-slate-400/20" />
+                          )}
+                        </div>
+                        <Badge variant="outline" className="w-fit text-[10px] font-black uppercase relative z-10">{game.notes || `Week ${game.week}`}</Badge>
+                        <p className="mt-2 text-sm font-black uppercase text-white relative z-10">
                           {new Date(game.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric' })}
                         </p>
-                        <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground mt-1"><Clock className="h-3 w-3" /> {game.time}</div>
-                        <div className="flex items-center gap-2 text-[9px] font-bold text-muted-foreground uppercase mt-2 bg-black/20 p-2 rounded-lg border border-white/5">
+                        <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground mt-1 relative z-10"><Clock className="h-3 w-3" /> {game.time}</div>
+                        <div className="flex items-center gap-2 text-[9px] font-bold text-muted-foreground uppercase mt-2 bg-black/20 p-2 rounded-lg border border-white/5 relative z-10">
                           <MapPin className="h-3 w-3" /> {game.location}
                         </div>
                       </div>
@@ -265,7 +272,20 @@ export default function GameSchedulePage() {
                             <p className="text-[8px] font-black uppercase text-muted-foreground">Away</p>
                             <p className={cn("text-xs font-bold", game.away === "Coach Chewy" ? "text-primary" : "text-white")}>{game.away}</p>
                           </div>
-                          <span className="text-[8px] font-black text-muted-foreground px-2 py-1 bg-white/5 rounded-full">VS</span>
+                          <div className="flex flex-col items-center gap-1">
+                             <span className="text-[8px] font-black text-muted-foreground px-2 py-1 bg-white/5 rounded-full">VS</span>
+                             {isHome ? (
+                               <div className="flex flex-col items-center">
+                                 <Shirt className="h-5 w-5 text-blue-500 fill-blue-500/20" />
+                                 <span className="text-[6px] font-black uppercase text-blue-500">Home</span>
+                               </div>
+                             ) : (
+                               <div className="flex flex-col items-center">
+                                 <Shirt className="h-5 w-5 text-slate-400 fill-slate-400/20" />
+                                 <span className="text-[6px] font-black uppercase text-slate-400">Away</span>
+                               </div>
+                             )}
+                          </div>
                           <div className="flex-1 text-center">
                             <p className="text-[8px] font-black uppercase text-muted-foreground">Home</p>
                             <p className={cn("text-xs font-bold", game.home === "Coach Chewy" ? "text-primary" : "text-white")}>{game.home}</p>
