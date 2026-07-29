@@ -151,9 +151,9 @@ export function HelpOverlay() {
         <Button 
           variant="outline" 
           size="icon" 
-          className="fixed bottom-24 left-4 z-[100] h-12 w-12 rounded-full border-2 border-white bg-black text-white shadow-2xl hover:bg-white hover:text-black transition-all transform hover:scale-110 active:scale-95 md:bottom-28 md:left-8"
+          className="fixed bottom-24 left-4 z-[100] h-8 w-8 rounded-full border border-white bg-black text-white shadow-2xl hover:bg-white hover:text-black transition-all transform hover:scale-110 active:scale-95 md:bottom-28 md:left-8"
         >
-          <span className="text-xl font-black">?</span>
+          <span className="text-sm font-black">?</span>
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-md bg-card/95 backdrop-blur-xl border-white/10 p-0 overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.5)]">
