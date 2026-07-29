@@ -11,7 +11,8 @@ import {
   Check, 
   X,
   ArrowLeft,
-  CheckCircle2
+  CheckCircle2,
+  ShieldAlert
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,16 +58,18 @@ function ResetPasswordForm() {
       });
   }, [auth, oobCode]);
 
+  // Enforce complexity: 8+ chars, upper, lower, number, special
   const passwordCriteria = useMemo(() => {
     return {
+      length: newPassword.length >= 8,
       upper: /[A-Z]/.test(newPassword),
       lower: /[a-z]/.test(newPassword),
       number: /[0-9]/.test(newPassword),
-      special: /[^A-Za-z0-9]/.test(newPassword),
+      special: /[!@#$%^&*(),.?":{}|<>]/.test(newPassword),
     };
   }, [newPassword]);
 
-  const isPasswordStrong = newPassword.length >= 8 && Object.values(passwordCriteria).every(Boolean);
+  const isPasswordStrong = Object.values(passwordCriteria).every(Boolean);
   const passwordsMatch = newPassword === confirmPassword && confirmPassword !== "";
 
   const handleResetSubmit = async (e: React.FormEvent) => {
@@ -96,10 +99,10 @@ function ResetPasswordForm() {
 
   const CriteriaItem = ({ met, label }: { met: boolean; label: string }) => (
     <div className={cn(
-      "flex items-center gap-1.5 text-[8px] md:text-[9px] font-black uppercase tracking-tighter transition-colors",
-      met ? "text-green-500" : "text-red-500"
+      "flex items-center gap-1.5 text-[9px] font-black uppercase tracking-tighter transition-colors",
+      met ? "text-green-500" : "text-red-500/50"
     )}>
-      {met ? <Check className="h-2.5 w-2.5" /> : <X className="h-2.5 w-2.5" />}
+      {met ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
       {label}
     </div>
   );
@@ -117,12 +120,14 @@ function ResetPasswordForm() {
     return (
       <Card className="w-full max-w-lg border-2 border-destructive/20 bg-card/50 backdrop-blur-xl">
         <CardHeader>
-          <CardTitle className="text-xl font-black uppercase tracking-widest text-destructive">Invalid Link</CardTitle>
-          <CardDescription className="text-[10px] font-bold uppercase">The password reset link is missing or malformed.</CardDescription>
+          <CardTitle className="text-xl font-black uppercase tracking-widest text-destructive flex items-center gap-2">
+            <ShieldAlert className="h-5 w-5" /> Invalid Link
+          </CardTitle>
+          <CardDescription className="text-[10px] font-bold uppercase">The password reset link is missing, malformed, or has already been used.</CardDescription>
         </CardHeader>
         <CardFooter>
           <Button onClick={() => router.push("/uat")} className="w-full h-12 font-black uppercase tracking-widest bg-primary">
-            Back to Login
+            Return to Login
           </Button>
         </CardFooter>
       </Card>
@@ -136,9 +141,9 @@ function ResetPasswordForm() {
           <div className="mx-auto w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center">
             <CheckCircle2 className="w-8 h-8 text-green-500" />
           </div>
-          <CardTitle className="text-2xl font-black uppercase tracking-widest">Success</CardTitle>
+          <CardTitle className="text-2xl font-black uppercase tracking-widest">Update Successful</CardTitle>
           <CardDescription className="text-sm font-bold text-muted-foreground uppercase">
-            Your password has been updated. Redirecting to login...
+            Your new password is now active. Redirecting to login...
           </CardDescription>
         </CardHeader>
         <CardFooter>
@@ -154,24 +159,24 @@ function ResetPasswordForm() {
     <Card className="w-full max-w-xl border-2 border-primary/20 bg-card/50 backdrop-blur-xl">
       <CardHeader>
         <CardTitle className="text-xl font-black uppercase tracking-widest flex items-center gap-3">
-          <Lock className="w-6 h-6 text-primary" /> Create New Password
+          <Lock className="w-6 h-6 text-primary" /> Reset Credentials
         </CardTitle>
         <CardDescription className="text-[10px] font-bold uppercase">
-          Updating credentials for: <span className="text-primary">{email}</span>
+          New password for: <span className="text-primary">{email}</span>
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        <form onSubmit={handleResetSubmit} className="space-y-4">
+        <form onSubmit={handleResetSubmit} className="space-y-5">
           <div className="space-y-2">
             <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">New Password</Label>
             <div className="relative">
               <Input 
                 required 
                 type={showPassword ? "text" : "password"} 
-                placeholder="8+ characters required" 
+                placeholder="Enter strong password..." 
                 value={newPassword} 
                 onChange={(e) => setNewPassword(e.target.value)} 
-                className="h-12 bg-black/40 pr-12" 
+                className="h-12 bg-black/40 pr-12 font-bold" 
               />
               <button 
                 type="button" 
@@ -183,24 +188,26 @@ function ResetPasswordForm() {
               </button>
             </div>
             
-            <div className="grid grid-cols-2 gap-x-2 gap-y-1 mt-2 p-2 bg-black/20 rounded-lg border border-white/5">
-              <CriteriaItem met={passwordCriteria.upper} label="Uppercase" />
-              <CriteriaItem met={passwordCriteria.lower} label="Lowercase" />
-              <CriteriaItem met={passwordCriteria.number} label="Number" />
-              <CriteriaItem met={passwordCriteria.special} label="Special Char" />
+            <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-3 p-4 bg-black/30 rounded-xl border border-white/5">
+              <div className="col-span-2 text-[8px] font-black text-muted-foreground uppercase tracking-widest mb-1">Security Requirements:</div>
+              <CriteriaItem met={passwordCriteria.length} label="8+ Characters" />
+              <CriteriaItem met={passwordCriteria.upper} label="Uppercase [A-Z]" />
+              <CriteriaItem met={passwordCriteria.lower} label="Lowercase [a-z]" />
+              <CriteriaItem met={passwordCriteria.number} label="Number [0-9]" />
+              <CriteriaItem met={passwordCriteria.special} label="Special Symbol" />
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Confirm New Password</Label>
+            <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Confirm Password</Label>
             <div className="relative">
               <Input 
                 required 
                 type={showConfirmPassword ? "text" : "password"} 
-                placeholder="Repeat new password" 
+                placeholder="Repeat new password..." 
                 value={confirmPassword} 
                 onChange={(e) => setConfirmPassword(e.target.value)} 
-                className="h-12 bg-black/40 pr-12" 
+                className="h-12 bg-black/40 pr-12 font-bold" 
               />
               <button 
                 type="button" 
@@ -212,24 +219,27 @@ function ResetPasswordForm() {
               </button>
             </div>
             {confirmPassword && !passwordsMatch && (
-              <p className="text-[8px] font-black text-red-500 uppercase ml-1">Passwords do not match</p>
+              <p className="text-[9px] font-black text-red-500 uppercase ml-1 animate-in fade-in slide-in-from-top-1">Passwords do not match</p>
+            )}
+            {confirmPassword && passwordsMatch && (
+              <p className="text-[9px] font-black text-green-500 uppercase ml-1 animate-in fade-in slide-in-from-top-1">Passwords match</p>
             )}
           </div>
 
           <Button 
             disabled={loading || !isPasswordStrong || !passwordsMatch} 
             type="submit" 
-            className="w-full h-14 font-black uppercase tracking-widest bg-primary"
+            className="w-full h-14 font-black uppercase tracking-widest bg-primary shadow-xl shadow-primary/20"
           >
-            {loading ? <Loader2 className="animate-spin mr-2" /> : "Update Password"}
+            {loading ? <Loader2 className="animate-spin mr-2" /> : "Verify & Update Password"}
           </Button>
 
           <button 
             type="button" 
             onClick={() => router.push("/uat")} 
-            className="w-full text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-white flex items-center justify-center gap-2"
+            className="w-full text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-white flex items-center justify-center gap-2 pt-2"
           >
-             <ArrowLeft className="h-3 w-3" /> Return to Login
+             <ArrowLeft className="h-3 w-3" /> Back to Sign In
           </button>
         </form>
       </CardContent>

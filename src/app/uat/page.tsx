@@ -141,7 +141,7 @@ export default function UATOnboardingPage() {
     setLoading(true);
     try {
       const actionCodeSettings: ActionCodeSettings = {
-        // Must be a whitelisted domain in the Firebase Console
+        // Pointing directly to our native reset-password route
         url: `${window.location.origin}/auth/reset-password`,
         handleCodeInApp: true,
       };
@@ -274,7 +274,7 @@ export default function UATOnboardingPage() {
       )}
 
       {step === "tos" && (
-        <Card className="w-full max-w-lg border-2 border-primary/20 bg-card/50 backdrop-blur-xl">
+        <Card className="w-full max-lg border-2 border-primary/20 bg-card/50 backdrop-blur-xl">
           <CardHeader className="text-center space-y-4"><div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center"><ShieldCheck className="w-8 h-8 text-primary" /></div>
           <CardTitle className="text-2xl font-black uppercase">Acknowledgement Required</CardTitle>
           <CardDescription className="text-xs uppercase font-bold text-muted-foreground">Please review and accept our stadium operations protocol.</CardDescription></CardHeader>
