@@ -132,6 +132,24 @@ export default function UATOnboardingPage() {
     finally { setLoading(false); }
   };
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.email) {
+      toast({ variant: "destructive", title: "Email Required", description: "Please enter your registered email address." });
+      return;
+    }
+    setLoading(true);
+    try {
+      await sendPasswordResetEmail(auth, formData.email);
+      toast({ title: "Reset Link Sent", description: "Check your inbox for password reset instructions." });
+      setStep("auth");
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Reset Failed", description: error.message });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleCreateTeam = async (e: React.FormEvent) => {
     e.preventDefault();
     const user = auth.currentUser;
@@ -169,11 +187,27 @@ export default function UATOnboardingPage() {
               </div>}
               {isRegisterMode && <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Phone Number</Label><Input placeholder="xxx-xxx-xxxx" value={formData.phoneNumber} onChange={(e) => setFormData({...formData, phoneNumber: e.target.value})} className="h-12 bg-black/40" /></div>}
               <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Email</Label><Input required type="email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="h-12 bg-black/40" /></div>
-              <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Password</Label>
-                <div className="relative"><Input required type={showPassword ? "text" : "password"} value={formData.password} onChange={(e) => setFormData({...formData, password: e.target.value})} className="h-12 bg-black/40" />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 opacity-40">{showPassword ? <EyeOff /> : <Eye />}</button></div>
-                {isRegisterMode && <div className="grid grid-cols-2 gap-1 pt-2"><CriteriaItem met={passwordCriteria.upper} label="Upper" /><CriteriaItem met={passwordCriteria.lower} label="Lower" /><CriteriaItem met={passwordCriteria.number} label="Number" /><CriteriaItem met={passwordCriteria.special} label="Special" /></div>}
-              </div>
+              {!step.includes('forgot') && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[10px] font-black uppercase">Password</Label>
+                    {!isRegisterMode && (
+                      <button 
+                        type="button" 
+                        onClick={() => setStep("forgot-password")}
+                        className="text-[10px] font-black uppercase text-primary hover:underline"
+                      >
+                        Forgot?
+                      </button>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <Input required type={showPassword ? "text" : "password"} value={formData.password} onChange={(e) => setFormData({...formData, password: e.target.value})} className="h-12 bg-black/40" />
+                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 opacity-40">{showPassword ? <EyeOff /> : <Eye />}</button>
+                  </div>
+                  {isRegisterMode && <div className="grid grid-cols-2 gap-1 pt-2"><CriteriaItem met={passwordCriteria.upper} label="Upper" /><CriteriaItem met={passwordCriteria.lower} label="Lower" /><CriteriaItem met={passwordCriteria.number} label="Number" /><CriteriaItem met={passwordCriteria.special} label="Special" /></div>}
+                </div>
+              )}
               {isRegisterMode && isJoinMode && <div className="p-4 bg-primary/5 rounded-xl border border-primary/20 space-y-4">
                 <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Team Access Code</Label><Input value={formData.accessCode} onChange={(e) => setFormData({...formData, accessCode: e.target.value.toUpperCase()})} className="h-12 bg-black/40 text-center font-black" /></div>
                 <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Associate with Player</Label>
@@ -190,6 +224,46 @@ export default function UATOnboardingPage() {
               <button onClick={() => { setIsRegisterMode(true); setIsJoinMode(false); }} className="h-12 border border-white/10 rounded-xl text-[10px] font-black uppercase text-muted-foreground">Register new team</button></>
               : <button onClick={() => setIsRegisterMode(false)} className="text-[10px] font-black uppercase text-muted-foreground">Back to Sign In</button>}
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {step === "forgot-password" && (
+        <Card className="w-full max-w-xl border-2 border-primary/20 bg-card/50 backdrop-blur-xl">
+          <CardHeader>
+            <CardTitle className="text-xl font-black uppercase tracking-widest flex items-center gap-3">
+              <Lock className="w-6 h-6 text-primary" /> Reset Password
+            </CardTitle>
+            <CardDescription className="text-[10px] font-bold uppercase">
+              Enter your email to receive a recovery link.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <form onSubmit={handleForgotPassword} className="space-y-4">
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase">Account Email</Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input 
+                    required 
+                    type="email" 
+                    placeholder="Enter your email..." 
+                    value={formData.email} 
+                    onChange={(e) => setFormData({...formData, email: e.target.value})} 
+                    className="h-12 bg-black/40 pl-10" 
+                  />
+                </div>
+              </div>
+              <Button disabled={loading} type="submit" className="w-full h-14 bg-primary font-black uppercase">
+                {loading ? <Loader2 className="animate-spin" /> : "Send Reset Link"}
+              </Button>
+            </form>
+            <button 
+              onClick={() => setStep("auth")} 
+              className="w-full text-[10px] font-black uppercase text-muted-foreground hover:text-white flex items-center justify-center gap-2"
+            >
+              <ArrowLeft className="h-3 w-3" /> Back to Sign In
+            </button>
           </CardContent>
         </Card>
       )}
