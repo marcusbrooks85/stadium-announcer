@@ -140,8 +140,13 @@ export default function UATOnboardingPage() {
     }
     setLoading(true);
     try {
-      await sendPasswordResetEmail(auth, formData.email);
-      toast({ title: "Reset Link Sent", description: "Check your inbox for password reset instructions." });
+      const actionCodeSettings: ActionCodeSettings = {
+        // Must be a whitelisted domain in the Firebase Console
+        url: `${window.location.origin}/auth/reset-password`,
+        handleCodeInApp: true,
+      };
+      await sendPasswordResetEmail(auth, formData.email, actionCodeSettings);
+      toast({ title: "Reset Link Sent", description: "Check your inbox for instructions to reset your password natively." });
       setStep("auth");
     } catch (error: any) {
       toast({ variant: "destructive", title: "Reset Failed", description: error.message });
@@ -235,7 +240,7 @@ export default function UATOnboardingPage() {
               <Lock className="w-6 h-6 text-primary" /> Reset Password
             </CardTitle>
             <CardDescription className="text-[10px] font-bold uppercase">
-              Enter your email to receive a recovery link.
+              Enter your email to receive a native recovery link.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
