@@ -86,6 +86,7 @@ export const FULL_GAME_SCHEDULE = [
   { id: "game_10", week: 10, date: "2026-07-28", time: "6:00 PM", home: "Coach Matt & Rene", away: "Coach Chewy", location: "Jim Thorpe - Prairie Field" },
   { 
     id: "playoffs_1", 
+    week: 11,
     isPostseason: true,
     notes: "PLAYOFFS / SEMI-FINALS",
     date: "2026-08-01", 
@@ -97,6 +98,7 @@ export const FULL_GAME_SCHEDULE = [
   },
   { 
     id: "playoffs_2", 
+    week: 12,
     isPostseason: true,
     notes: "CONSOLATION & CHAMPIONSHIP",
     date: "2026-08-08", 

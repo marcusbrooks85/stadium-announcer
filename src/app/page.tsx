@@ -97,7 +97,9 @@ export default function GameSchedulePage() {
   const activeGameId = useMemo(() => {
     const now = new Date();
     const convertTimeTo24h = (timeStr: string) => {
-      const [time, modifier] = timeStr.split(' ');
+      const parts = timeStr.split(' ');
+      if (parts.length < 2) return "00:00:00";
+      const [time, modifier] = parts;
       let [hours, minutes] = time.split(':').map(Number);
       if (modifier === 'PM' && hours < 12) hours += 12;
       if (modifier === 'AM' && hours === 12) hours = 0;
@@ -236,151 +238,148 @@ export default function GameSchedulePage() {
                   id={game.id}
                   key={game.id} 
                   className={cn(
-                    "transition-all duration-300 relative overflow-hidden scroll-mt-[180px] md:scroll-mt-[260px]",
+                    "transition-all duration-300 relative overflow-hidden scroll-mt-[180px] md:scroll-mt-[260px] flex flex-row items-center justify-between gap-2 px-2 py-2",
                     isHome || game.isPostseason ? "bg-blue-950/40 border-blue-800/60" : "bg-slate-800/50 border-slate-700/60",
                     isCancelled && "opacity-60",
                     activeGameId === game.id && "ring-2 ring-primary ring-offset-2 ring-offset-background"
                   )}
                 >
-                  <div className="absolute top-2 right-2 z-20 flex flex-col items-end gap-2">
-                    {isWon && !isCancelled && <span className="text-2xl md:text-3xl animate-trophy-breathe">🏆</span>}
-                    {isLoss && !isCancelled && <XCircle className="h-6 w-6 md:h-8 md:w-8 text-destructive" />}
-                    {isCancelled && <Badge variant="destructive" className="font-black uppercase text-[8px]">Cancelled</Badge>}
+                  <div className="absolute top-1 right-1 z-20 flex flex-col items-end gap-1">
+                    {isWon && !isCancelled && <span className="text-xl md:text-2xl animate-trophy-breathe">🏆</span>}
+                    {isLoss && !isCancelled && <XCircle className="h-4 w-4 md:h-6 md:w-6 text-destructive" />}
+                    {isCancelled && <Badge variant="destructive" className="font-black uppercase text-[7px]">Cancelled</Badge>}
                   </div>
 
-                  <CardContent className="p-2 md:p-6">
-                    <div className="flex flex-row items-center gap-1 md:gap-8">
-                      {/* Date / Location Section */}
-                      <div className="flex flex-col shrink-0 border-r border-white/5 pr-1.5 md:pr-6 min-w-[70px] md:min-w-[180px]">
-                        <Badge variant="outline" className="w-fit text-[7px] md:text-[10px] font-black uppercase px-1 md:px-1.5 h-3.5 md:h-5">{game.notes || `Week ${game.week}`}</Badge>
-                        <p className="mt-1 text-[10px] md:text-sm font-black uppercase text-white leading-tight whitespace-normal">
-                          <span className="md:hidden">
-                            {new Date(game.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                          </span>
-                          <span className="hidden md:inline">
-                            {new Date(game.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric' })}
-                          </span>
-                        </p>
-                        {!game.isPostseason && <div className="flex items-center gap-1 text-[8px] md:text-xs font-bold text-muted-foreground mt-0.5"><Clock className="h-2 w-2 md:h-3 md:w-3" /> {game.time}</div>}
-                        <div className="flex items-center gap-1 text-[7px] md:text-[9px] font-bold text-muted-foreground uppercase mt-1 md:mt-1.5 bg-black/20 p-1 md:p-2 rounded border border-white/5">
-                          <MapPin className="h-2 w-2 md:h-3 md:w-3 shrink-0" /> <span className="truncate">{game.location.split(' - ')[0]}</span>
-                        </div>
+                  <CardContent className="p-0 w-full flex flex-row items-center gap-2">
+                    {/* Date / Location Section */}
+                    <div className="flex flex-col shrink-0 border-r border-white/5 pr-2 min-w-[70px] md:min-w-[150px]">
+                      <Badge variant="outline" className="w-fit text-[7px] md:text-[9px] font-black uppercase px-1 h-3.5 md:h-4">{game.notes || `Week ${game.week}`}</Badge>
+                      <p className="mt-1 text-[10px] md:text-sm font-black uppercase text-white leading-tight">
+                        <span className="md:hidden">
+                          {new Date(game.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                        </span>
+                        <span className="hidden md:inline">
+                          {new Date(game.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric' })}
+                        </span>
+                      </p>
+                      {!game.isPostseason && <div className="flex items-center gap-1 text-[8px] md:text-xs font-bold text-muted-foreground mt-0.5"><Clock className="h-2 w-2 md:h-3 md:w-3" /> {game.time}</div>}
+                      <div className="flex items-center gap-1 text-[7px] md:text-[9px] font-bold text-muted-foreground uppercase mt-1 md:mt-1.5 bg-black/20 p-1 md:p-1.5 rounded border border-white/5">
+                        <MapPin className="h-2 w-2 md:h-3 md:w-3 shrink-0" /> <span className="truncate">{game.location}</span>
                       </div>
+                    </div>
 
-                      {/* Jersey Section */}
-                      <div className="flex flex-col items-center justify-center shrink-0 border-r border-white/5 pr-1.5 md:pr-6 min-w-[45px] md:min-w-[80px]">
-                         <span className="text-[6px] md:text-[8px] font-black uppercase text-muted-foreground mb-0.5 md:mb-1 tracking-widest">JERSEY</span>
-                         {game.isPostseason ? (
-                           <div className="flex flex-col items-center">
-                             <Trophy className="h-5 w-5 md:h-10 md:w-10 text-primary/40" />
-                             <span className="text-[6px] md:text-[9px] font-black uppercase text-primary mt-0.5">Finals</span>
-                           </div>
-                         ) : (
-                           <div className="flex flex-col items-center">
-                             <img 
-                               src={isHome ? "/Blue_Jersey.png" : "/Grey_Jersey.png"} 
-                               alt={isHome ? "Home Jersey" : "Away Jersey"} 
-                               className="w-7 h-7 md:w-14 md:h-14 object-contain" 
-                             />
-                             <span className={cn("text-[7px] md:text-[10px] font-black uppercase mt-0.5", isHome ? "text-primary" : "text-slate-400")}>
-                               {isHome ? "Home" : "Away"}
-                             </span>
-                           </div>
-                         )}
-                      </div>
+                    {/* Jersey Section */}
+                    <div className="flex flex-col items-center justify-center shrink-0 border-r border-white/5 pr-2 min-w-[45px] md:min-w-[80px]">
+                       <span className="text-[6px] md:text-[8px] font-black uppercase text-muted-foreground mb-0.5 tracking-widest">JERSEY</span>
+                       {game.isPostseason ? (
+                         <div className="flex flex-col items-center">
+                           <Trophy className="h-5 w-5 md:h-10 md:w-10 text-primary/40" />
+                           <span className="text-[6px] md:text-[8px] font-black uppercase text-primary mt-0.5">Finals</span>
+                         </div>
+                       ) : (
+                         <div className="flex flex-col items-center">
+                           <img 
+                             src={isHome ? "/Blue_Jersey.png" : "/Grey_Jersey.png"} 
+                             alt={isHome ? "Home Jersey" : "Away Jersey"} 
+                             className="w-8 h-8 md:w-14 md:h-14 object-contain" 
+                           />
+                           <span className={cn("text-[7px] md:text-[9px] font-black uppercase mt-0.5", isHome ? "text-primary" : "text-slate-400")}>
+                             {isHome ? "Home" : "Away"}
+                           </span>
+                         </div>
+                       )}
+                    </div>
 
-                      {/* Matchup & Snack Duty Section */}
-                      <div className="flex-1 flex flex-col min-w-0">
-                        {game.isPostseason ? (
-                          <div className="space-y-3">
-                               {game.subGames.map((sg: any) => {
-                                 const sgStatus = gameStatuses[sg.id] || {};
-                                 const sgSnackPlayer = roster.find(p => p.id === sgStatus.snackPlayerId);
+                    {/* Matchup & Snack Duty Section */}
+                    <div className="flex-1 flex flex-col min-w-0">
+                      {game.isPostseason ? (
+                        <div className="space-y-2">
+                             {game.subGames.map((sg: any) => {
+                               const sgStatus = gameStatuses[sg.id] || {};
+                               const sgSnackPlayer = roster.find(p => p.id === sgStatus.snackPlayerId);
 
-                                 return (
-                                   <div key={sg.id} className="space-y-1.5">
-                                     <div className="flex items-center justify-between gap-1.5 p-1.5 md:p-3 bg-black/30 rounded-lg border border-white/5">
-                                       <div className="flex flex-col items-start min-w-[40px] md:min-w-[80px]">
-                                         <span className="text-[6px] md:text-[8px] font-black text-primary uppercase leading-none">{sg.gameNum.split(' ')[1]}</span>
-                                         <span className="text-[7px] md:text-[10px] font-bold text-white mt-0.5">{sg.time}</span>
-                                       </div>
-                                       <div className="flex-1 flex items-center justify-center gap-1 md:gap-3 min-w-0 whitespace-normal">
-                                         <span className="text-[10px] md:text-xs font-bold text-white leading-tight">{sg.away}</span>
-                                         <span className="text-[6px] md:text-[8px] font-black text-muted-foreground shrink-0 px-1 py-0.5 bg-white/5 rounded mx-1">VS</span>
-                                         <span className="text-[10px] md:text-xs font-bold text-white leading-tight">{sg.home}</span>
-                                       </div>
+                               return (
+                                 <div key={sg.id} className="space-y-1">
+                                   <div className="flex items-center justify-between gap-1 p-1 bg-black/30 rounded border border-white/5">
+                                     <div className="flex flex-col items-start min-w-[35px] md:min-w-[70px]">
+                                       <span className="text-[6px] md:text-[7px] font-black text-primary uppercase leading-none">{sg.gameNum.split(' ')[1]}</span>
+                                       <span className="text-[7px] md:text-[9px] font-bold text-white mt-0.5">{sg.time}</span>
                                      </div>
-                                     
-                                     {/* Nested Snack Duty inside postseason card */}
-                                     {isAdmin ? (
-                                       <div className="flex items-center gap-1 bg-secondary/5 p-0.5 rounded border border-secondary/20 w-fit">
-                                         <span className="text-[6px] md:text-[7px] font-black uppercase text-secondary ml-1">SNACK:</span>
-                                         <Select 
-                                           value={sgStatus.snackPlayerId || "none"} 
-                                           onValueChange={(val) => updateSnackDuty(sg.id, val === "none" ? null : val)}
-                                         >
-                                           <SelectTrigger className="h-5 md:h-6 bg-black/40 border-none text-[6px] md:text-[7px] font-black uppercase w-[80px] md:w-[120px] focus:ring-0 px-1">
-                                             <SelectValue placeholder="Assign..." />
-                                           </SelectTrigger>
-                                           <SelectContent>
-                                             <SelectItem value="none" className="text-[8px] md:text-[9px] font-bold uppercase">TBD</SelectItem>
-                                             {roster.map(p => (
-                                               <SelectItem key={p.id} value={p.id} className="text-[8px] md:text-[9px] font-bold uppercase">{p.name}</SelectItem>
-                                             ))}
-                                           </SelectContent>
-                                         </Select>
-                                       </div>
-                                     ) : (
-                                       <div className="flex items-center gap-1 text-[7px] md:text-[9px] font-black uppercase text-secondary bg-secondary/10 px-1.5 py-0.5 md:px-2 md:py-1 rounded border border-secondary/20 w-fit whitespace-nowrap">
-                                         SNACK DUTY: {sgSnackPlayer ? sgSnackPlayer.name : "TBD"}
-                                       </div>
-                                     )}
+                                     <div className="flex-1 flex items-center justify-center gap-1 min-w-0 whitespace-normal">
+                                       <span className="text-[9px] md:text-xs font-bold text-white leading-tight">{sg.away}</span>
+                                       <span className="text-[6px] md:text-[7px] font-black text-muted-foreground shrink-0 px-0.5 bg-white/5 rounded">VS</span>
+                                       <span className="text-[9px] md:text-xs font-bold text-white leading-tight">{sg.home}</span>
+                                     </div>
                                    </div>
-                                 );
-                               })}
-                          </div>
-                        ) : (
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between gap-1 p-1.5 md:p-4 bg-black/30 rounded-lg border border-white/5 whitespace-normal">
-                              <div className="flex-1 text-center min-w-0">
-                                <p className="text-[6px] md:text-[8px] font-black uppercase text-muted-foreground">Away</p>
-                                <p className={cn("text-[10px] md:text-xs font-bold leading-tight", game.away === "Coach Chewy" ? "text-primary" : "text-white")}>{game.away}</p>
-                              </div>
-                              <div className="flex flex-col items-center shrink-0">
-                                 <span className="text-[6px] md:text-[8px] font-black text-muted-foreground px-1 py-0.5 bg-white/5 rounded-full mx-1">VS</span>
-                              </div>
-                              <div className="flex-1 text-center min-w-0">
-                                <p className="text-[6px] md:text-[8px] font-black uppercase text-muted-foreground">Home</p>
-                                <p className={cn("text-[10px] md:text-xs font-bold leading-tight", game.home === "Coach Chewy" ? "text-primary" : "text-white")}>{game.home}</p>
-                              </div>
+                                   
+                                   {isAdmin ? (
+                                     <div className="flex items-center gap-1 bg-secondary/5 p-0.5 rounded border border-secondary/20 w-fit">
+                                       <span className="text-[6px] md:text-[7px] font-black uppercase text-secondary ml-1">SNACK:</span>
+                                       <Select 
+                                         value={sgStatus.snackPlayerId || "none"} 
+                                         onValueChange={(val) => updateSnackDuty(sg.id, val === "none" ? null : val)}
+                                       >
+                                         <SelectTrigger className="h-5 bg-black/40 border-none text-[6px] md:text-[7px] font-black uppercase w-[75px] md:w-[110px] focus:ring-0 px-1">
+                                           <SelectValue placeholder="Assign..." />
+                                         </SelectTrigger>
+                                         <SelectContent>
+                                           <SelectItem value="none" className="text-[8px] font-bold uppercase">TBD</SelectItem>
+                                           {roster.map(p => (
+                                             <SelectItem key={p.id} value={p.id} className="text-[8px] font-bold uppercase">{p.name}</SelectItem>
+                                           ))}
+                                         </SelectContent>
+                                       </Select>
+                                     </div>
+                                   ) : (
+                                     <div className="flex items-center gap-1 text-[7px] md:text-[8px] font-black uppercase text-secondary bg-secondary/10 px-1.5 py-0.5 rounded border border-secondary/20 w-fit whitespace-nowrap">
+                                       SNACK DUTY: {sgSnackPlayer ? sgSnackPlayer.name : "TBD"}
+                                     </div>
+                                   )}
+                                 </div>
+                               );
+                             })}
+                        </div>
+                      ) : (
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between gap-1 p-2 bg-black/30 rounded border border-white/5 whitespace-normal">
+                            <div className="flex-1 text-center min-w-0">
+                              <p className="text-[6px] md:text-[7px] font-black uppercase text-muted-foreground">Away</p>
+                              <p className={cn("text-[10px] md:text-xs font-bold leading-tight", game.away === "Coach Chewy" ? "text-primary" : "text-white")}>{game.away}</p>
                             </div>
-                            
-                            {isAdmin ? (
-                              <div className="flex items-center gap-1.5 bg-secondary/5 p-0.5 rounded-lg border border-secondary/20 w-fit">
-                                <span className="text-[6px] md:text-[7px] font-black uppercase text-secondary ml-1.5">SNACK</span>
-                                <Select 
-                                  value={statusData.snackPlayerId || "none"} 
-                                  onValueChange={(val) => updateSnackDuty(game.id, val === "none" ? null : val)}
-                                >
-                                  <SelectTrigger className="h-6 md:h-7 bg-black/40 border-none text-[7px] md:text-[8px] font-black uppercase w-[90px] md:w-[160px] focus:ring-0 px-1.5">
-                                    <SelectValue placeholder="Assign..." />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="none" className="text-[8px] md:text-[9px] font-bold uppercase">Unassigned</SelectItem>
-                                    {roster.map(p => (
-                                      <SelectItem key={p.id} value={p.id} className="text-[8px] md:text-[9px] font-bold uppercase">{p.name}</SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-1 text-[7px] md:text-[9px] font-black uppercase text-secondary bg-secondary/10 px-1.5 py-0.5 md:px-3 md:py-1.5 rounded border border-secondary/20 w-fit whitespace-nowrap">
-                                SNACK DUTY: {snackPlayer ? snackPlayer.name : "TBD"}
-                              </div>
-                            )}
+                            <div className="flex flex-col items-center shrink-0">
+                               <span className="text-[6px] md:text-[7px] font-black text-muted-foreground px-1 py-0.5 bg-white/5 rounded-full">VS</span>
+                            </div>
+                            <div className="flex-1 text-center min-w-0">
+                              <p className="text-[6px] md:text-[7px] font-black uppercase text-muted-foreground">Home</p>
+                              <p className={cn("text-[10px] md:text-xs font-bold leading-tight", game.home === "Coach Chewy" ? "text-primary" : "text-white")}>{game.home}</p>
+                            </div>
                           </div>
-                        )}
-                      </div>
+                          
+                          {isAdmin ? (
+                            <div className="flex items-center gap-1 bg-secondary/5 p-0.5 rounded border border-secondary/20 w-fit">
+                              <span className="text-[6px] md:text-[7px] font-black uppercase text-secondary ml-1">SNACK DUTY</span>
+                              <Select 
+                                value={statusData.snackPlayerId || "none"} 
+                                onValueChange={(val) => updateSnackDuty(game.id, val === "none" ? null : val)}
+                              >
+                                <SelectTrigger className="h-6 bg-black/40 border-none text-[7px] font-black uppercase w-[90px] md:w-[150px] focus:ring-0 px-1.5">
+                                  <SelectValue placeholder="Assign..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="none" className="text-[8px] font-bold uppercase">Unassigned</SelectItem>
+                                  {roster.map(p => (
+                                    <SelectItem key={p.id} value={p.id} className="text-[8px] font-bold uppercase">{p.name}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1 text-[7px] md:text-[9px] font-black uppercase text-secondary bg-secondary/10 px-2 py-1 rounded border border-secondary/20 w-fit whitespace-nowrap">
+                              SNACK DUTY: {snackPlayer ? snackPlayer.name : "TBD"}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
