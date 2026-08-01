@@ -14,6 +14,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
 import { useGame, FULL_GAME_SCHEDULE } from "@/app/context/game-context";
 import { useUATGame, UATGameContext } from "@/app/context/uat-game-context";
 import { cn } from "@/lib/utils";
@@ -86,6 +93,12 @@ export function StadiumScoreboard({ adminMode = true }: StadiumScoreboardProps) 
     else { setHalf('top'); setInning(prev => Math.min(prev + 1, 9)); }
   }, [half]);
 
+  const toggleHalfInning = () => {
+    if (!adminMode) return;
+    setHalf(prev => prev === 'top' ? 'bottom' : 'top');
+    setBalls(0); setStrikes(0); setOuts(0);
+  };
+
   const updateRuns = (delta: number) => {
     const idx = inning - 1;
     if (half === 'top') {
@@ -124,8 +137,32 @@ export function StadiumScoreboard({ adminMode = true }: StadiumScoreboardProps) 
         <div className="bg-gradient-to-r from-blue-900/40 to-transparent p-4 flex flex-col md:flex-row items-center justify-between gap-6 md:gap-8">
           <div className="w-full md:w-auto flex items-center justify-between md:justify-start gap-4 md:gap-6">
             <div className="h-14 md:h-16 px-4 md:px-6 bg-primary/10 border border-primary/20 rounded-lg flex items-center gap-4 md:gap-6">
-               <div className="flex flex-col items-center"><span className="text-[8px] font-black uppercase text-primary">INN</span><span className="text-2xl md:text-3xl font-black digit-font text-white">{inning}</span></div>
-               {half === 'top' ? <ChevronUp className="h-6 w-6 md:h-8 md:w-8 text-secondary animate-pulse" /> : <ChevronDown className="h-6 w-6 md:h-8 md:w-8 text-primary animate-pulse" />}
+               <div className="flex flex-col items-center">
+                  <span className="text-[8px] font-black uppercase text-primary">INN</span>
+                  {adminMode ? (
+                    <Select value={inning.toString()} onValueChange={(v) => setInning(parseInt(v))}>
+                      <SelectTrigger className="h-8 bg-transparent border-none p-0 focus:ring-0 text-2xl md:text-3xl font-black digit-font text-white w-10">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {[1,2,3,4,5,6,7,8,9].map(i => <SelectItem key={i} value={i.toString()} className="font-bold">{i}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <span className="text-2xl md:text-3xl font-black digit-font text-white">{inning}</span>
+                  )}
+               </div>
+               <button 
+                  disabled={!adminMode}
+                  onClick={toggleHalfInning}
+                  className={cn("transition-all active:scale-90", adminMode ? "cursor-pointer hover:opacity-80" : "cursor-default")}
+               >
+                 {half === 'top' ? (
+                    <ChevronUp className="h-6 w-6 md:h-8 md:w-8 text-secondary animate-pulse" />
+                  ) : (
+                    <ChevronDown className="h-6 w-6 md:h-8 md:w-8 text-primary animate-pulse" />
+                  )}
+               </button>
             </div>
             
             <div className="flex items-center gap-4 md:gap-8 md:border-r border-white/5 md:pr-10">
@@ -136,6 +173,7 @@ export function StadiumScoreboard({ adminMode = true }: StadiumScoreboardProps) 
           </div>
 
           <div className="w-full md:w-auto flex items-center justify-around md:justify-end gap-4 md:gap-6 ml-auto">
+             {/* AWAY IS ALWAYS FIRST (LEFT) */}
              <div className="flex flex-col items-center gap-2">
                 <div className="w-[80px] h-[80px] md:w-[110px] md:h-[110px] bg-secondary/10 border border-secondary/20 rounded-xl flex flex-col items-center justify-center">
                   <span className="text-[8px] md:text-[10px] font-black uppercase text-secondary">AWAY</span>
