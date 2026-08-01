@@ -52,8 +52,8 @@ export function StadiumScoreboard({ adminMode = true }: StadiumScoreboardProps) 
   const [homeErrors, setHomeErrors] = useState(0);
 
   const activeGame = (context as any).games ? (context as any).games.find((g:any) => g.id === selectedGameId) : FULL_GAME_SCHEDULE.find(g => g.id === selectedGameId);
-  const isOurTeamHome = activeGame?.home?.includes('Chewy') || activeGame?.home === teamData?.name;
-  const isOurTeamAway = activeGame?.away?.includes('Chewy') || activeGame?.away === teamData?.name;
+  const isOurTeamHome = activeGame?.home?.includes('Chewy') || activeGame?.home === teamData?.name || (activeGame?.isPostseason && activeGame.subGames?.some((sg: any) => sg.home === "Coach Chewy"));
+  const isOurTeamAway = activeGame?.away?.includes('Chewy') || activeGame?.away === teamData?.name || (activeGame?.isPostseason && activeGame.subGames?.some((sg: any) => sg.away === "Coach Chewy"));
 
   const nextHalfInning = useCallback(() => {
     setBalls(0); setStrikes(0); setOuts(0);

@@ -119,8 +119,30 @@ export const FULL_GAME_SCHEDULE = [
   { id: "game_8", week: 8, date: "2026-07-21", time: "6:00 PM", home: "Coach Chewy", away: "Coach Matt & Rene", location: "Jim Thorpe - Prairie Field" },
   { id: "game_9", week: 9, date: "2026-07-25", time: "9:00 AM", home: "Coach Manny", away: "Coach Chewy", location: "Jim Thorpe - Cordary Field" },
   { id: "game_10", week: 10, date: "2026-07-28", time: "6:00 PM", home: "Coach Matt & Rene", away: "Coach Chewy", location: "Jim Thorpe - Prairie Field" },
-  { id: "game_11", week: 11, date: "2026-08-04", time: "6:00 PM", home: "Playoffs TBD", away: "Coach Chewy", location: "Jim Thorpe - Cordary Field", notes: "Semi-Finals" },
-  { id: "game_12", week: 12, date: "2026-08-11", time: "6:00 PM", home: "Finals TBD", away: "Coach Chewy", location: "Jim Thorpe - Cordary Field", notes: "Championship" },
+  { 
+    id: "playoffs_1", 
+    week: 11,
+    isPostseason: true,
+    notes: "PLAYOFFS / SEMI-FINALS",
+    date: "2026-08-01", 
+    location: "Jim Thorpe - Cordary Field",
+    subGames: [
+      { id: "g21", time: "9:00 AM", away: "Seed #4", home: "Coach Chewy", gameNum: "Game 21" },
+      { id: "g22", time: "11:00 AM", away: "Seed #3", home: "Seed #2", gameNum: "Game 22" }
+    ]
+  },
+  { 
+    id: "playoffs_2", 
+    week: 12,
+    isPostseason: true,
+    notes: "CONSOLATION & CHAMPIONSHIP",
+    date: "2026-08-08", 
+    location: "Jim Thorpe - Cordary Field",
+    subGames: [
+      { id: "g23", time: "9:00 AM", away: "TBD", home: "TBD", gameNum: "Game 23 (Consolation)" },
+      { id: "g24", time: "11:00 AM", away: "TBD", home: "TBD", gameNum: "Game 24 (Championship)" }
+    ]
+  },
 ];
 
 export const GAME_SCHEDULE_LIST = FULL_GAME_SCHEDULE.map(g => ({

@@ -230,7 +230,14 @@ export default function GameSchedulePage() {
               const isWon = statusData.won === true;
               const isLoss = statusData.won === false;
               const isCancelled = statusData.cancelled || false;
-              const isHome = game.home === "Coach Chewy";
+              
+              const isHome = game.isPostseason 
+                ? game.subGames?.some((sg: any) => sg.home === "Coach Chewy")
+                : game.home === "Coach Chewy";
+              const isAway = game.isPostseason 
+                ? game.subGames?.some((sg: any) => sg.away === "Coach Chewy")
+                : game.away === "Coach Chewy";
+                
               const snackPlayer = roster.find(p => p.id === statusData.snackPlayerId);
               
               return (
@@ -271,12 +278,7 @@ export default function GameSchedulePage() {
                     {/* Jersey Section */}
                     <div className="flex flex-col items-center justify-center shrink-0 border-r border-white/5 pr-2 min-w-[45px] md:min-w-[80px]">
                        <span className="text-[6px] md:text-[8px] font-black uppercase text-muted-foreground mb-0.5 tracking-widest">JERSEY</span>
-                       {game.isPostseason ? (
-                         <div className="flex flex-col items-center">
-                           <Trophy className="h-5 w-5 md:h-10 md:w-10 text-primary/40" />
-                           <span className="text-[6px] md:text-[8px] font-black uppercase text-primary mt-0.5">Finals</span>
-                         </div>
-                       ) : (
+                       { (isHome || isAway) ? (
                          <div className="flex flex-col items-center">
                            <img 
                              src={isHome ? "/Blue_Jersey.png" : "/Grey_Jersey.png"} 
@@ -286,6 +288,11 @@ export default function GameSchedulePage() {
                            <span className={cn("text-[7px] md:text-[9px] font-black uppercase mt-0.5", isHome ? "text-primary" : "text-slate-400")}>
                              {isHome ? "Home" : "Away"}
                            </span>
+                         </div>
+                       ) : (
+                         <div className="flex flex-col items-center">
+                           <Trophy className="h-5 w-5 md:h-10 md:w-10 text-primary/40" />
+                           <span className="text-[6px] md:text-[8px] font-black uppercase text-primary mt-0.5">{game.isPostseason ? "Finals" : "TBD"}</span>
                          </div>
                        )}
                     </div>
@@ -306,9 +313,9 @@ export default function GameSchedulePage() {
                                        <span className="text-[7px] md:text-[9px] font-bold text-white mt-0.5">{sg.time}</span>
                                      </div>
                                      <div className="flex-1 flex items-center justify-center gap-1 min-w-0 whitespace-normal">
-                                       <span className="text-[9px] md:text-xs font-bold text-white leading-tight">{sg.away}</span>
+                                       <span className={cn("text-[9px] md:text-xs font-bold leading-tight", sg.away === "Coach Chewy" ? "text-primary" : "text-white")}>{sg.away}</span>
                                        <span className="text-[6px] md:text-[7px] font-black text-muted-foreground shrink-0 px-0.5 bg-white/5 rounded">VS</span>
-                                       <span className="text-[9px] md:text-xs font-bold text-white leading-tight">{sg.home}</span>
+                                       <span className={cn("text-[9px] md:text-xs font-bold leading-tight", sg.home === "Coach Chewy" ? "text-primary" : "text-white")}>{sg.home}</span>
                                      </div>
                                    </div>
                                    

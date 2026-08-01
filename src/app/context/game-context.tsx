@@ -92,7 +92,7 @@ export const FULL_GAME_SCHEDULE = [
     date: "2026-08-01", 
     location: "Jim Thorpe - Cordary Field",
     subGames: [
-      { id: "g21", time: "9:00 AM", away: "Seed #4", home: "Seed #1", gameNum: "Game 21" },
+      { id: "g21", time: "9:00 AM", away: "Seed #4", home: "Coach Chewy", gameNum: "Game 21" },
       { id: "g22", time: "11:00 AM", away: "Seed #3", home: "Seed #2", gameNum: "Game 22" }
     ]
   },
