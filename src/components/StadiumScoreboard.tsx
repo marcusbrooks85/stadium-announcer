@@ -51,9 +51,34 @@ export function StadiumScoreboard({ adminMode = true }: StadiumScoreboardProps) 
   const [awayErrors, setAwayErrors] = useState(0);
   const [homeErrors, setHomeErrors] = useState(0);
 
-  const activeGame = (context as any).games ? (context as any).games.find((g:any) => g.id === selectedGameId) : FULL_GAME_SCHEDULE.find(g => g.id === selectedGameId);
-  const isOurTeamHome = activeGame?.home?.includes('Chewy') || activeGame?.home === teamData?.name || (activeGame?.isPostseason && activeGame.subGames?.some((sg: any) => sg.home === "Coach Chewy"));
-  const isOurTeamAway = activeGame?.away?.includes('Chewy') || activeGame?.away === teamData?.name || (activeGame?.isPostseason && activeGame.subGames?.some((sg: any) => sg.away === "Coach Chewy"));
+  const activeGame = useMemo(() => {
+    return (context as any).games 
+      ? (context as any).games.find((g:any) => g.id === selectedGameId) 
+      : FULL_GAME_SCHEDULE.find(g => g.id === selectedGameId);
+  }, [context, selectedGameId]);
+
+  // Robust check to prevent undefined === undefined matches on postseason cards
+  const isOurTeamHome = useMemo(() => {
+    if (!activeGame) return false;
+    const teamName = teamData?.name;
+    if (activeGame.isPostseason) {
+      return activeGame.subGames?.some((sg: any) => 
+        sg.home === "Coach Chewy" || (teamName && sg.home === teamName)
+      );
+    }
+    return activeGame.home?.includes('Chewy') || (teamName && activeGame.home === teamName);
+  }, [activeGame, teamData]);
+
+  const isOurTeamAway = useMemo(() => {
+    if (!activeGame) return false;
+    const teamName = teamData?.name;
+    if (activeGame.isPostseason) {
+      return activeGame.subGames?.some((sg: any) => 
+        sg.away === "Coach Chewy" || (teamName && sg.away === teamName)
+      );
+    }
+    return activeGame.away?.includes('Chewy') || (teamName && activeGame.away === teamName);
+  }, [activeGame, teamData]);
 
   const nextHalfInning = useCallback(() => {
     setBalls(0); setStrikes(0); setOuts(0);
