@@ -15,7 +15,8 @@ const SOUND_FX = [
   { id: 'badbone', name: 'BAD TO BONE', emoji: '🔊', url: 'https://www.myinstants.com/media/sounds/bad-to-the-bone-meme.mp3' },
   { id: 'airhorn', name: 'DJ AIRHORN', emoji: '🔊', url: 'https://www.myinstants.com/media/sounds/dj-airhorn-sound-effect-kingbeatz_1.mp3' },
   { id: 'vineboom', name: 'VINE BOOM', emoji: '🔊', url: 'https://www.myinstants.com/media/sounds/vine-boom-sound-effect-full.mp3' },
-  { id: 'sonic', name: 'SONIC BOOM', emoji: '🔊', url: 'https://www.myinstants.com/media/sounds/sonicboom.mp3' }
+  { id: 'sonic', name: 'SONIC BOOM', emoji: '🔊', url: 'https://www.myinstants.com/media/sounds/sonicboom.mp3' },
+  { id: 'hadoken', name: 'HADOKEN', emoji: '🔥', url: 'https://www.myinstants.com/media/sounds/efectos-de-sonido-street-fight-ii-ryus-hadouken.mp3' }
 ];
 
 /**
