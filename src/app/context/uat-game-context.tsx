@@ -357,7 +357,9 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
         id: d.id, 
         ...d.data(),
         youtubeTracks: d.data().youtubeTracks || [],
-        audioUploads: d.data().audioUploads || []
+        audioUploads: d.data().audioUploads || [],
+        songs: d.data().songs || [],
+        uploadedTracks: d.data().uploadedTracks || []
       })) as Player[]);
     });
 

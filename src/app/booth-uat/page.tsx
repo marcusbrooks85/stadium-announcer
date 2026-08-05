@@ -204,7 +204,7 @@ function UATBoothContent() {
       setPlaybackPhase('walkup');
       
       if (selectedTrack.type === 'youtube') {
-        const song = activePlayer.songs[selectedTrack.index];
+        const song = activePlayer.songs?.[selectedTrack.index];
         if (song) {
           setActiveTrackName(song.name);
           if (ytPlayerRef.current && playerReady) {
@@ -217,7 +217,7 @@ function UATBoothContent() {
           }
         }
       } else if (selectedTrack.type === 'uploaded') {
-        const track = activePlayer.uploadedTracks[selectedTrack.index];
+        const track = activePlayer.uploadedTracks?.[selectedTrack.index];
         if (track) {
           setActiveTrackName(track.name);
           if (walkupFileRef.current) {
@@ -319,7 +319,7 @@ function UATBoothContent() {
                         <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-2"><Youtube className="h-3 w-3" /> YouTube Tracks</Label>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                           <Button variant={selectedTrack.type === 'none' ? "default" : "outline"} onClick={() => setSelectedTrack({ type: 'none', index: -1 })} className="h-10 md:h-12 text-[9px] font-black uppercase px-2">NO TRACK</Button>
-                          {activePlayer.songs.map((song, idx) => (
+                          {(activePlayer.songs || []).map((song, idx) => (
                             <Button 
                               key={idx} 
                               variant={selectedTrack.type === 'youtube' && selectedTrack.index === idx ? "default" : "outline"} 
@@ -338,10 +338,10 @@ function UATBoothContent() {
                       <div className="space-y-2">
                         <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-2"><FileMusic className="h-3 w-3" /> Track Uploads</Label>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                          {activePlayer.uploadedTracks.length === 0 ? (
+                          {(activePlayer.uploadedTracks?.length ?? 0) === 0 ? (
                             <p className="col-span-full text-[8px] font-bold uppercase opacity-30 italic">No custom files uploaded</p>
                           ) : (
-                            activePlayer.uploadedTracks.map((track, idx) => (
+                            activePlayer.uploadedTracks?.map((track, idx) => (
                               <Button 
                                 key={track.id} 
                                 variant={selectedTrack.type === 'uploaded' && selectedTrack.index === idx ? "default" : "outline"} 
@@ -362,7 +362,7 @@ function UATBoothContent() {
                         <div className="text-center animate-in fade-in slide-in-from-top-1 duration-300">
                            <p className="text-[10px] font-black text-primary uppercase tracking-[0.15em]">
                              Queued: <span className="text-white">
-                               {selectedTrack.type === 'youtube' ? activePlayer.songs[selectedTrack.index]?.name : activePlayer.uploadedTracks[selectedTrack.index]?.name}
+                               {selectedTrack.type === 'youtube' ? activePlayer.songs?.[selectedTrack.index]?.name : activePlayer.uploadedTracks?.[selectedTrack.index]?.name}
                              </span>
                            </p>
                         </div>
