@@ -35,89 +35,84 @@
       },
       "required": ["title", "link"]
     },
-    "GameWin": {
-      "title": "Game Win",
-      "description": "Represents the status (won, cancelled, etc.) of a specific baseball game.",
-      "type": "object",
-      "properties": {
-        "won": { "type": "boolean" },
-        "cancelled": { "type": "boolean" },
-        "snackPlayerId": { "type": "string" },
-        "updatedAt": { "type": "string", "format": "date-time" },
-        "autoSynced": { "type": "boolean" }
-      },
-      "required": ["updatedAt"]
-    },
     "User": {
       "title": "User Profile",
-      "description": "Metadata for authenticated users.",
+      "description": "Metadata for authenticated users including granular RBAC roles.",
       "type": "object",
       "properties": {
         "email": { "type": "string" },
-        "role": { "type": "string", "enum": ["admin", "user", "super_admin", "league_admin", "booth_admin"] },
-        "teamId": { "type": "string" }
+        "firstName": { "type": "string" },
+        "lastName": { "type": "string" },
+        "phoneNumber": { "type": "string" },
+        "role": { "type": "string", "enum": ["association_admin", "super_admin", "league_admin", "booth_admin", "user"] },
+        "teamId": { "type": "string" },
+        "playerId": { "type": "string" }
       }
+    },
+    "Division": {
+      "title": "Division",
+      "description": "A league division grouping teams by age or skill level.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "ageRange": { "type": "string" },
+        "description": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name"]
     },
     "Team": {
       "title": "Team",
-      "description": "A baseball team in the multi-tenant system.",
+      "description": "A baseball team within a specific division.",
       "type": "object",
       "properties": {
         "name": { "type": "string" },
         "code": { "type": "string" },
+        "divisionId": { "type": "string" },
         "ownerUid": { "type": "string" },
+        "logoUrl": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" }
-      }
+      },
+      "required": ["name"]
     },
-    "Channel": {
-      "title": "Chat Channel",
-      "description": "A group chat channel for team communication.",
+    "GlobalAnnouncement": {
+      "title": "Global Announcement",
+      "description": "Targeted notification sent by association admins.",
       "type": "object",
       "properties": {
-        "name": { "type": "string" },
-        "type": { "type": "string", "enum": ["public", "private", "broadcast"] },
-        "teamId": { "type": "string" },
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "scope": { "type": "string", "enum": ["association", "division", "team"] },
+        "targetId": { "type": "string" },
         "createdBy": { "type": "string" },
-        "createdAt": { "type": "string", "format": "date-time" }
-      }
-    },
-    "ChatMessage": {
-      "title": "Chat Message",
-      "description": "A message sent within a channel.",
-      "type": "object",
-      "properties": {
-        "text": { "type": "string" },
-        "senderId": { "type": "string" },
-        "senderName": { "type": "string" },
-        "senderRole": { "type": "string" },
-        "timestamp": { "type": "string", "format": "date-time" },
-        "mediaUrl": { "type": "string" }
-      }
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "content", "scope"]
     }
   },
   "auth": {
     "providers": ["password"]
   },
   "firestore": {
-    "/players/{playerId}": {
-      "schema": { "$ref": "#/backend/entities/Player" },
-      "description": "Collection of players in the team."
-    },
-    "/users/{userId}": {
+    "/users_UAT/{userId}": {
       "schema": { "$ref": "#/backend/entities/User" },
-      "description": "User profiles and permissions."
+      "description": "User profiles and extended permissions for UAT."
     },
-    "/teams/{teamId}": {
+    "/divisions_UAT/{divisionId}": {
+      "schema": { "$ref": "#/backend/entities/Division" },
+      "description": "Collection of divisions (T-Ball, Majors, etc.) in UAT."
+    },
+    "/teams_UAT/{teamId}": {
       "schema": { "$ref": "#/backend/entities/Team" },
-      "description": "League teams and their unique codes."
+      "description": "League teams mapped to divisions in UAT."
     },
-    "/channels_UAT/{channelId}": {
-      "schema": { "$ref": "#/backend/entities/Channel" },
-      "description": "Group chat channels in UAT."
+    "/global_announcements_UAT/{announcementId}": {
+      "schema": { "$ref": "#/backend/entities/GlobalAnnouncement" },
+      "description": "Targeted announcements across scopes in UAT."
     },
-    "/channels_UAT/{channelId}/messages_UAT/{messageId}": {
-      "schema": { "$ref": "#/backend/entities/ChatMessage" },
-      "description": "Messages within a specific UAT channel."
+    "/players_UAT/{playerId}": {
+      "schema": { "$ref": "#/backend/entities/Player" },
+      "description": "Collection of players within specific teams in UAT."
     }
   }
 }

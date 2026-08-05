@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from "react";
@@ -19,7 +20,8 @@ import {
   limit,
   updateDoc,
   arrayUnion,
-  arrayRemove
+  arrayRemove,
+  serverTimestamp
 } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -87,75 +89,23 @@ export interface Team {
   secondaryColor: string;
   ownerUid: string;
   logoUrl?: string;
+  divisionId?: string;
 }
 
-// Global Audio Constants for Migration
-const INITIAL_ORGAN_HITS = [
-  { title: "BULLFIGHTER", link: "melJslO0IJY", startTime: 0, order: 0 },
-  { title: "JAWS", link: "QPwozG816lk", startTime: 0, order: 1 },
-  { title: "LET'S GO TEAM", link: "kzTfu6LwbD8", startTime: 0, order: 2 },
-  { title: "TAKE ME OUT", link: "QamKhi1cxIs", startTime: 0, order: 3 },
-  { title: "THREE CHARGES", link: "jcylen-X1no", startTime: 0, order: 4 },
-  { title: "CAVALRY CHARGE", link: "1aQ3nk-W0GI", startTime: 0, order: 5 },
-];
-
-const INITIAL_PUMP_UP_SONGS = [
-  { title: "DODGERS", link: "4KwFuGtGU6c", startTime: 10, order: 0 },
-  { title: "ROCK YOU", link: "TXGbhniTBrU", startTime: 0, order: 1 },
-  { title: "PUMP IT", link: "fSvPktHcxtg", startTime: 0, order: 2 },
-  { title: "DANCE NOW", link: "l5Zox5O3jh4", startTime: 0, order: 3 },
-  { title: "CAN'T STOP", link: "0Ui-QzihJGo", startTime: 0, order: 4 },
-  { title: "PASSO BEM", link: "KgayxOF4Y7E", startTime: 0, order: 5 },
-];
-
-export const FULL_GAME_SCHEDULE = [
-  { id: "game_1", week: 1, date: "2026-06-20", time: "2:00 PM", home: "Coach Alexis", away: "Coach Chewy", location: "Jim Thorpe - Cordary Field" },
-  { id: "game_2", week: 2, date: "2026-06-27", time: "9:00 AM", home: "Coach Matt & Rene", away: "Coach Chewy", location: "Jim Thorpe - Cordary Field" },
-  { id: "game_3", week: 3, date: "2026-06-30", time: "6:00 PM", home: "Coach Chewy", away: "Coach Manny", location: "Jim Thorpe - Prairie Field" },
-  { id: "game_4", week: 4, date: "2026-07-07", time: "6:00 PM", home: "Coach Chewy", away: "Coach Alexis", location: "Jim Thorpe - Cordary Field" },
-  { id: "game_5", week: 5, date: "2026-07-11", time: "11:00 AM", home: "Coach Chewy", away: "Coach Matt & Rene", location: "Jim Thorpe - Cordary Field" },
-  { id: "game_6", week: 6, date: "2026-07-14", time: "6:00 PM", home: "Coach Manny", away: "Coach Chewy", location: "Jim Thorpe - Cordary Field" },
-  { id: "game_7", week: 7, date: "2026-07-18", time: "9:00 AM", home: "Coach Alexis", away: "Coach Chewy", location: "Jim Thorpe - Cordary Field" },
-  { id: "game_8", week: 8, date: "2026-07-21", time: "6:00 PM", home: "Coach Chewy", away: "Coach Matt & Rene", location: "Jim Thorpe - Prairie Field" },
-  { id: "game_9", week: 9, date: "2026-07-25", time: "9:00 AM", home: "Coach Manny", away: "Coach Chewy", location: "Jim Thorpe - Cordary Field" },
-  { id: "game_10", week: 10, date: "2026-07-28", time: "6:00 PM", home: "Coach Matt & Rene", away: "Coach Chewy", location: "Jim Thorpe - Prairie Field" },
-  { 
-    id: "playoffs_1", 
-    week: 11,
-    isPostseason: true,
-    notes: "PLAYOFFS / SEMI-FINALS",
-    date: "2026-08-01", 
-    location: "Jim Thorpe - Cordary Field",
-    subGames: [
-      { id: "g21", time: "9:00 AM", away: "Seed #4", home: "Coach Chewy", gameNum: "Game 21" },
-      { id: "g22", time: "11:00 AM", away: "Seed #3", home: "Seed #2", gameNum: "Game 22" }
-    ]
-  },
-  { 
-    id: "playoffs_2", 
-    week: 12,
-    isPostseason: true,
-    notes: "CONSOLATION & CHAMPIONSHIP",
-    date: "2026-08-08", 
-    location: "Jim Thorpe - Cordary Field",
-    subGames: [
-      { id: "g23", time: "9:00 AM", away: "TBD", home: "TBD", gameNum: "Game 23 (Consolation)" },
-      { id: "g24", time: "11:00 AM", away: "TBD", home: "TBD", gameNum: "Game 24 (Championship)" }
-    ]
-  },
-];
-
-export const GAME_SCHEDULE_LIST = FULL_GAME_SCHEDULE.map(g => ({
-  id: g.id,
-  label: `${(g as any).notes || `Week ${g.week}`} - ${new Date(g.date + 'T00:00:00').toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })}`
-}));
+export interface Division {
+  id: string;
+  name: string;
+  ageRange: string;
+  description: string;
+}
 
 interface UATGameContextType {
   user: FirebaseUser | null;
-  userRole: "super_admin" | "league_admin" | "booth_admin" | "user" | null;
+  userRole: "association_admin" | "super_admin" | "league_admin" | "booth_admin" | "user" | null;
   userTeamId: string | null;
   userProfile: any | null;
   teamData: Team | null;
+  divisions: Division[];
   roster: Player[];
   organSongs: StadiumSong[];
   pumpUpSongs: StadiumSong[];
@@ -181,8 +131,13 @@ interface UATGameContextType {
   adminLogin: (password: string) => boolean;
   adminLogout: () => void;
   isAdmin: boolean;
+  isAssociationAdmin: boolean;
   triggerSync: () => Promise<void>;
   emailStats: () => void;
+  
+  // Association Actions
+  saveDivision: (data: any, id?: string) => Promise<void>;
+  deleteDivision: (id: string) => Promise<void>;
 }
 
 export const UATGameContext = createContext<UATGameContextType | undefined>(undefined);
@@ -201,14 +156,6 @@ function UATGlobalMessagingListener() {
   
   const mountTimeRef = useRef<number>(Date.now());
   const lastMessageIdRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined' && 'Notification' in window) {
-      if (Notification.permission === 'default') {
-        Notification.requestPermission();
-      }
-    }
-  }, []);
 
   useEffect(() => {
     if (!db || !userTeamId || !auth.currentUser) return;
@@ -246,10 +193,6 @@ function UATGlobalMessagingListener() {
           const senderName = senderData.firstName || "Teammate";
           const messageSnippet = msg.text || "Sent a notification";
 
-          if (typeof window !== 'undefined' && Notification.permission === 'granted') {
-             new Notification(`Message from ${senderName}`, { body: messageSnippet });
-          }
-          
           toast({
             title: `Message from ${senderName}`,
             description: messageSnippet,
@@ -282,6 +225,7 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
   const [userTeamId, setUserTeamId] = useState<string | null>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [teamData, setTeamData] = useState<Team | null>(null);
+  const [divisions, setDivisions] = useState<Division[]>([]);
   const [roster, setRoster] = useState<Player[]>([]);
   const [games, setGames] = useState<Game[]>([]);
   const [organSongs, setOrganSongs] = useState<StadiumSong[]>([]);
@@ -294,6 +238,7 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
   const [allGameStats, setAllGameStats] = useState<Record<string, any>>({});
   const [gameWins, setGameWins] = useState<Record<string, any>>({});
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isAssociationAdmin, setIsAssociationAdmin] = useState(false);
 
   useEffect(() => {
     let unsubProfile: (() => void) | undefined;
@@ -306,7 +251,8 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
             setUserProfile(data);
             setUserRole(data.role);
             setUserTeamId(data.teamId);
-            setIsAdmin(['super_admin', 'league_admin', 'booth_admin'].includes(data.role));
+            setIsAdmin(['association_admin', 'super_admin', 'league_admin', 'booth_admin'].includes(data.role));
+            setIsAssociationAdmin(data.role === 'association_admin');
           }
         });
       } else {
@@ -315,25 +261,11 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
         setUserRole(null);
         setUserTeamId(null);
         setIsAdmin(false);
+        setIsAssociationAdmin(false);
       }
     });
     return () => { unsubAuth(); if (unsubProfile) unsubProfile(); };
   }, [auth, db]);
-
-  useEffect(() => {
-    if (!games.length) return;
-    const now = new Date();
-    const sorted = [...games].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    const active = sorted.find(g => {
-       const [time, modifier] = g.time.split(' ');
-       let [hours, minutes] = time.split(':').map(Number);
-       if (modifier === 'PM' && hours < 12) hours += 12;
-       const d = new Date(g.date + 'T00:00:00');
-       d.setHours(hours, minutes);
-       return d.getTime() + (2 * 60 * 60 * 1000) > now.getTime();
-    }) || sorted[sorted.length - 1];
-    if (active && !selectedGameId) setSelectedGameId(active.id);
-  }, [games, selectedGameId]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -347,20 +279,20 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (!db || !userTeamId) {
-      if (user && !userTeamId) setIsLoaded(true);
-      return;
+    if (!db) return;
+
+    // Load Divisions (Global for all association members)
+    const unsubDivs = onSnapshot(collection(db, "divisions_UAT"), (snap) => {
+      setDivisions(snap.docs.map(d => ({ id: d.id, ...d.data() })) as Division[]);
+    });
+
+    if (!userTeamId) {
+      if (user) setIsLoaded(true);
+      return unsubDivs;
     }
 
     const unsubRoster = onSnapshot(query(collection(db, "players_UAT"), where("teamId", "==", userTeamId)), (snap) => {
-      setRoster(snap.docs.map(d => ({ 
-        id: d.id, 
-        ...d.data(),
-        youtubeTracks: d.data().youtubeTracks || [],
-        audioUploads: d.data().audioUploads || [],
-        songs: d.data().songs || [],
-        uploadedTracks: d.data().uploadedTracks || []
-      })) as Player[]);
+      setRoster(snap.docs.map(d => ({ id: d.id, ...d.data() })) as Player[]);
     });
 
     const unsubGames = onSnapshot(query(collection(db, "games_UAT"), where("teamId", "==", userTeamId)), (snap) => {
@@ -373,29 +305,16 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
       if (doc.exists()) setTeamData({ id: doc.id, ...doc.data() } as Team);
     });
 
-    // Audio Assets Migrated/Mapped from Prod
     const unsubOrgan = onSnapshot(query(collection(db, "organ_songs_UAT"), where("teamId", "==", userTeamId)), (snap) => {
-      if (snap.empty && userTeamId) {
-        INITIAL_ORGAN_HITS.forEach((s, idx) => {
-          setDoc(doc(db, "organ_songs_UAT", `${userTeamId}_organ_${idx}`), { ...s, teamId: userTeamId }, { merge: true });
-        });
-      } else {
-        const data = snap.docs.map(d => ({ id: d.id, ...d.data() })) as StadiumSong[];
-        data.sort((a, b) => (a.order || 0) - (b.order || 0));
-        setOrganSongs(data);
-      }
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() })) as StadiumSong[];
+      data.sort((a, b) => (a.order || 0) - (b.order || 0));
+      setOrganSongs(data);
     });
 
     const unsubPump = onSnapshot(query(collection(db, "pump_up_songs_UAT"), where("teamId", "==", userTeamId)), (snap) => {
-      if (snap.empty && userTeamId) {
-        INITIAL_PUMP_UP_SONGS.forEach((s, idx) => {
-          setDoc(doc(db, "pump_up_songs_UAT", `${userTeamId}_pump_${idx}`), { ...s, teamId: userTeamId }, { merge: true });
-        });
-      } else {
-        const data = snap.docs.map(d => ({ id: d.id, ...d.data() })) as StadiumSong[];
-        data.sort((a, b) => (a.order || 0) - (b.order || 0));
-        setPumpUpSongs(data);
-      }
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() })) as StadiumSong[];
+      data.sort((a, b) => (a.order || 0) - (b.order || 0));
+      setPumpUpSongs(data);
     });
 
     const unsubAllStats = onSnapshot(collection(db, "game_stats_UAT"), (snap) => {
@@ -407,25 +326,11 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
        setAllGameStats(stats);
     });
 
-    const unsubWins = onSnapshot(collection(db, "game_wins_UAT"), (snap) => {
-      const wins: Record<string, any> = {};
-      snap.forEach(d => {
-        const data = d.data();
-        if (data.teamId === userTeamId) wins[d.id] = data;
-      });
-      setGameWins(wins);
-    });
-
     setIsLoaded(true);
     return () => {
-      unsubRoster(); unsubGames(); unsubTeam(); unsubOrgan(); unsubPump(); unsubAllStats(); unsubWins();
+      unsubDivs(); unsubRoster(); unsubGames(); unsubTeam(); unsubOrgan(); unsubPump(); unsubAllStats();
     };
   }, [db, userTeamId, user]);
-
-  useEffect(() => {
-    if (selectedGameId && allGameStats[selectedGameId]) setGameStats(allGameStats[selectedGameId]);
-    else setGameStats({});
-  }, [selectedGameId, allGameStats]);
 
   const savePlayer = async (data: any, id?: string) => {
     if (!userTeamId) return;
@@ -482,28 +387,16 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
     await batch.commit();
   };
 
-  const updateTeamScore = (team: 'home' | 'away', delta: number) => {
-    if (!isAdmin || !db || !userTeamId) return;
-    const key = team === 'home' ? 'homeScore' : 'awayScore';
-    const current = gameStats[key] || 0;
-    setDoc(doc(db, "game_stats_UAT", selectedGameId), { 
-      [key]: Math.max(0, current + delta), 
-      teamId: userTeamId,
-      statsSynced: false 
-    }, { merge: true });
+  // Association Level Actions
+  const saveDivision = async (data: any, id?: string) => {
+    if (!isAssociationAdmin) throw new Error("Unauthorized");
+    const ref = id ? doc(db, "divisions_UAT", id) : doc(collection(db, "divisions_UAT"));
+    await setDoc(ref, { ...data, updatedAt: serverTimestamp() }, { merge: true });
   };
 
-  const updatePlayerStat = (playerId: string, statType: keyof PlayerStats, delta: number) => {
-    if (!isAdmin || !db || !userTeamId) return;
-    const ref = doc(db, "game_stats_UAT", selectedGameId);
-    const pStats = gameStats.playerStats || {};
-    const current = pStats[playerId] || { ab: 0, h: 0, r: 0, rbi: 0 };
-    const newValue = Math.max(0, current[statType] + delta);
-    setDoc(ref, { 
-      playerStats: { ...pStats, [playerId]: { ...current, [statType]: newValue } }, 
-      teamId: userTeamId,
-      statsSynced: false 
-    }, { merge: true });
+  const deleteDivision = async (id: string) => {
+    if (!isAssociationAdmin) throw new Error("Unauthorized");
+    await deleteDoc(doc(db, "divisions_UAT", id));
   };
 
   const adminLogin = (password: string) => {
@@ -515,6 +408,22 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
 
   const triggerSync = async () => { toast({ title: "Sync triggered" }); };
 
+  const updateTeamScore = (team: 'home' | 'away', delta: number) => {
+    if (!isAdmin || !db || !userTeamId) return;
+    const key = team === 'home' ? 'homeScore' : 'awayScore';
+    const current = gameStats[key] || 0;
+    setDoc(doc(db, "game_stats_UAT", selectedGameId), { [key]: Math.max(0, current + delta), teamId: userTeamId }, { merge: true });
+  };
+
+  const updatePlayerStat = (playerId: string, statType: keyof PlayerStats, delta: number) => {
+    if (!isAdmin || !db || !userTeamId) return;
+    const ref = doc(db, "game_stats_UAT", selectedGameId);
+    const pStats = gameStats.playerStats || {};
+    const current = pStats[playerId] || { ab: 0, h: 0, r: 0, rbi: 0 };
+    const newValue = Math.max(0, current[statType] + delta);
+    setDoc(ref, { playerStats: { ...pStats, [playerId]: { ...current, [statType]: newValue } }, teamId: userTeamId }, { merge: true });
+  };
+
   const emailStats = () => {
     const report = roster.map(p => `${p.name} (#${p.number}): AB:${p.stats?.ab} H:${p.stats?.h} R:${p.stats?.r} RBI:${p.stats?.rbi}`).join('\n');
     const mailto = `mailto:?subject=UAT Game Stats&body=${encodeURIComponent(report)}`;
@@ -523,10 +432,11 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
 
   return (
     <UATGameContext.Provider value={{
-      user, userRole, userTeamId, userProfile, teamData, roster: roster.map(p => ({ ...p, stats: gameStats.playerStats?.[p.id] || { ab: 0, h: 0, r: 0, rbi: 0 } })),
+      user, userRole, userTeamId, userProfile, teamData, divisions, roster: roster.map(p => ({ ...p, stats: gameStats.playerStats?.[p.id] || { ab: 0, h: 0, r: 0, rbi: 0 } })),
       games, organSongs, pumpUpSongs, selectedGameId, setSelectedGameId, homeScore: gameStats.homeScore || 0, awayScore: gameStats.awayScore || 0,
       updateTeamScore, updatePlayerStat, isLoaded, isOnline, savePlayer, deletePlayer, saveGame, deleteGame, saveTeamBranding,
-      updateUserProfile, deleteUserAccount, saveStadiumSong, deleteStadiumSong, reorderStadiumSongs, adminLogin, adminLogout, isAdmin, triggerSync, emailStats
+      updateUserProfile, deleteUserAccount, saveStadiumSong, deleteStadiumSong, reorderStadiumSongs, adminLogin, adminLogout, isAdmin, isAssociationAdmin, triggerSync, emailStats,
+      saveDivision, deleteDivision
     }}>
       <UATGlobalMessagingListener />
       {children}

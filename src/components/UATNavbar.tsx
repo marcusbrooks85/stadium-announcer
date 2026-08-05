@@ -1,10 +1,11 @@
+
 "use client";
 
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { 
-  Zap, BarChart3, Calendar, Activity, Menu, ChevronRight, ShieldCheck, MessageSquare, LayoutDashboard, Wifi, WifiOff
+  Zap, BarChart3, Calendar, Activity, Menu, ChevronRight, ShieldCheck, MessageSquare, LayoutDashboard, Wifi, WifiOff, Building2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUATGame } from "@/app/context/uat-game-context";
@@ -15,10 +16,9 @@ const BUILD_VERSION = "V-2025-02-18-006";
 
 export function UATNavbar() {
   const pathname = usePathname();
-  const { userRole, isOnline, teamData } = useUATGame();
-  const hasManagementAccess = ["super_admin", "league_admin", "booth_admin"].includes(userRole || "");
+  const { userRole, isOnline, teamData, isAssociationAdmin } = useUATGame();
+  const hasManagementAccess = ["super_admin", "league_admin", "booth_admin", "association_admin"].includes(userRole || "");
 
-  // Strictly reordered navigation items as requested
   const navItems = [
     { label: "Game Schedule", href: "/schedule-uat", icon: Calendar },
     { label: "Stats & Scoreboard", href: "/stats-uat", icon: BarChart3 },
@@ -26,6 +26,10 @@ export function UATNavbar() {
     { label: "Team Chat", href: "/messages-uat", icon: MessageSquare },
     { label: "Workspace Manager", href: "/admin-uat", icon: LayoutDashboard },
   ];
+
+  if (isAssociationAdmin) {
+    navItems.push({ label: "Association Hub", href: "/association-hub-uat", icon: Building2 });
+  }
 
   if (hasManagementAccess) {
     navItems.push({ label: "Analytics", href: "/analytics-uat", icon: Activity });
