@@ -245,6 +245,12 @@ export function UATGameProvider({ children }: { children: ReactNode }) {
     const unsubAuth = onAuthStateChanged(auth, async (authUser) => {
       setUser(authUser);
       if (authUser) {
+        // Bootstrap Elevation for Marcus Brooks
+        if (authUser.email === 'marcusbrooks.85@gmail.com') {
+          updateDoc(doc(db, "users_UAT", authUser.uid), { role: 'association_admin' })
+            .catch(err => console.error("Failed to bootstrap admin role", err));
+        }
+
         unsubProfile = onSnapshot(doc(db, "users_UAT", authUser.uid), (snapshot) => {
           if (snapshot.exists()) {
             const data = snapshot.data();
